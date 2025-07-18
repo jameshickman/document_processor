@@ -32,9 +32,9 @@ def main():
             Additional instructions: It can only be one of these types, if information indicating one being the best match the other two are false.
             """,
         fields={
-            "internal": "Answer with yes or no if it is Internally Reviewed",
-            "external": "Answer with yes or no if it is Externally Reviewed",
-            "industry": "Answer with yes or no if it is Industry-wide Type 3",
+            "internal": "Answer with yes or no for Internally Reviewed",
+            "external": "Answer with yes or no for Externally Reviewed",
+            "industry": "Answer with yes or no for Industry-wide Type 3",
         }
     )
 
