@@ -27,7 +27,7 @@ def main():
     query = ExtractionQuery(
         query="""
             Does the above state that the product has a Product-specific Type III EPD, Externally Reviewed (ISO 14025 and EN 15804)?
-            Does the above state that the product has a Product-specific Type 3 EPD, Internally Reviewed? If it is Externally Reviewed then it cannot be  Internally Reviewed.
+            Does the above state that the product has a Product-specific Type 3 EPD, Internally Reviewed?
             Does the above state that the product has a Industry-wide Type 3 EPD?
             Additional instructions: It can only be one of these types, if information indicating one being the best match the other two are false.
             """,
