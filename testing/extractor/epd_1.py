@@ -13,7 +13,7 @@ def main():
     config = LLMConfig(
         base_url="http://localhost:11434/v1",  # for Ollama, OpenAPI "https://api.openai.com/v1"
         api_key="openai_api_key",
-        model_name="alibayram/mimo-7b-rl",  # or "llama2" for Ollama, OpenAPI "gpt-3.5-turbo"
+        model_name="gemma3n",  # or "llama2" for Ollama, OpenAPI "gpt-3.5-turbo"
         temperature=0.1
     )
 
