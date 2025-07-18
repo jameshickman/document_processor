@@ -31,7 +31,7 @@ def main():
     
     # Example extraction query
     query = ExtractionQuery(
-        query="What is John Smith's professional background and personal details?",
+        query="What is the employee's professional background and personal details?",
         fields={
             "name": "Full name of the person",
             "age": "Age in years",
