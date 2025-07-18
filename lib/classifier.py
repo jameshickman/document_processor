@@ -287,19 +287,6 @@ def document_classifier(document_text: str, classifications: List[Classification
         
     Returns:
         Dictionary mapping classification names to their total weighted scores
-        
-    Example:
-        >>> classifications = [
-        ...     Classification(
-        ...         name="Medical",
-        ...         terms=[
-        ...             Term(term="patient * room #", distance=1, weight=2.0),  # Matches "patient john room 201"
-        ...             Term(term="? report", distance=0, weight=1.5)  # Matches "medical report" but not "report 123"
-        ...         ]
-        ...     )
-        ... ]
-        >>> scores = document_classifier("Patient john room 201 medical report", classifications)
-        >>> print(scores)  # {"Medical": 3.5} - 2.0 + 1.5
     """
     # Validate inputs using Pydantic
     input_data = ClassificationInput(
