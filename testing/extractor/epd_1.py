@@ -33,7 +33,7 @@ def main():
             """,
         fields={
             "internal": "Answer with yes or no if it is Internally Reviewed",
-            "external": "Answer with yes or no if it is Internally Reviewed",
+            "external": "Answer with yes or no if it is Externally Reviewed",
             "industry": "Answer with yes or no if it is Industry-wide Type 3",
         }
     )
