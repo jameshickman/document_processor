@@ -14,7 +14,7 @@ def main():
         base_url="http://localhost:11434/v1",  # for Ollama, OpenAPI "https://api.openai.com/v1"
         api_key="openai_api_key",
         model_name="gemma3n",  # or "llama2". "gemma3n" for Ollama, OpenAPI "gpt-3.5-turbo"
-        temperature=0.1
+        temperature=0
     )
 
     # Initialize extractor
