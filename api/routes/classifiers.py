@@ -4,6 +4,7 @@ from .. import models
 from ..models import get_db
 from pydantic import BaseModel
 from typing import List
+from ...lib.classifier import document_classifier_simple
 
 router = APIRouter()
 
@@ -34,3 +35,28 @@ def get_classifier(classifier_id: int, db: Session = Depends(get_db)):
     if db_classifier is None:
         raise HTTPException(status_code=404, detail="Classifier not found")
     return db_classifier
+
+@router.get("/run/{classifier_id}/{document_id}")
+def run_classifier(classifier_id: int, document_id: int, db: Session = Depends(get_db)):
+    db_classifier = db.query(models.Classifier).filter(models.Classifier.id == classifier_id).first()
+    if db_classifier is None:
+        raise HTTPException(status_code=404, detail="Classifier not found")
+
+    db_chunks = db.query(models.TextChunk).filter(models.TextChunk.document_id == document_id).all()
+    if not db_chunks:
+        raise HTTPException(status_code=404, detail="Document not found or has no content")
+
+    document_text = " ".join([chunk.chunk for chunk in db_chunks])
+
+    classifications_data = [
+        {
+            "name": db_classifier.name,
+            "terms": [
+                {"term": t.term, "distance": t.distance, "weight": t.weight}
+                for t in db_classifier.terms
+            ],
+        }
+    ]
+
+    results = document_classifier_simple(document_text, classifications_data)
+    return results
