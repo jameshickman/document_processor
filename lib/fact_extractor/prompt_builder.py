@@ -32,8 +32,3 @@ Return ONLY the JSON object, no additional text."""
         prompt = prompt.replace("$field_examples", field_examples)
         return prompt
 
-        #return self.TEMPLATE.format(
-        #    document_text=document_text,
-        #    query_question=query,
-        #    field_examples=field_examples
-        #)
