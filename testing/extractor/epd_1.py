@@ -14,7 +14,7 @@ def main():
         base_url="http://localhost:11434/v1",  # for Ollama, OpenAPI "https://api.openai.com/v1"
         api_key="openai_api_key",
         model_name="gemma3n",  # or "llama2" for Ollama, OpenAPI "gpt-3.5-turbo"
-        temperature=0.1
+        temperature=0
     )
 
     # Initialize extractor
@@ -26,9 +26,9 @@ def main():
     # Example extraction query
     query = ExtractionQuery(
         query="""
-            Does the above state that the product have Product-specific Type III EPD, Externally Reviewed (ISO 14025 and EN 15804)?
-            Does the above state that the product have Product-specific Type 3 EPD, Internally Reviewed? If it is Externally Reviewed then it cannot be  Internally Reviewed.
-            Does the above state that the product have Industry-wide Type 3 EPD?
+            Does the above state that the product has a Product-specific Type III EPD, Externally Reviewed (ISO 14025 and EN 15804)?
+            Does the above state that the product has a Product-specific Type 3 EPD, Internally Reviewed? If it is Externally Reviewed then it cannot be  Internally Reviewed.
+            Does the above state that the product has a Industry-wide Type 3 EPD?
             Additional instructions: It can only be one of these types, if information indicating one if the best match the other two are false.
             """,
         fields={
