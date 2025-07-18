@@ -351,7 +351,7 @@ if __name__ == "__main__":
             "terms": [
                 {"term": "contract", "distance": 2, "weight": 0.5},
                 {"term": "blueprint", "distance": 2, "weight": 1.0},
-                {"term": "contractor", "distance": 2, "weight": 0.6},
+                {"term": "contractor", "distance": 1, "weight": 0.6},
                 {"term": "subcontractor", "distance": 2, "weight": 0.6},
                 {"term": "general contractor", "distance": 2, "weight": 2.0},
                 {"term": "LEED", "distance": 1, "weight": 1.0},
