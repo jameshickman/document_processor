@@ -1,16 +1,27 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 from .. import models
 from ..models import get_db
+from ..util.pdf_extract import pdf_extract
+import os
+import shutil
 
 router = APIRouter()
 
 @router.post("/")
-def create_document(file_name: str, db: Session = Depends(get_db)):
-    db_document = models.Document(file_name=file_name)
-    db.add(db_document)
-    db.commit()
-    db.refresh(db_document)
+def create_document(db: Session = Depends(get_db), file: UploadFile = File(...)):
+    pdf_storage_dir = os.environ.get("PDF_STORAGE")
+    if not pdf_storage_dir:
+        raise HTTPException(status_code=500, detail="PDF_STORAGE environment variable not set.")
+
+    if not os.path.exists(pdf_storage_dir):
+        os.makedirs(pdf_storage_dir)
+
+    file_path = os.path.join(pdf_storage_dir, file.filename)
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    db_document = pdf_extract(file_path, db)
     return db_document
 
 @router.get("/{document_id}")
