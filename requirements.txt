@@ -12,3 +12,4 @@ fastapi~=0.116.1
 starlette~=0.47.1
 langchain-core~=0.1.53
 SQLAlchemy~=2.0.41
+uvicorn~=0.35.0

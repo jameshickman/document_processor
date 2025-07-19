@@ -22,3 +22,13 @@ app.include_router(extractors.router, prefix="/extractors", tags=["extractors"])
 @app.get("/")
 async def root():
     return {"message": "Classifier and Extractor API"}
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        "main:app",
+        host=os.environ.get("HOST", "0.0.0.0"),
+        port=os.environ.get("PORT", "8088"),
+        reload=os.environ.get("DEBUG", "false").lower() == "true"
+    )
