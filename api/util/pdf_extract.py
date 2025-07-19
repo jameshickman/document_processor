@@ -15,7 +15,7 @@ def pdf_extract(file_path: str, db: Session) -> models.Document:
     doc, _ = marker.convert_single_pdf(file_path)
 
     # Create a new document record
-    db_document = models.Document(file_name=file_path)
+    db_document = models.Document(file_name=file_path, full_text=doc)
     db.add(db_document)
     db.commit()
     db.refresh(db_document)

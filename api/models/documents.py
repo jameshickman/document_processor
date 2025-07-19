@@ -11,5 +11,6 @@ class Document(Base):
     id = Column(Integer, primary_key=True, index=True)
     file_name = Column(String)
     extracted = Column(DateTime, default=datetime.datetime.utcnow)
+    full_text = Column(String)
 
     chunks = relationship("TextChunk", back_populates="document")
