@@ -29,6 +29,6 @@ if __name__ == "__main__":
     uvicorn.run(
         "main:app",
         host=os.environ.get("HOST", "0.0.0.0"),
-        port=os.environ.get("PORT", "8088"),
+        port=os.environ.get("PORT", "8000"),
         reload=os.environ.get("DEBUG", "false").lower() == "true"
     )
