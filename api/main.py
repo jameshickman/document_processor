@@ -4,10 +4,9 @@ from api.routes import documents, classifiers, extractors
 from contextlib import asynccontextmanager
 import os
 
-app = FastAPI()
-
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    # Startup: Initialize database
     init_database(
         db_user=os.environ.get("POSTGRES_USER", "user"),
         db_pass=os.environ.get("POSTGRES_PASSWORD", "password"),
@@ -15,6 +14,10 @@ async def lifespan(_app: FastAPI):
         db_port=int(os.environ.get("POSTGRES_PORT", 5432)),
         db_name=os.environ.get("POSTGRES_DB", "database"),
     )
+    yield
+    # Shutdown: Cleanup code can go here if needed
+
+app = FastAPI(lifespan=lifespan)
 
 app.include_router(documents.router, prefix="/documents", tags=["documents"])
 app.include_router(classifiers.router, prefix="/classifiers", tags=["classifiers"])
