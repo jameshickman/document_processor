@@ -19,17 +19,42 @@ class Extractor(BaseModel):
     prompt: str
     fields: List[ExtractorField]
 
-@router.post("/")
-def create_extractor(extractor: Extractor, db: Session = Depends(get_db)):
-    db_extractor = models.Extractor(name=extractor.name, prompt=extractor.prompt)
-    db.add(db_extractor)
-    db.commit()
-    db.refresh(db_extractor)
+@router.post("/{extractor_id}")
+def create_or_update_extractor(extractor_id: int, extractor: Extractor, db: Session = Depends(get_db)):
+    """
+    If the extractor_id is 0, create a new record else update.
+    """
+    if extractor_id == 0:
+        # Create new extractor
+        db_extractor = models.Extractor(name=extractor.name, prompt=extractor.prompt)
+        db.add(db_extractor)
+        db.commit()
+        db.refresh(db_extractor)
+    else:
+        # Update existing extractor
+        db_extractor = db.query(models.Extractor).filter(models.Extractor.id == extractor_id).first()
+        if db_extractor is None:
+            raise HTTPException(status_code=404, detail="Extractor not found")
+        db_extractor.name = extractor.name
+        db_extractor.prompt = extractor.prompt
+        # Delete existing fields
+        db.query(models.ExtractorField).filter(models.ExtractorField.extractor_id == extractor_id).delete()
+        db.commit()
+    
+    # Add new fields
     for field in extractor.fields:
         db_field = models.ExtractorField(**field.dict(), extractor_id=db_extractor.id)
         db.add(db_field)
     db.commit()
     return db_extractor
+
+@router.get("/")
+def list_extractors(db: Session = Depends(get_db)):
+    """
+    Return the IDs and names of all the extractors.
+    """
+    extractors = db.query(models.Extractor).all()
+    return [{"id": e.id, "name": e.name} for e in extractors]
 
 @router.get("/{extractor_id}")
 def get_extractor(extractor_id: int, db: Session = Depends(get_db)):
@@ -40,6 +65,9 @@ def get_extractor(extractor_id: int, db: Session = Depends(get_db)):
 
 @router.get("/run/{extractor_id}/{document_id}")
 def run_extractor(extractor_id: int, document_id: int, db: Session = Depends(get_db)):
+    """
+    Run an extractor against the contents of a document.
+    """
     db_extractor = db.query(models.Extractor).filter(models.Extractor.id == extractor_id).first()
     if db_extractor is None:
         raise HTTPException(status_code=404, detail="Extractor not found")
