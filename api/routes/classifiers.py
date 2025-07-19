@@ -72,11 +72,7 @@ def run_classifier(classifier_id: int, document_id: int, db: Session = Depends(g
     if db_classifier is None:
         raise HTTPException(status_code=404, detail="Classifier not found")
 
-    db_chunks = db.query(models.TextChunk).filter(models.TextChunk.document_id == document_id).all()
-    if not db_chunks:
-        raise HTTPException(status_code=404, detail="Document not found or has no content")
-
-    document_text = " ".join([chunk.chunk for chunk in db_chunks])
+    document_text = db.query(models.Document).filter(models.Document.id == document_id).first()
 
     classifications_data = [
         {
@@ -88,5 +84,5 @@ def run_classifier(classifier_id: int, document_id: int, db: Session = Depends(g
         }
     ]
 
-    results = document_classifier_simple(document_text, classifications_data)
+    results = document_classifier_simple(document_text.full_texts, classifications_data)
     return results
