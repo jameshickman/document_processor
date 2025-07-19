@@ -1,12 +1,13 @@
 from fastapi import FastAPI
-from .models import init_database
-from .routes import documents, classifiers, extractors
+from api.models.database import init_database
+from api.routes import documents, classifiers, extractors
+from contextlib import asynccontextmanager
 import os
 
 app = FastAPI()
 
-@app.on_event("startup")
-async def startup_event():
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
     init_database(
         db_user=os.environ.get("POSTGRES_USER", "user"),
         db_pass=os.environ.get("POSTGRES_PASSWORD", "password"),

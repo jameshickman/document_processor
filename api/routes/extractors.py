@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from .. import models
-from ..models import get_db
+from api import models
+from api.models.database import get_db
 from pydantic import BaseModel
 from typing import List
-from ...lib.fact_extractor.fact_extractor import FactExtractor
-from ...lib.fact_extractor.models import LLMConfig, ExtractionQuery
+from lib.fact_extractor.fact_extractor import FactExtractor
+from lib.fact_extractor.models import LLMConfig, ExtractionQuery
 import os
 
 router = APIRouter()

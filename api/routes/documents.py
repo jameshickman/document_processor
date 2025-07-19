@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
-from .. import models
-from ..models import get_db
-from ..util.pdf_extract import pdf_extract
+from api import models
+from api.models.database import get_db
+from api.util.pdf_extract import pdf_extract
 import os
 import shutil
 

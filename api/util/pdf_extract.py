@@ -6,7 +6,7 @@ documents and text_chunks.
 
 import marker
 from sqlalchemy.orm import Session
-from .. import models
+from api import models
 
 def pdf_extract(file_path: str, db: Session) -> models.Document:
     """
