@@ -13,4 +13,4 @@ class Document(Base):
     extracted = Column(DateTime, default=datetime.datetime.utcnow)
     full_text = Column(String)
 
-    chunks = relationship("TextChunk", back_populates="document")
+    chunks = relationship("TextChunk", back_populates="document", cascade="all, delete-orphan")

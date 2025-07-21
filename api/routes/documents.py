@@ -25,7 +25,7 @@ def create_document(db: Session = Depends(get_db), file: UploadFile = File(...))
         shutil.copyfileobj(file.file, buffer)
 
     db_document = pdf_extract(file_path, db)
-    return db_document
+    return {"id": db_document.id}
 
 @router.get("/")
 def list_documents(db: Session = Depends(get_db)):
