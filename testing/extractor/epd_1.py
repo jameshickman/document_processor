@@ -30,6 +30,7 @@ def main():
             Does the above state that the product has a Product-specific Type 3 EPD, Internally Reviewed?
             Does the above state that the product has a Industry-wide Type 3 EPD?
             Additional instructions: It can only be one of these types, if information indicating one being the best match the other two are false.
+            Only one field can be yes, others must be no.
             """,
         fields={
             "internal": "Answer with yes or no for Internally Reviewed",
