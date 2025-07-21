@@ -4,18 +4,20 @@ Split the text into chunks under 20000 words, save to the database tables
 documents and text_chunks.
 """
 
-import marker
+import os
+import subprocess
+from pathlib import Path
 from sqlalchemy.orm import Session
 from api import models
 
-def pdf_extract(file_path: str, db: Session) -> models.Document:
+def pdf_extract(file_path_name: str, db: Session) -> models.Document:
     """
     Extracts text from a PDF, saves it to the database, and returns the document.
     """
-    doc, _ = marker.convert_single_pdf(file_path)
+    doc = pdf_convert(file_path_name)
 
     # Create a new document record
-    db_document = models.Document(file_name=file_path, full_text=doc)
+    db_document = models.Document(file_name=file_path_name, full_text=doc)
     db.add(db_document)
     db.commit()
     db.refresh(db_document)
@@ -33,3 +35,13 @@ def pdf_extract(file_path: str, db: Session) -> models.Document:
     db.commit()
 
     return db_document
+
+def pdf_convert(pdf_file: str) -> str:
+    filename = Path(pdf_file).name
+    path = Path(pdf_file).parent
+    command = ["/usr/bin/pandoc", "-f pdf", "-t markdown", pdf_file]
+    subprocess.run(command)
+    md_file = os.path.join(path, filename.split(".")[0] + ".md")
+    with open(md_file, "rb") as f:
+        content = f.read()
+    return str(content)
