@@ -24,7 +24,10 @@ def pdf_extract(file_path: str, db: Session) -> models.Document:
     words = doc.split()
     chunk_size = 20000
     for i in range(0, len(words), chunk_size):
-        chunk_text = " ".join(words[i:i+chunk_size])
+        i_from = i
+        if i <= 0:
+            i_from = i - 200
+        chunk_text = " ".join(words[i_from:i+chunk_size])
         db_chunk = models.TextChunk(chunk=chunk_text, document_id=db_document.id)
         db.add(db_chunk)
     db.commit()
