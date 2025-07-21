@@ -43,7 +43,7 @@ def create_or_update_classifier(classifier_id: int, classifier: Classifier, db: 
         db_term = models.ClassifierTerm(**term.dict(), classifier_id=db_classifier.id)
         db.add(db_term)
     db.commit()
-    return db_classifier
+    return {"id": db_classifier}
 
 @router.get("/")
 def list_classifiers(db: Session = Depends(get_db)):
