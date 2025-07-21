@@ -1,11 +1,13 @@
 import re
 from typing import List
 
+from api.util.pdf_extract import CHUNK_SIZE
+
 
 class DocumentChunker:
     """Utility class for splitting documents into manageable chunks."""
     
-    def __init__(self, max_words: int = 20000):
+    def __init__(self, max_words: int = CHUNK_SIZE):
         self.max_words = max_words
     
     def count_words(self, text: str) -> int:
