@@ -19,8 +19,12 @@ class Extractor(BaseModel):
     prompt: str
     fields: List[ExtractorField]
 
+class ExtractorSet(BaseModel):
+    name: str
+    doc_types: List[Extractor]
+
 @router.post("/{extractor_id}")
-def create_or_update_extractor(extractor_id: int, extractor: Extractor, db: Session = Depends(get_db)):
+def create_or_update_extractor(extractor_id: int, extractor: ExtractorSet, db: Session = Depends(get_db)):
     """
     If the extractor_id is 0, create a new record else update.
     """

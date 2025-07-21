@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, ForeignKey
 from sqlalchemy.orm import relationship
 
 from .database import Base
@@ -9,5 +9,6 @@ class Classifier(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, index=True)
+    classifier_set = Column(Integer, ForeignKey("extractor_sets.id"))
 
     terms = relationship("ClassifierTerm", back_populates="classifier")
