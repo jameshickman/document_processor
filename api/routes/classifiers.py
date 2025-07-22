@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 from api import models
 from api.models.database import get_db
@@ -17,33 +18,53 @@ class Classifier(BaseModel):
     name: str
     terms: List[ClassifierTerm]
 
-@router.post("/{classifier_id}")
-def create_or_update_classifier(classifier_id: int, classifier: Classifier, db: Session = Depends(get_db)):
+class Classifiers(BaseModel):
+    name: str
+    classifiers: List[Classifier]
+
+@router.post("/{classifiers_id}")
+def create_or_update_classifier(classifiers_id: int, classifier: Classifiers, db: Session = Depends(get_db)):
     """
     If the classifier_id is 0, create a new record else update.
     """
-    if classifier_id == 0:
-        # Create new classifier
-        db_classifier = models.Classifier(name=classifier.name)
-        db.add(db_classifier)
+    if classifiers_id == 0:
+        # Create new classifier set
+        classifier_set = models.ClassifierSet()
+        classifier_set.name = classifier.name
+        db.add(classifier_set)
         db.commit()
-        db.refresh(db_classifier)
+        db.refresh(classifier_set)
+        set_id = classifier_set.id
+        create_doc_classes_set(db, set_id, classifier.classifiers)
     else:
         # Update existing classifier
-        db_classifier = db.query(models.Classifier).filter(models.Classifier.id == classifier_id).first()
-        if db_classifier is None:
-            raise HTTPException(status_code=404, detail="Classifier not found")
-        db_classifier.name = classifier.name
-        # Delete existing terms
-        db.query(models.ClassifierTerm).filter(models.ClassifierTerm.classifier_id == classifier_id).delete()
+        q = text("DELETE FROM classifiers WHERE classifier_set = :id")
+        db.execute(q, {"id": classifiers_id})
         db.commit()
-    
-    # Add new terms
-    for term in classifier.terms:
-        db_term = models.ClassifierTerm(**term.dict(), classifier_id=db_classifier.id)
-        db.add(db_term)
-    db.commit()
-    return {"id": db_classifier}
+        classifier_set = db.query(models.Classifier).filter(models.Classifier.id == classifiers_id).first()
+        classifier_set.name = classifier.name
+        db.add(classifier_set)
+        db.commit()
+        create_doc_classes_set(db, classifiers_id, classifier.classifiers)
+
+    return {"id": 0}
+
+def create_doc_classes_set(db: Session, set_id: int, doc_classes: list[Classifier]):
+    for doc_type in doc_classes:
+        doc_classification = models.Classifier()
+        doc_classification.name = doc_type.name
+        doc_classification.classifier_set = set_id
+        db.add(doc_classification)
+        db.commit()
+        insert_terms(db, doc_classification.id, doc_type.terms)
+    pass
+
+def insert_terms(db: Session, doc_class_id: int, terms: List[ClassifierTerm]):
+    for term in terms:
+        classifier_term = models.ClassifierTerm(term=term.term, distance=term.distance, weight=term.weight)
+        db.add(classifier_term)
+        db.commit()
+    pass
 
 @router.get("/")
 def list_classifiers(db: Session = Depends(get_db)):

@@ -9,6 +9,6 @@ class Classifier(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, index=True)
-    classifier_set = Column(Integer, ForeignKey("extractor_sets.id"))
+    classifier_set = Column(Integer, ForeignKey("classifier_sets.id"))
 
     terms = relationship("ClassifierTerm", back_populates="classifier")
