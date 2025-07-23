@@ -153,7 +153,7 @@
     },
     {
       "name": "Material Ingredient Reporting",
-      "topics": [
+      "terms": [
         {
           "term": "Material Ingredient Screening",
           "distance": 1,
@@ -188,7 +188,7 @@
     },
     {
       "name": "Low Emitting Materials",
-      "topics": [
+      "terms": [
         {
           "term": "VOC",
           "distance": 0,
