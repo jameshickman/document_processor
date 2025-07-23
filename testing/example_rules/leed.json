@@ -26,13 +26,13 @@
               },
               {
                   "term": "Externally Reviewed",
-                  "distance": 0.5,
-                  "weight": 1
+                  "distance": 1,
+                  "weight": 0.5
               },
               {
                   "term": "Internally Reviewed",
-                  "distance": 0.5,
-                  "weight": 1
+                  "distance": 1,
+                  "weight": 0.5
               },
               {
                   "term": "Lifecycle Assessment",
