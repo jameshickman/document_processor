@@ -69,41 +69,47 @@ def insert_terms(db: Session, doc_class_id: int, terms: List[ClassifierTerm]):
 @router.get("/")
 def list_classifiers(db: Session = Depends(get_db)):
     """
-    Return the IDs and names of all the classifiers.
+    Return the IDs and names of all the classifier sets.
     """
-    classifiers = db.query(models.Classifier).all()
+    classifiers = db.query(models.ClassifierSets).all()
     return [{"id": c.id, "name": c.name} for c in classifiers]
 
-@router.get("/{classifier_id}")
-def get_classifier(classifier_id: int, db: Session = Depends(get_db)):
+@router.get("/{classifier_set_id}")
+def get_classifier(classifier_set_id: int, db: Session = Depends(get_db)):
     """
     Return one classifier record.
     """
-    db_classifier = db.query(models.Classifier).filter(models.Classifier.id == classifier_id).first()
+    db_classifier = db.query(models.ClassifierSet).filter(models.ClassifierSet.id == classifier_id).first()
     if db_classifier is None:
         raise HTTPException(status_code=404, detail="Classifier not found")
     return db_classifier
 
-@router.get("/run/{classifier_id}/{document_id}")
-def run_classifier(classifier_id: int, document_id: int, db: Session = Depends(get_db)):
+@router.get("/run/{classifier_set_id}/{document_id}")
+def run_classifier(classifier_set_id: int, document_id: int, db: Session = Depends(get_db)):
     """
     Run a classifier against the contents of an uploaded document.
     """
-    db_classifier = db.query(models.Classifier).filter(models.Classifier.id == classifier_id).first()
-    if db_classifier is None:
-        raise HTTPException(status_code=404, detail="Classifier not found")
+    classifiers = db.query(models.Classifier).filter(models.Classifier.classifier_set == classifier_set_id).all()
+    if classifiers is None:
+        raise HTTPException(status_code=404, detail="Classifier Set not found")
 
     document_text = db.query(models.Document).filter(models.Document.id == document_id).first()
 
-    classifications_data = [
-        {
-            "name": db_classifier.name,
-            "terms": [
-                {"term": t.term, "distance": t.distance, "weight": t.weight}
-                for t in db_classifier.terms
-            ],
-        }
-    ]
+    classifications_data = []
 
-    results = document_classifier_simple(document_text.full_texts, classifications_data)
+    for classifier in classifiers:
+        d_classifier = {
+            "name": classifier.name,
+            "terms": [],
+        }
+        terms = db.query(models.ClassifierTerm).filter(models.ClassifierTerm.classifier_id == classifier.id).all()
+        for term in terms:
+            d_classifier["terms"].append({
+                "term": term.term,
+                "distance": term.distance,
+                "weight": term.weight
+            })
+        classifications_data.append(d_classifier)
+
+    results = document_classifier_simple(document_text.full_text, classifications_data)
     return results
