@@ -36,6 +36,7 @@ def create_or_update_classifier(classifiers_id: int, classifier: Classifiers, db
         db.refresh(classifier_set)
         set_id = classifier_set.id
         create_doc_classes_set(db, set_id, classifier.classifiers)
+        classifiers_id = classifier_set.id
     else:
         # Update existing classifier
         q = text("DELETE FROM classifiers WHERE classifier_set = :id")
@@ -47,7 +48,7 @@ def create_or_update_classifier(classifiers_id: int, classifier: Classifiers, db
         db.commit()
         create_doc_classes_set(db, classifiers_id, classifier.classifiers)
 
-    return {"id": 0}
+    return {"id": classifiers_id}
 
 def create_doc_classes_set(db: Session, set_id: int, doc_classes: list[Classifier]):
     for doc_type in doc_classes:
@@ -61,7 +62,7 @@ def create_doc_classes_set(db: Session, set_id: int, doc_classes: list[Classifie
 
 def insert_terms(db: Session, doc_class_id: int, terms: List[ClassifierTerm]):
     for term in terms:
-        classifier_term = models.ClassifierTerm(term=term.term, distance=term.distance, weight=term.weight)
+        classifier_term = models.ClassifierTerm(term=term.term, distance=term.distance, weight=term.weight, classifier_id=doc_class_id)
         db.add(classifier_term)
         db.commit()
     pass
