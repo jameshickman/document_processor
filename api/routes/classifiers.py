@@ -79,7 +79,7 @@ def get_classifier(classifier_set_id: int, db: Session = Depends(get_db)):
     """
     Return one classifier record.
     """
-    db_classifier = db.query(models.ClassifierSet).filter(models.ClassifierSet.id == classifier_id).first()
+    db_classifier = db.query(models.ClassifierSet).filter(models.ClassifierSet.id == classifier_set_id).first()
     if db_classifier is None:
         raise HTTPException(status_code=404, detail="Classifier not found")
     return db_classifier
