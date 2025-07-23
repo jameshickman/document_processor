@@ -1,0 +1,330 @@
+{
+  "name": "LEED Document Type",
+  "classifiers": [
+      {
+          "name": "Environmental Product Declaration",
+          "terms": [
+              {
+                  "term": "Type III EPD",
+                  "distance": 1,
+                  "weight": 1
+              },
+              {
+                  "term": "Type 3 EPD",
+                  "distance": 1,
+                  "weight": 1
+              },
+              {
+                  "term": "ISO 14025",
+                  "distance": 1,
+                  "weight": 1
+              },
+              {
+                  "term": "EN 15804",
+                  "distance": 1,
+                  "weight": 1
+              },
+              {
+                  "term": "Externally Reviewed",
+                  "distance": 0.5,
+                  "weight": 1
+              },
+              {
+                  "term": "Internally Reviewed",
+                  "distance": 0.5,
+                  "weight": 1
+              },
+              {
+                  "term": "Lifecycle Assessment",
+                  "distance": 1,
+                  "weight": 1
+              },
+              {
+                  "term": "Life-cycle Assessment",
+                  "distance": 1,
+                  "weight": 1
+              },
+              {
+                  "term": "Life cycle Assessment",
+                  "distance": 1,
+                  "weight": 1
+              },
+            {
+              "term": "ISO 14044",
+              "distance": 1,
+              "weight": 1
+            }
+          ]
+      },
+      {
+          "name": "Embodied Carbon/LCA Optimization",
+          "terms": [
+              {
+                  "term": "Embodied Carbon",
+                  "distance": 1,
+                  "weight": 1
+              },
+              {
+                  "term": "LCA Action Plan",
+                  "distance": 1,
+                  "weight": 1
+              },
+              {
+                  "term": "Reduction ? Embodied Carbon",
+                  "distance": 1,
+                  "weight": 1
+              },
+              {
+                  "term": "reduction ? GWP",
+                  "distance": 1,
+                  "weight": 1
+              },
+              {
+                  "term": "Third party verified",
+                  "distance": 1,
+                  "weight": 0.5
+              }
+          ]
+      },
+    {
+      "name": "Responsible Sourcing of Raw Materials",
+      "terms": [
+        {
+          "term": "Reused ? ? material",
+          "distance": 1,
+          "weight": 0.5
+        },
+        {
+          "term": "reused material",
+          "distance": 1,
+          "weight": 1
+        },
+        {
+          "term": "salvaged material",
+          "distance": 1,
+          "weight": 1
+        },
+        {
+          "term": "salvaged ? ? material",
+          "distance": 1,
+          "weight": 0.5
+        },
+        {
+          "term": "Post-consumer Recycled",
+          "distance": 1,
+          "weight": 1
+        },
+        {
+          "term": "Post consumer Recycled",
+          "distance": 1,
+          "weight": 1
+        },
+        {
+          "term": "Pre-consumer Recycled",
+          "distance": 1,
+          "weight": 1
+        },
+        {
+          "term": "Pre consumer Recycled",
+          "distance": 1,
+          "weight": 1
+        },
+        {
+          "term": "Sustainable Agriculture Network's Compliant",
+          "distance": 1,
+          "weight": 1
+        },
+        {
+          "term": "SANS",
+          "distance": 1,
+          "weight": 1
+        },
+        {
+          "term": "Closed Loop",
+          "distance": 1,
+          "weight": 1
+        },
+        {
+          "term": "Take Back Program",
+          "distance": 1,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "name": "Material Ingredient Reporting",
+      "topics": [
+        {
+          "term": "Material Ingredient Screening",
+          "distance": 1,
+          "weight": 1
+        },
+        {
+          "term": "Optimization Action Plan",
+          "distance": 1,
+          "weight": 1
+        },
+        {
+          "term": "Advanced Inventory Assessment",
+          "distance": 1,
+          "weight": 1
+        },
+        {
+          "term": "International Alternative Compliant Path",
+          "distance": 1,
+          "weight": 1
+        },
+        {
+          "term": "Global Green Tag PhD",
+          "distance": 1,
+          "weight": 1
+        },
+        {
+          "term": "Global Green Tag",
+          "distance": 1,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "name": "Low Emitting Materials",
+      "topics": [
+        {
+          "term": "VOC",
+          "distance": 0,
+          "weight": 1
+        },
+        {
+          "term": "Volatile organic compounds",
+          "distance": 2,
+          "weight": 1
+        },
+        {
+          "term": "California Department of Public Health Standard Method Evaluation of Volatile Organic Chemical Emissions",
+          "distance": 4,
+          "weight": 1
+        },
+        {
+          "term": "CDPH Standard Method v1.2",
+          "distance": 2,
+          "weight": 1
+        },
+        {
+          "term": "EN 16516:2017",
+          "distance": 1,
+          "weight": 1
+        },
+        {
+          "term": "Green Seal GS-11",
+          "distance": 2,
+          "weight": 1
+        },
+        {
+          "term": "SCS Indoor Advantage Gold",
+          "distance": 3,
+          "weight": 1
+        },
+        {
+          "term": "ULEF product under EPA TSCA Title VI",
+          "distance": 1,
+          "weight": 1
+        },
+        {
+          "term": "NAF product under EPA TSCA Title VI",
+          "distance": 1,
+          "weight": 1
+        },
+        {
+          "term": "ULEF product under CARB ATCM",
+          "distance": 1,
+          "weight": 1
+        },
+        {
+          "term": "NAF product under CARB ATCM",
+          "distance": 1,
+          "weight": 1
+        },
+        {
+          "term": "emissions class E1 tested per EN 717-2014",
+          "distance": 1,
+          "weight": 1
+        },
+        {
+          "term": "plywood PS 1-09 or PS 2-10",
+          "distance": 1,
+          "weight": 1
+        },
+        {
+          "term": "OSB Exposure 1 ? Exterior bond classification per PS 2-10",
+          "distance": 4,
+          "weight": 1
+        },
+        {
+          "term": "plywood PS 1-09 ? PS 2-10",
+          "distance": 2,
+          "weight": 1
+        },
+        {
+          "term": "OSB Exposure 1 ? Exterior bond classification per PS 2-10",
+          "distance": 4,
+          "weight": 1
+        },
+        {
+          "term": "ASTM D 5456-13",
+          "distance": 1,
+          "weight": 1
+        },
+        {
+          "term": "ANSI A190.1-2012",
+          "distance": 1,
+          "weight": 1
+        },
+        {
+          "term": "ASTM D 5055-13",
+          "distance": 1,
+          "weight": 1
+        },
+        {
+          "term": "PRG 320-15",
+          "distance": 1,
+          "weight": 1
+        },
+        {
+          "term": "e3-2014e section 7.6.1",
+          "distance": 2,
+          "weight": 1
+        },
+        {
+          "term": "e3-2014e section 7.6.2",
+          "distance": 2,
+          "weight": 1
+        },
+        {
+          "term": "UL Greenguard Certified",
+          "distance": 2,
+          "weight": 1
+        },
+        {
+          "term": "SCS Indoor Advantage",
+          "distance": 2,
+          "weight": 1
+        },
+        {
+          "term": "Intertek Clean Air Silver",
+          "distance": 2,
+          "weight": 1
+        },
+        {
+          "term": "Intertek Clean Air Gold",
+          "distance": 2,
+          "weight": 1
+        },
+        {
+          "term": "MAS Certified Green",
+          "distance": 2,
+          "weight": 1
+        }
+      ]
+    }
+  ]
+}
