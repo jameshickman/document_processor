@@ -12,3 +12,4 @@ class Classifier(Base):
     classifier_set = Column(Integer, ForeignKey("classifier_sets.id"))
 
     terms = relationship("ClassifierTerm", back_populates="classifier")
+    classifier_sets = relationship("ClassifierSet", back_populates="classifiers")
