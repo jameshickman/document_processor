@@ -72,11 +72,9 @@ def run_extractor(extractor_id: int, document_id: int, db: Session = Depends(get
     if db_extractor is None:
         raise HTTPException(status_code=404, detail="Extractor not found")
 
-    db_chunks = db.query(models.TextChunk).filter(models.TextChunk.document_id == document_id).all()
-    if not db_chunks:
+    document_text = db.query(models.Document).filter(models.Document.id == document_id).first().full_text
+    if not document_text:
         raise HTTPException(status_code=404, detail="Document not found or has no content")
-
-    document_text = " ".join([chunk.chunk for chunk in db_chunks])
 
     llm_config = LLMConfig(
         base_url=os.environ.get("OPENAI_BASE_URL", "http://localhost:11434/v1"),
