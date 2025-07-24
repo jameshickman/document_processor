@@ -12,7 +12,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 from api import models
 
-CHUNK_SIZE = 1800
+CHUNK_SIZE = 2000
 
 def pdf_extract(file_path_name: str, db: Session) -> models.Document:
     """
