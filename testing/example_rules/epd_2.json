@@ -1,0 +1,10 @@
+{
+  "name": "EPD indicated LCA",
+  "prompt": "Does the above state that the product have Life-cycle Assessment publicly available, critically reviewed, and ISO 14044?",
+  "fields": [
+    {
+      "name": "answer",
+      "description": "Answer with yes or no"
+    }
+  ]
+}
