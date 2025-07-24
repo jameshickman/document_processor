@@ -29,26 +29,15 @@ class DocumentChunker:
         
         if word_count <= self.max_words:
             return [document_text]
-        
-        sentences = self.split_into_sentences(document_text)
+
         chunks = []
-        current_chunk = []
-        current_word_count = 0
-        
-        for sentence in sentences:
-            sentence_word_count = self.count_words(sentence)
-            
-            # If adding this sentence would exceed the limit, save current chunk
-            if current_word_count + sentence_word_count > self.max_words and current_chunk:
-                chunks.append(' '.join(current_chunk))
-                current_chunk = [sentence]
-                current_word_count = sentence_word_count
-            else:
-                current_chunk.append(sentence)
-                current_word_count += sentence_word_count
-        
-        # Add the last chunk if it has content
-        if current_chunk:
-            chunks.append(' '.join(current_chunk))
+
+        words = document_text.split()
+        for i in range(0, len(words), CHUNK_SIZE):
+            i_from = i
+            if i > 0:
+                i_from = i - 200
+            chunk_text = " ".join(words[i_from:i + CHUNK_SIZE])
+            chunks.append(chunk_text)
         
         return chunks
