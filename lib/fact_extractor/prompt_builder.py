@@ -10,7 +10,9 @@ $document_text
 # Prompt:
 $query_question
 
-Provide a confidence for your answer on a scale between 0 and 1. Provide an explanation for the answer. If the information relating to the question cannot be found, return 'found' as false, else true indicating that enough information found to answer the question.
+Provide a confidence for your answer on a scale between 0 and 1.
+Provide an explanation for the answer. 
+If the information relating to the question cannot be found, return 'found' as false, else true indicating that enough information found to answer the question.
 
 Example JSON structure to return:
 {
