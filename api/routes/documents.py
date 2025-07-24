@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 from api import models
 from api.models.database import get_db
-from api.util.pdf_extract import pdf_extract
+from api.util.pdf_extract import pdf_extract, PDFDecodeException
 import os
 import shutil
 
@@ -24,7 +24,10 @@ def create_document(db: Session = Depends(get_db), file: UploadFile = File(...))
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    db_document = pdf_extract(file_path, db)
+    try:
+        db_document = pdf_extract(file_path, db)
+    except PDFDecodeException:
+        raise HTTPException(status_code=415, detail="Text cannot be extracted from PDF.")
     return {"id": db_document.id}
 
 @router.get("/")

@@ -1,10 +1,11 @@
 """
-Define a function to convert a PDF file to Markdown text using marker-pdf.
-Split the text into chunks under CHUNK_SIZE words, save to the database tables
-documents and text_chunks.
+Define a function to convert a PDF file to text using pdftotext.
+Test if the extracted text is actual text and not "subsetted fonts" garbage.
+See: https://stackoverflow.com/questions/8039423/pdf-data-extraction-gives-symbols-gibberish
 """
 
 import os
+import re
 import subprocess
 from pathlib import Path
 
@@ -13,6 +14,10 @@ from sqlalchemy.orm import Session
 from api import models
 
 CHUNK_SIZE = 2000
+
+class PDFDecodeException(Exception):
+    pass
+
 
 def pdf_extract(file_path_name: str, db: Session) -> models.Document:
     """
@@ -43,4 +48,15 @@ def pdf_convert(pdf_file: str) -> tuple:
     command = ["/usr/bin/pdftotext", new_pdf_file, "-"]
     result = subprocess.run(command, capture_output=True)
     content = str(result.stdout.decode("utf-8").replace("\n", " "))
+    if not is_real_words(content):
+        raise PDFDecodeException("PDF file cannot be decoded into text")
     return new_pdf_file, content
+
+def is_real_words(word: str) -> bool:
+    words = word.split()[0:10]
+    for word in words:
+        for c in word:
+            o = ord(c)
+            if o < 33:
+                return False
+    return True
