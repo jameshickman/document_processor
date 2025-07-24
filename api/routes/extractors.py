@@ -46,7 +46,7 @@ def create_or_update_extractor(extractor_id: int, extractor: Extractor, db: Sess
         db_field = models.ExtractorField(**field.dict(), extractor_id=db_extractor.id)
         db.add(db_field)
     db.commit()
-    return {"id": db_extractor}
+    return {"id": db_extractor.id}
 
 @router.get("/")
 def list_extractors(db: Session = Depends(get_db)):
