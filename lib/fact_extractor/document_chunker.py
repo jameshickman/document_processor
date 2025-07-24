@@ -2,7 +2,7 @@ import re
 import logging
 from typing import List
 
-from api.util.pdf_extract import CHUNK_SIZE
+CHUNK_SIZE = 1500
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +39,7 @@ class DocumentChunker:
         for i in range(0, len(words), CHUNK_SIZE):
             i_from = i
             if i > 0:
-                i_from = i - 200
+                i_from = i - round(CHUNK_SIZE / 4)
             l_chunk = words[i_from:i + CHUNK_SIZE]
             logger.info("Text chunk size: %s", len(l_chunk))
             chunk_text = " ".join(l_chunk)
