@@ -4,7 +4,7 @@ from typing import Optional
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage
 
-from lib.fact_extractor.document_chunker import DocumentChunker
+from lib.fact_extractor.document_chunker import DocumentChunker,CHUNK_SIZE
 from lib.fact_extractor.models import LLMConfig, ExtractionResult, ExtractionQuery
 from lib.fact_extractor.prompt_builder import PromptBuilder
 
@@ -88,7 +88,7 @@ class FactExtractor:
         logger.info(f"Document word count: {word_count}")
         
         # Step 2: Split document if necessary
-        if word_count > 20000:
+        if word_count > CHUNK_SIZE:
             chunks = self.chunker.chunk_document(document_text)
             logger.info(f"Document split into {len(chunks)} chunks")
         else:
@@ -98,14 +98,14 @@ class FactExtractor:
         # Step 3: Process each chunk
         for i, chunk in enumerate(chunks, 1):
             logger.info(f"Processing chunk {i}/{len(chunks)}")
-            
+
             # Build prompt
             prompt = self.prompt_builder.build_prompt(
-                chunk, 
-                extraction_query.query, 
+                chunk,
+                extraction_query.query,
                 extraction_query.fields
             )
-            
+
             try:
                 # Send to LLM
                 message = HumanMessage(content=prompt)
