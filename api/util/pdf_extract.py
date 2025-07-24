@@ -13,8 +13,6 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 from api import models
 
-CHUNK_SIZE = 2000
-
 class PDFDecodeException(Exception):
     pass
 
@@ -48,12 +46,14 @@ def pdf_convert(pdf_file: str) -> tuple:
     command = ["/usr/bin/pdftotext", new_pdf_file, "-"]
     result = subprocess.run(command, capture_output=True)
     content = str(result.stdout.decode("utf-8").replace("\n", " "))
-    if not is_real_words(content):
+    if content =='' or (not is_real_words(content)):
         raise PDFDecodeException("PDF file cannot be decoded into text")
     return new_pdf_file, content
 
 def is_real_words(word: str) -> bool:
     words = word.split()[0:10]
+    if len(words) < 1:
+        return False
     for word in words:
         for c in word:
             o = ord(c)
