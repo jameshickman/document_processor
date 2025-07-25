@@ -4,6 +4,9 @@ from api.routes import documents, classifiers, extractors, auth
 from contextlib import asynccontextmanager
 import os
 
+# Development launch command using Ngrok
+# ngrok http --subdomain=docprocesor-smolminds 8000
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     # Startup: Initialize database
