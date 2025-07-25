@@ -125,15 +125,17 @@ def run_classifier(
     if classifiers is None:
         raise HTTPException(status_code=404, detail="Classifier Set not found")
 
-    document_text = db.query(models.Document).filter(
+    document = db.query(models.Document).filter(
         and_(
             models.Document.account_id == user.user_id,
             models.Document.id == document_id
         )
     ).first()
 
-    if not document_text:
+    if not document:
         raise HTTPException(status_code=404, detail="Document not found")
+
+    document_text = str(document.full_text)
 
     classifications_data = []
 
@@ -151,5 +153,5 @@ def run_classifier(
             })
         classifications_data.append(d_classifier)
 
-    results = document_classifier_simple(document_text.full_text, classifications_data)
+    results = document_classifier_simple(document_text, classifications_data)
     return results
