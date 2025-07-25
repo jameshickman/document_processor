@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from typing import List
 from lib.fact_extractor.fact_extractor import FactExtractor
 from lib.fact_extractor.models import LLMConfig, ExtractionQuery
-from api.rbac import get_current_user_payload
+from api.dependencies import get_current_user_info
 import os
 
 router = APIRouter()
@@ -26,7 +26,7 @@ def create_or_update_extractor(
         extractor_id: int,
         extractor: Extractor,
         db: Session = Depends(get_db),
-        user = Depends(get_current_user_payload)):
+        user = Depends(get_current_user_info)):
     """
     If the extractor_id is 0, create a new record else update.
     """
@@ -54,7 +54,7 @@ def create_or_update_extractor(
     
     # Add new fields
     for field in extractor.fields:
-        db_field = models.ExtractorField(**field.dict(), extractor_id=db_extractor.id)
+        db_field = models.ExtractorField(**field.model_dump(), extractor_id=db_extractor.id)
         db.add(db_field)
     db.commit()
     return {"id": db_extractor.id}
@@ -62,7 +62,7 @@ def create_or_update_extractor(
 @router.get("/")
 def list_extractors(
         db: Session = Depends(get_db),
-        user = Depends(get_current_user_payload)):
+        user = Depends(get_current_user_info)):
     """
     Return the IDs and names of all the extractors.
     """
@@ -73,7 +73,7 @@ def list_extractors(
 def get_extractor(
         extractor_id: int,
         db: Session = Depends(get_db),
-        user = Depends(get_current_user_payload)):
+        user = Depends(get_current_user_info)):
     db_extractor = db.query(models.Extractor).filter(
         and_(
             models.Extractor.account_id == user.user_id,
@@ -89,7 +89,7 @@ def run_extractor(
         extractor_id: int,
         document_id: int,
         db: Session = Depends(get_db),
-        user = Depends(get_current_user_payload)):
+        user = Depends(get_current_user_info)):
     """
     Run an extractor against the contents of a document.
     """

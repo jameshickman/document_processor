@@ -4,7 +4,7 @@ from sqlalchemy import and_
 from api import models
 from api.models.database import get_db
 from api.util.pdf_extract import pdf_extract, PDFDecodeException
-from api.rbac import get_current_user_payload
+from api.dependencies import get_current_user_info
 import os
 import shutil
 
@@ -14,7 +14,7 @@ router = APIRouter()
 def create_document(
         db: Session = Depends(get_db),
         file: UploadFile = File(...),
-        user = Depends(get_current_user_payload)):
+        user = Depends(get_current_user_info)):
     """
     POST endpoint to upload a PDF file in the 'file' field.
     """
@@ -38,7 +38,7 @@ def create_document(
 @router.get("/")
 def list_documents(
         db: Session = Depends(get_db),
-        user = Depends(get_current_user_payload)):
+        user = Depends(get_current_user_info)):
     """
     Return the IDs and names of all documents.
     """
@@ -49,7 +49,7 @@ def list_documents(
 def get_document(
         document_id: int,
         db: Session = Depends(get_db),
-        user = Depends(get_current_user_payload)):
+        user = Depends(get_current_user_info)):
     """
     Get the database record for a document.
     """

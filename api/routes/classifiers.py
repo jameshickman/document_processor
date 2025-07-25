@@ -7,7 +7,7 @@ from api.models.database import get_db
 from pydantic import BaseModel
 from typing import List
 from lib.classifier import document_classifier_simple
-from api.rbac import get_current_user_payload
+from api.dependencies import get_current_user_info
 
 router = APIRouter()
 
@@ -29,7 +29,7 @@ def create_or_update_classifier(
         classifiers_id: int,
         classifier: Classifiers,
         db: Session = Depends(get_db),
-        user = Depends(get_current_user_payload)):
+        user = Depends(get_current_user_info)):
     """
     If the classifier_id is 0, create a new record else update.
     """
@@ -78,7 +78,7 @@ def insert_terms(db: Session, doc_class_id: int, terms: List[ClassifierTerm]):
 @router.get("/")
 def list_classifiers(
         db: Session = Depends(get_db),
-        user = Depends(get_current_user_payload)):
+        user = Depends(get_current_user_info)):
     """
     Return the IDs and names of all the classifier sets.
     """
@@ -88,7 +88,7 @@ def list_classifiers(
 @router.get("/{classifier_set_id}")
 def get_classifier(classifier_set_id: int,
                    db: Session = Depends(get_db),
-                   user=Depends(get_current_user_payload)):
+                   user=Depends(get_current_user_info)):
     """
     Return one classifier record.
     """
@@ -106,7 +106,7 @@ def get_classifier(classifier_set_id: int,
 def run_classifier(
         classifier_set_id: int, document_id: int,
         db: Session = Depends(get_db),
-        user = Depends(get_current_user_payload)):
+        user = Depends(get_current_user_info)):
     """
     Run a classifier against the contents of an uploaded document.
     """

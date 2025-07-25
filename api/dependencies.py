@@ -1,27 +1,41 @@
 from sqlalchemy.orm import Session
+from datetime import datetime
+from typing import Optional
 
 from api import models
 from api.models.database import get_db
 from api.models.accounts import Account
 
 from fastapi import Depends, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from api.rbac import get_current_user_payload
 
 
 # Export all public functions and classes
 __all__ = [
-    'User', 'get_current_user_info'
+    'AccountSchema', 'User', 'get_current_user_info'
 ]
 
 
-# Models
+# Pydantic schemas
+class AccountSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    
+    id: int
+    name: Optional[str] = None
+    email: Optional[str] = None
+    time_created: Optional[datetime] = None
+    active: bool = True
+    grandfathered: bool = False
+    api_key: Optional[str] = None
+
+
 class User(BaseModel):
     user_id: int
     username: str
     email: str
     roles: list = Field(default_factory=list)
-    account: Account = None
+    account: Optional[AccountSchema] = None
 
 
 async def get_current_user_info(
@@ -69,4 +83,4 @@ async def get_current_user_info(
         username=username,
         roles=roles,
         email=email,
-        account=user_account)
+        account=AccountSchema.model_validate(user_account) if user_account else None)
