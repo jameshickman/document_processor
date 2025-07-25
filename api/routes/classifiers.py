@@ -1,11 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+from sqlalchemy import and_
 from api import models
 from api.models.database import get_db
 from pydantic import BaseModel
 from typing import List
 from lib.classifier import document_classifier_simple
+from api.rbac import get_current_user_payload
 
 router = APIRouter()
 
@@ -23,14 +25,20 @@ class Classifiers(BaseModel):
     classifiers: List[Classifier]
 
 @router.post("/{classifiers_id}")
-def create_or_update_classifier(classifiers_id: int, classifier: Classifiers, db: Session = Depends(get_db)):
+def create_or_update_classifier(
+        classifiers_id: int,
+        classifier: Classifiers,
+        db: Session = Depends(get_db),
+        user = Depends(get_current_user_payload)):
     """
     If the classifier_id is 0, create a new record else update.
     """
     if classifiers_id == 0:
         # Create new classifier set
-        classifier_set = models.ClassifierSet()
-        classifier_set.name = classifier.name
+        classifier_set = models.ClassifierSet(
+            name=classifier.name,
+            account_id=user.user_id
+        )
         db.add(classifier_set)
         db.commit()
         db.refresh(classifier_set)
@@ -68,33 +76,64 @@ def insert_terms(db: Session, doc_class_id: int, terms: List[ClassifierTerm]):
     pass
 
 @router.get("/")
-def list_classifiers(db: Session = Depends(get_db)):
+def list_classifiers(
+        db: Session = Depends(get_db),
+        user = Depends(get_current_user_payload)):
     """
     Return the IDs and names of all the classifier sets.
     """
-    classifiers = db.query(models.ClassifierSets).all()
+    classifiers = db.query(models.ClassifierSets).filter(models.ClassifierSet.account_id == user.user_id).all()
     return [{"id": c.id, "name": c.name} for c in classifiers]
 
 @router.get("/{classifier_set_id}")
-def get_classifier(classifier_set_id: int, db: Session = Depends(get_db)):
+def get_classifier(classifier_set_id: int,
+                   db: Session = Depends(get_db),
+                   user=Depends(get_current_user_payload)):
     """
     Return one classifier record.
     """
-    db_classifier = db.query(models.ClassifierSet).filter(models.ClassifierSet.id == classifier_set_id).first()
+    db_classifier = db.query(models.ClassifierSet).filter(
+        and_(
+            models.ClassifierSet.id == classifier_set_id,
+            models.ClassifierSet.account_id == user.user_id
+        )
+    ).first()
     if db_classifier is None:
         raise HTTPException(status_code=404, detail="Classifier not found")
     return db_classifier
 
 @router.get("/run/{classifier_set_id}/{document_id}")
-def run_classifier(classifier_set_id: int, document_id: int, db: Session = Depends(get_db)):
+def run_classifier(
+        classifier_set_id: int, document_id: int,
+        db: Session = Depends(get_db),
+        user = Depends(get_current_user_payload)):
     """
     Run a classifier against the contents of an uploaded document.
     """
+    # Verify that the user owns the specified Classifier Set
+    classifier_set = db.query(models.ClassifierSet).filter(
+        and_(
+            models.ClassifierSet.id == classifier_set_id,
+            models.ClassifierSet.account_id == user.user_id
+        )
+    ).first()
+
+    if not classifier_set:
+        raise HTTPException(status_code=404, detail="Classifier not found")
+
     classifiers = db.query(models.Classifier).filter(models.Classifier.classifier_set == classifier_set_id).all()
     if classifiers is None:
         raise HTTPException(status_code=404, detail="Classifier Set not found")
 
-    document_text = db.query(models.Document).filter(models.Document.id == document_id).first()
+    document_text = db.query(models.Document).filter(
+        and_(
+            models.Document.account_id == user.user_id,
+            models.Document.id == document_id
+        )
+    ).first()
+
+    if not document_text:
+        raise HTTPException(status_code=404, detail="Document not found")
 
     classifications_data = []
 

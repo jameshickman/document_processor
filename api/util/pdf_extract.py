@@ -17,7 +17,7 @@ class PDFDecodeException(Exception):
     pass
 
 
-def pdf_extract(file_path_name: str, db: Session) -> models.Document:
+def pdf_extract(user_id: int, file_path_name: str, db: Session) -> models.Document:
     """
     Extracts text from a PDF, saves it to the database, and returns the document.
     """
@@ -28,7 +28,7 @@ def pdf_extract(file_path_name: str, db: Session) -> models.Document:
     db.commit()
 
     # Create a new document record
-    db_document = models.Document(file_name=new_pdf_file, full_text=doc)
+    db_document = models.Document(file_name=new_pdf_file, full_text=doc, account_id=user_id)
     db.add(db_document)
     db.commit()
     db.refresh(db_document)
