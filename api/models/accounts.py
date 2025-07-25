@@ -16,4 +16,5 @@ class Account(Base):
     api_secret = Column(String)
 
     documents = relationship("Document", back_populates="account")
-    classifiers = relationship("Classifier", back_populates="account")
+    classifier_sets = relationship("ClassifierSet", back_populates="account")
+    extractors = relationship("Extractor", back_populates="account")

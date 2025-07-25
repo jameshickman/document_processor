@@ -10,4 +10,4 @@ class ClassifierSet(Base):
     account_id = Column(Integer, ForeignKey("accounts.id"))
 
     classifiers = relationship("Classifier", back_populates="classifier_sets", cascade="all, delete-orphan")
-    account = relationship("Account", back_populates="documents")
+    account = relationship("Account", back_populates="classifier_sets")

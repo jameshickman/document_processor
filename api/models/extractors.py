@@ -13,4 +13,4 @@ class Extractor(Base):
     account_id = Column(Integer, ForeignKey("accounts.id"))
 
     fields = relationship("ExtractorField", back_populates="extractor")
-    account = relationship("Account", back_populates="documents")
+    account = relationship("Account", back_populates="extractors")
