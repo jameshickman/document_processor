@@ -62,7 +62,7 @@ async def get_current_user_info(
             headers={"WWW-Authenticate": "Bearer"}
         )
 
-    user_account = db.query(models.Account).filter_by(email=email).first()
+    user_account = db.query(models.Account).filter(models.Account.email == email).first()
 
     if not user_account:
         raise HTTPException(
