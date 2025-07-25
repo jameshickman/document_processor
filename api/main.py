@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from api.models.database import init_database
-from api.routes import documents, classifiers, extractors
+from api.routes import documents, classifiers, extractors, auth
 from contextlib import asynccontextmanager
 import os
 
@@ -19,6 +19,7 @@ async def lifespan(_app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+app.include_router(auth.router, prefix="/auth", tags=["authentication"])
 app.include_router(documents.router, prefix="/documents", tags=["documents"])
 app.include_router(classifiers.router, prefix="/classifiers", tags=["classifiers"])
 app.include_router(extractors.router, prefix="/extractors", tags=["extractors"])
