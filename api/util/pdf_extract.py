@@ -46,7 +46,7 @@ def pdf_convert(pdf_file: str) -> tuple:
     command = ["/usr/bin/pdftotext", new_pdf_file, "-"]
     result = subprocess.run(command, capture_output=True)
     content = str(result.stdout.decode("utf-8").replace("\n", " "))
-    if content =='' or (not is_real_words(content)):
+    if content == '' or (not is_real_words(content)):
         raise PDFDecodeException("PDF file cannot be decoded into text")
     return new_pdf_file, content
 
