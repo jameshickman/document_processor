@@ -198,6 +198,16 @@ async def google_token_exchange(
         raise HTTPException(status_code=500, detail=f"Authentication failed: {str(e)}")
 
 
+@router.get("/google_client_id")
+async def google_client_id():
+    """
+    Fetch the Google Client ID for Oauth2 authentication.
+    """
+    return {
+        "client_id": GOOGLE_CLIENT_ID,
+    }
+
+
 @router.get("/health")
 async def auth_health():
     """Health check endpoint to verify auth service configuration"""
