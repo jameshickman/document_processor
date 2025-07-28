@@ -11,9 +11,9 @@ from api.models.accounts import Account
 
 
 class PasswordSecurity:
-    def __init__(self, password_secret: str):
-        """Initialize password security with the secret key from configuration."""
+    def __init__(self, password_secret: str, password_salt: str):
         self.password_secret = password_secret
+        self.password_salt = password_salt
         self._fernet = self._create_fernet()
 
     def _create_fernet(self) -> Fernet:
@@ -22,7 +22,7 @@ class PasswordSecurity:
         kdf = PBKDF2HMAC(
             algorithm=hashes.SHA256(),
             length=32,
-            salt=b'dav_password_salt',  # Static salt for consistency
+            salt=str.encode(self.password_salt),  # Static salt for consistency
             iterations=100000,
         )
         key = base64.urlsafe_b64encode(kdf.derive(self.password_secret.encode()))
@@ -59,8 +59,8 @@ class PasswordSecurity:
             return False
 
 
-def get_password(db: Session, user_email: str, password_secret: str) -> (str, None):
-    password_security = PasswordSecurity(password_secret)
+def get_password(db: Session, user_email: str, password_secret: str, salt: str) -> (str, None):
+    password_security = PasswordSecurity(password_secret, salt)
     user_info = db.query(Account).filter(Account.email == user_email).first()
     if user_info:
         if not user_info.password_encrypted:
