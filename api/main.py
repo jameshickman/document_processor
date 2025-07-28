@@ -1,4 +1,6 @@
 from fastapi import FastAPI
+from starlette.middleware.cors import CORSMiddleware
+
 from api.models.database import init_database
 from api.routes import documents, classifiers, extractors, auth
 from contextlib import asynccontextmanager
@@ -21,6 +23,14 @@ async def lifespan(_app: FastAPI):
     # Shutdown: Cleanup code can go here if needed
 
 app = FastAPI(lifespan=lifespan)
+allowed_origins = os.environ.get("ALLOWED_ORIGINS", "*").split(",")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.include_router(auth.router, prefix="/auth", tags=["authentication"])
 app.include_router(documents.router, prefix="/documents", tags=["documents"])
