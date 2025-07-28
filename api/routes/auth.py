@@ -16,12 +16,16 @@ from typing import Optional
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, HTTPException, Depends
+from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
 from api import models
 from api.models.database import get_db
+from api.models.accounts import Account
+
+from api.util.password_security import get_password
 
 router = APIRouter()
 
@@ -227,3 +231,30 @@ async def auth_health():
             "jwt_secret_configured": bool(JWT_SECRET),
             "redirect_uri": GOOGLE_REDIRECT_URI
         }
+
+"""
+Local password support
+"""
+
+@router.post("/login")
+async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    user = db.query(Account).filter(Account.email == form_data.username).first()
+    
+    if not user:
+        raise HTTPException(status_code=401, detail="Incorrect username or password")
+    
+    if not user.active:
+        raise HTTPException(status_code=403, detail="Account is not active. Please contact administrator.")
+    
+    password_secret = os.getenv("PASSWORD_SECRET")
+    password_salt = os.getenv("PASSWORD_SALT")
+    
+    if not password_secret or not password_salt:
+        raise HTTPException(status_code=500, detail="Password authentication not properly configured")
+    
+    stored_password = get_password(db, form_data.username, password_secret, password_salt)
+    
+    if not stored_password or stored_password != form_data.password:
+        raise HTTPException(status_code=401, detail="Incorrect username or password")
+    
+    return {'jwt': create_jwt_token(str(user.email), str(user.name))}
