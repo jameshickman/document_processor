@@ -16,6 +16,7 @@ class Account(Base):
     api_secret = Column(String)
     password_local = Column(String, default=None)
     password_encrypted = Column(Boolean, default=False)
+    password_salt = Column(String, default=None)
 
     documents = relationship("Document", back_populates="account")
     classifier_sets = relationship("ClassifierSet", back_populates="account")

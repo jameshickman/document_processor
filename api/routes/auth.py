@@ -247,12 +247,11 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
         raise HTTPException(status_code=403, detail="Account is not active. Please contact administrator.")
     
     password_secret = os.getenv("PASSWORD_SECRET")
-    password_salt = os.getenv("PASSWORD_SALT")
-    
-    if not password_secret or not password_salt:
+
+    if not password_secret:
         raise HTTPException(status_code=500, detail="Password authentication not properly configured")
     
-    stored_password = get_password(db, form_data.username, password_secret, password_salt)
+    stored_password = get_password(db, form_data.username, password_secret)
     
     if not stored_password or stored_password != form_data.password:
         raise HTTPException(status_code=401, detail="Incorrect username or password")

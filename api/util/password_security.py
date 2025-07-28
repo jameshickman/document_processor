@@ -2,6 +2,8 @@
 Securely store passwords in symetric encryption
 """
 import base64
+import uuid
+
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
@@ -59,13 +61,15 @@ class PasswordSecurity:
             return False
 
 
-def get_password(db: Session, user_email: str, password_secret: str, salt: str) -> (str, None):
+def get_password(db: Session, user_email: str, password_secret: str) -> (str, None):
+    salt = str(uuid.uuid4())
     password_security = PasswordSecurity(password_secret, salt)
     user_info = db.query(Account).filter(Account.email == user_email).first()
     if user_info:
         if not user_info.password_encrypted:
             user_info.password_local = password_security.encrypt_password(user_info.password_local)
             user_info.password_encrypted = True
+            user_info.password_salt = salt
             db.add(user_info)
             db.commit()
         return password_security.decrypt_password(user_info.password_local)
