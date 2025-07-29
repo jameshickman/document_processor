@@ -1,0 +1,14 @@
+{
+  "name": "VOC value extractor",
+  "prompt": "Find the value and metric type for the Volatile Organic Compound (VOC) present in the material.",
+  "fields": [
+    {
+      "name": "amount",
+      "description": "Number for the VOC measurement"
+    },
+    {
+      "name": "metric",
+      "description": "Metric used to measure the VOC, for example g/L or ppm"
+    }
+  ]
+}
