@@ -62,15 +62,17 @@ class PasswordSecurity:
 
 
 def get_password(db: Session, user_email: str, password_secret: str) -> (str, None):
-    salt = str(uuid.uuid4())
-    password_security = PasswordSecurity(password_secret, salt)
     user_info = db.query(Account).filter(Account.email == user_email).first()
     if user_info:
         if not user_info.password_encrypted:
+            salt = str(uuid.uuid4())
+            password_security = PasswordSecurity(password_secret, salt)
             user_info.password_local = password_security.encrypt_password(user_info.password_local)
             user_info.password_encrypted = True
             user_info.password_salt = salt
             db.add(user_info)
             db.commit()
+        else:
+            password_security = PasswordSecurity(password_secret, user_info.password_salt)
         return password_security.decrypt_password(user_info.password_local)
     return None
