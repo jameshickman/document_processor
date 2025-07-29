@@ -241,22 +241,35 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
     user = db.query(Account).filter(Account.email == form_data.username).first()
     
     if not user:
-        raise HTTPException(status_code=401, detail="Incorrect username or password")
+        return {
+            'success': False,
+            'error': 'User does not exist. Please contact administrator to create your account.'
+        }
     
     if not user.active:
-        raise HTTPException(status_code=403, detail="Account is not active. Please contact administrator.")
+        return {
+            'success': False,
+            'error': 'Account is not active. Please contact administrator.'
+        }
     
     password_secret = os.getenv("PASSWORD_SECRET")
 
     if not password_secret:
-        raise HTTPException(status_code=500, detail="Password authentication not properly configured")
+        return {
+            'success': False,
+            'error': 'Password secret not configured. Please contact administrator.'
+        }
     
     stored_password = get_password(db, form_data.username, password_secret)
     
     if not stored_password or stored_password != form_data.password:
-        raise HTTPException(status_code=401, detail="Incorrect username or password")
+        return {
+            'success': False,
+            'error': 'Invalid username or password.'
+        }
     
     return {
+        'success': True,
         'jwt': create_jwt_token(str(user.email), str(user.name)),
         'username': str(user.name),
         'account_id': user.id
