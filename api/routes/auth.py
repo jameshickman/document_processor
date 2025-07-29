@@ -256,4 +256,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
     if not stored_password or stored_password != form_data.password:
         raise HTTPException(status_code=401, detail="Incorrect username or password")
     
-    return {'jwt': create_jwt_token(str(user.email), str(user.name))}
+    return {
+        'jwt': create_jwt_token(str(user.email), str(user.name)),
+        'username': str(user.name)
+    }
