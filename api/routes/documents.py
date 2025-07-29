@@ -42,8 +42,8 @@ def list_documents(
     """
     Return the IDs and names of all documents.
     """
-    documents = db.query(models.Document).filter(models.Document.account_id==user.account_id).all()
-    return [{"id": d.id, "name": d.name} for d in documents]
+    documents = db.query(models.Document).filter(models.Document.account_id==user.user_id).all()
+    return [{"id": d.id, "name": str(d.file_name).split('/')[-1]} for d in documents]
 
 @router.get("/{document_id}")
 def get_document(
