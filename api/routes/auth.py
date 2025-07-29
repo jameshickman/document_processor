@@ -258,5 +258,6 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
     
     return {
         'jwt': create_jwt_token(str(user.email), str(user.name)),
-        'username': str(user.name)
+        'username': str(user.name),
+        'account_id': user.id
     }
