@@ -63,8 +63,10 @@ def create_jwt_token(email: str, name: str) -> str:
     """Create JWT token with email and name claims"""
     now = datetime.now(timezone.utc)
     payload = {
+        "username": email,
         "email": email,
         "name": name,
+        "roles": ['user'],
         "iat": now,
         "exp": now + timedelta(hours=24)  # Token expires in 24 hours
     }
