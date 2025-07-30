@@ -3,11 +3,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_
 from api import models
 from api.models.database import get_db
-#from api.util.document_extract import extract, DocumentDecodeException, DocumentUnknownTypeException
 from api.dependencies import get_current_user_info
 from api.util.upload_document import upload_document
-#import os
-#import shutil
 
 router = APIRouter()
 
