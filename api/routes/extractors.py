@@ -9,7 +9,6 @@ from lib.fact_extractor.fact_extractor import FactExtractor
 from lib.fact_extractor.models import ExtractionQuery
 from api.util.llm_config import llm_config
 from api.dependencies import get_current_user_info
-import os
 
 router = APIRouter()
 
