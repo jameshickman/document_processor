@@ -1,5 +1,5 @@
 """
-Define a function to convert a document file to text using pdftotext.
+Extract text from a document.
 Supports:
     PDF
     txt
