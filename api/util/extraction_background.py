@@ -7,5 +7,5 @@ import api.models
 from lib.fact_extractor.fact_extractor import FactExtractor
 import requests
 
-def run_extractor(user_id, document_id: int, db: Session):
+def run_extractor(account_id, document_id: int, db: Session):
     return
