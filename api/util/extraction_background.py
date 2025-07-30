@@ -56,7 +56,7 @@ def run_extractor(
     fact_extractor = FactExtractor(llm_config)
 
     extraction_query = ExtractionQuery(
-        query=db_extractor.prompt,
+        query=str(db_extractor.prompt),
         fields={field.name: field.description for field in db_extractor.fields},
     )
 
