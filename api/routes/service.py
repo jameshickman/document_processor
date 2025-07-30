@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks
+from fastapi import APIRouter, Depends, UploadFile, File, BackgroundTasks
 from sqlalchemy.orm import Session
 
 from pydantic import BaseModel
 
 from api.dependencies import get_basic_auth
 from api.models import get_db
+from api.util.upload_document import upload_document, remove_document
 
 
 class RunExtractorRequest(BaseModel):
@@ -21,7 +22,8 @@ async def upload_file(
     file: UploadFile = File(...),
     user = Depends(get_basic_auth)
 ):
-    return {}
+    document = upload_document(user.user_id, db, file)
+    return {"id": document.id}
 
 router.delete('/file/{file_id}')
 async def remove_file(
@@ -29,7 +31,8 @@ async def remove_file(
     db: Session = Depends(get_db),
     user = Depends(get_basic_auth)
 ):
-    return {}
+    remove_document(user.user_id, file_id, db)
+    return {"status": "success"}
 
 router.get('/classifier/{classifier_id}/{file_id}')
 async def run_classifier(
