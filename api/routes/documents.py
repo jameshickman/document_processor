@@ -18,9 +18,11 @@ def create_document(
     """
     POST endpoint to upload a PDF file in the 'file' field.
     """
-    pdf_storage_dir = os.path.join(os.environ.get("PDF_STORAGE"), str(user.user_id))
+    pdf_storage_dir = os.environ.get("PDF_STORAGE")
     if not pdf_storage_dir:
         raise HTTPException(status_code=500, detail="PDF_STORAGE environment variable not set.")
+
+    pdf_storage_dir = os.path.join(pdf_storage_dir, str(user.user_id))
 
     if not os.path.exists(pdf_storage_dir):
         os.makedirs(pdf_storage_dir)
