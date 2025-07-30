@@ -93,6 +93,8 @@ def txt_loader(file_path: str) -> tuple:
 def clean_file_name(file_name) -> str:
     filename = Path(file_name).name
     filename_clean = filename.replace(" ", "_")
+    if filename_clean == filename:
+        return file_name
     path = Path(file_name).parent
     new_file = os.path.join(path, filename_clean)
     if os.path.exists(new_file):
