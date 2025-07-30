@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 
 from api.models.database import init_database
-from api.routes import documents, classifiers, extractors, auth
+from api.routes import documents, classifiers, extractors, auth, service
 from contextlib import asynccontextmanager
 import os
 
@@ -36,6 +36,7 @@ app.include_router(auth.router, prefix="/auth", tags=["authentication"])
 app.include_router(documents.router, prefix="/documents", tags=["documents"])
 app.include_router(classifiers.router, prefix="/classifiers", tags=["classifiers"])
 app.include_router(extractors.router, prefix="/extractors", tags=["extractors"])
+app.include_router(service.router, prefix="/service", tags=["service"])
 
 @app.get("/")
 async def root():
