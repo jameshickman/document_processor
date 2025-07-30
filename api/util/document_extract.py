@@ -1,5 +1,11 @@
 """
-Define a function to convert a PDF file to text using pdftotext.
+Define a function to convert a document file to text using pdftotext.
+Supports:
+    PDF
+    txt
+    HTML
+    docx
+
 Test if the extracted text is actual text and not "subsetted fonts" garbage.
 See: https://stackoverflow.com/questions/8039423/pdf-data-extraction-gives-symbols-gibberish
 """
