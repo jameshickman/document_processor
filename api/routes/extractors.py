@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from typing import List
 from lib.fact_extractor.fact_extractor import FactExtractor
 from lib.fact_extractor.models import LLMConfig, ExtractionQuery
+from api.util.llm_config import llm_config
 from api.dependencies import get_current_user_info
 import os
 
@@ -112,15 +113,6 @@ def run_extractor(
         raise HTTPException(status_code=404, detail="Document not found or has no content")
 
     document_text = document.full_text
-
-    llm_config = LLMConfig(
-        base_url=os.environ.get("OPENAI_BASE_URL", "http://localhost:11434/v1"),
-        api_key=os.environ.get("OPENAI_API_KEY", "openai_api_key"),
-        model_name=os.environ.get("OPENAI_MODEL_NAME", "gemma3n"), # gpt-4
-        temperature=float(os.environ.get("OPENAI_TEMPERATURE", 0.05)),
-        max_tokens=int(os.environ.get("OPENAI_MAX_TOKENS", 2048)),
-        timeout=int(os.environ.get("OPENAI_TIMEOUT", 120)),
-    )
 
     fact_extractor = FactExtractor(llm_config)
 
