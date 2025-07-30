@@ -18,6 +18,7 @@ router = APIRouter()
 router.post('/file')
 async def upload_file(
     db: Session = Depends(get_db),
+    file: UploadFile = File(...),
     user = Depends(get_basic_auth)
 ):
     return {}
