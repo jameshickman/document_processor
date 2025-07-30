@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_
 from api import models
 from api.models.database import get_db
-from api.util.pdf_extract import pdf_extract, PDFDecodeException
+from api.util.document_extract import extract, DocumentDecodeException, DocumentUnknownTypeException
 from api.dependencies import get_current_user_info
 import os
 import shutil
@@ -30,9 +30,11 @@ def create_document(
         shutil.copyfileobj(file.file, buffer)
 
     try:
-        db_document = pdf_extract(user.user_id, file_path, db)
-    except PDFDecodeException:
-        raise HTTPException(status_code=415, detail="Text cannot be extracted from PDF.")
+        db_document = extract(user.user_id, file_path, db)
+    except DocumentDecodeException:
+        raise HTTPException(status_code=415, detail="Text cannot be extracted from Document.")
+    except DocumentUnknownTypeException:
+        raise HTTPException(status_code=415, detail="Document type not supported.")
     return {"id": db_document.id}
 
 @router.get("/")
