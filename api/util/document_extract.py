@@ -11,7 +11,6 @@ See: https://stackoverflow.com/questions/8039423/pdf-data-extraction-gives-symbo
 """
 
 import os
-import re
 import subprocess
 from pathlib import Path
 
