@@ -52,4 +52,4 @@ async def run_extractor(
     db: Session = Depends(get_db),
     user = Depends(get_basic_auth)
 ):
-    return {}
+    return {"status": "started"}
