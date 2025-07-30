@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks
 from sqlalchemy.orm import Session
 
 from pydantic import BaseModel
@@ -44,6 +44,7 @@ async def run_extractor(
     extractor_id: int,
     file_id: int,
     request: RunExtractorRequest,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     user = Depends(get_basic_auth)
 ):
