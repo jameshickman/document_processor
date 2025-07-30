@@ -2,8 +2,10 @@ import os
 import shutil
 
 from fastapi import UploadFile, HTTPException
+from sqlalchemy import and_
 from sqlalchemy.orm import Session
 from api.util.document_extract import extract, DocumentDecodeException, DocumentUnknownTypeException
+from api.models import Document
 
 
 def upload_document(
@@ -11,11 +13,7 @@ def upload_document(
         db: Session,
         file_upload: UploadFile,
 ):
-    document_store = os.environ.get("DOCUMENT_STORAGE")
-    if not document_store:
-        raise HTTPException(status_code=500, detail="DOCUMENT_STORAGE environment variable not set.")
-
-    document_storage_dir = os.path.join(document_store, str(account_id))
+    document_storage_dir = load_storage_location(account_id)
 
     if not os.path.exists(document_storage_dir):
         os.makedirs(document_storage_dir)
@@ -32,3 +30,34 @@ def upload_document(
         raise HTTPException(status_code=415, detail="Document type not supported.")
 
     return db_document
+
+
+def remove_document(
+    account_id: int,
+    document_id,
+    db: Session
+):
+    document = db.query(Document).filter(
+        and_(
+            Document.id == document_id,
+            Document.account_id == account_id,
+        )
+    ).first()
+
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    os.remove(str(document.file_name))
+
+    db.delete(document)
+    db.commit()
+
+    return
+
+
+def load_storage_location(account_id:int):
+    document_store = os.environ.get("DOCUMENT_STORAGE")
+    if not document_store:
+        raise HTTPException(status_code=500, detail="DOCUMENT_STORAGE environment variable not set.")
+
+    return os.path.join(document_store, str(account_id))
