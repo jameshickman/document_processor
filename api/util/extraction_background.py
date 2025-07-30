@@ -63,7 +63,7 @@ def run_extractor(
     result = fact_extractor.extract_facts(document_text, extraction_query)
 
     payload = ExtractionPayload(
-        result=result.dict(),
+        result=result.model_dump(),
         file_name=file_name,
         document_id=document_id,
         csf_token=csf_token
