@@ -14,7 +14,7 @@ class RunExtractorRequest(BaseModel):
     extractor_id: int
     file_id: int
     web_hook: str
-    csf_token: str = ''
+    csrf_token: str = ''
 
 
 router = APIRouter()
@@ -61,6 +61,6 @@ async def extractor(
         request.file_id,
         db,
         request.web_hook,
-        request.csf_token
+        request.csrf_token
     )
     return {"status": "started"}
