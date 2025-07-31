@@ -20,7 +20,7 @@ class RunExtractorRequest(BaseModel):
 router = APIRouter()
 
 
-router.post('/file')
+@router.post('/file')
 async def upload_file(
     db: Session = Depends(get_db),
     file: UploadFile = File(...),
@@ -29,7 +29,7 @@ async def upload_file(
     document = upload_document(user.user_id, db, file)
     return {"id": document.id}
 
-router.delete('/file/{file_id}')
+@router.delete('/file/{file_id}')
 async def remove_file(
     file_id: int,
     db: Session = Depends(get_db),
@@ -38,7 +38,7 @@ async def remove_file(
     remove_document(user.user_id, file_id, db)
     return {"status": "success"}
 
-router.get('/classifier/{classifier_id}/{file_id}')
+@router.get('/classifier/{classifier_id}/{file_id}')
 async def classifier(
     classifier_id: int,
     file_id: int,
@@ -47,7 +47,7 @@ async def classifier(
 ):
     return run_classifier(user.user_id, file_id, classifier_id, db)
 
-router.post('/extractor/{extractor_id}/{file_id}')
+@router.post('/extractor/{extractor_id}/{file_id}')
 async def extractor(
     extractor_id: int,
     file_id: int,
