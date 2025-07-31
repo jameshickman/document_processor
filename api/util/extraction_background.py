@@ -21,7 +21,7 @@ class ExtractionPayload(BaseModel):
     result: dict
     file_name: str
     document_id: int
-    csf_token: str
+    csrf_token: str
 
 
 def run_extractor(
@@ -66,7 +66,7 @@ def run_extractor(
         result=result.model_dump(),
         file_name=file_name,
         document_id=document_id,
-        csf_token=csf_token
+        csrf_token=csf_token
     ).model_dump()
 
     try:
