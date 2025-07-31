@@ -13,7 +13,7 @@ class ExtractionPayload(BaseModel):
     result: dict
     file_name: str
     document_id: int
-    csf_token: str
+    csrf_token: str
 
 
 @app.post('/webhook')
