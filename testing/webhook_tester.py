@@ -9,8 +9,14 @@ from pydantic import BaseModel
 
 app = FastAPI()
 
+class ExtractionAnswer(BaseModel):
+    confidence: float
+    found: bool
+    explanation: str
+    extracted_data: dict[str, str]
+
 class ExtractionPayload(BaseModel):
-    result: dict
+    result: ExtractionAnswer
     file_name: str
     document_id: int
     csrf_token: str
