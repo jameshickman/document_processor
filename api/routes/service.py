@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from api.dependencies import get_basic_auth
 from api.models import get_db
 from api.util.upload_document import upload_document, remove_document
+from api.util.document_classify import run_classifier
 
 
 class RunExtractorRequest(BaseModel):
@@ -35,16 +36,16 @@ async def remove_file(
     return {"status": "success"}
 
 router.get('/classifier/{classifier_id}/{file_id}')
-async def run_classifier(
+async def classifier(
     classifier_id: int,
     file_id: int,
     db: Session = Depends(get_db),
     user = Depends(get_basic_auth)
 ):
-    return {}
+    return run_classifier(user.user_id, file_id, classifier_id, db)
 
 router.post('/extractor/{extractor_id}/{file_id}')
-async def run_extractor(
+async def extractor(
     extractor_id: int,
     file_id: int,
     request: RunExtractorRequest,
