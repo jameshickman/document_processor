@@ -1,7 +1,6 @@
 from fastapi import HTTPException
 
 from api import models
-from api.models.database import get_db
 from lib.classifier import document_classifier_simple
 from sqlalchemy.orm import Session
 from sqlalchemy import and_

@@ -1,5 +1,7 @@
-from fastapi import APIRouter, Depends, UploadFile, File, BackgroundTasks
+from fastapi import APIRouter, Depends, UploadFile, File, BackgroundTasks, Form
 from sqlalchemy.orm import Session
+
+from typing import Annotated
 
 from pydantic import BaseModel
 
@@ -7,6 +9,7 @@ from api.dependencies import get_basic_auth
 from api.models import get_db
 from api.util.upload_document import upload_document, remove_document
 from api.util.document_classify import run_classifier
+from api.util.extraction_background import run_extractor
 
 
 class RunExtractorRequest(BaseModel):
@@ -50,7 +53,17 @@ async def extractor(
     file_id: int,
     request: RunExtractorRequest,
     background_tasks: BackgroundTasks,
+    csrf_token: Annotated[str, Form()] = '',
     db: Session = Depends(get_db),
     user = Depends(get_basic_auth)
 ):
+    background_tasks.add_task(
+        run_extractor,
+        user.user_id,
+        extractor_id,
+        file_id,
+        db,
+        request.web_hook,
+        csrf_token
+    )
     return {"status": "started"}
