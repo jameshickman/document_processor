@@ -69,7 +69,10 @@ def run_extractor(
         csf_token=csf_token
     ).model_dump()
 
-    r = requests.post(web_hook, json=payload)
-    logging.info(f"Extraction Web-hook response: {r}")
+    try:
+        r = requests.post(web_hook, json=payload)
+        logging.info(f"Extraction Web-hook response: {r}")
+    except Exception as e:
+        logging.error(f"Error calling extraction web-hook: {e}")
 
     return
