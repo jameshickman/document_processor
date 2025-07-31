@@ -47,7 +47,7 @@ async def classifier(
 ):
     return run_classifier(user.user_id, file_id, classifier_id, db)
 
-@router.post('/extractor/{extractor_id}/{file_id}')
+@router.get('/extractor/{extractor_id}/{file_id}')
 async def extractor(
     extractor_id: int,
     file_id: int,
