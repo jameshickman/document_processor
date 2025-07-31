@@ -140,8 +140,8 @@ async def get_basic_auth(
     
     return User(
         user_id=int(user_account.id),
-        username=credentials.username,
+        username=user_account.email or credentials.username,
         roles=[],
-        email=credentials.username,
+        email=user_account.email or credentials.username,
         account=AccountSchema.model_validate(user_account)
     )
