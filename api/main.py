@@ -29,7 +29,7 @@ app = FastAPI(lifespan=lifespan)
 
 # Static files and templates
 app.mount("/static", StaticFiles(directory="public"), name="static")
-templates = Jinja2Templates(directory="api/templates")
+templates = Jinja2Templates(directory="templates")
 
 allowed_origins = os.environ.get("ALLOWED_ORIGINS", "*").split(",")
 app.add_middleware(
