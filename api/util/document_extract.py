@@ -16,6 +16,8 @@ from pathlib import Path
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+from sympy.physics.units import common_year
+
 from api import models
 
 class DocumentDecodeException(Exception):
@@ -54,7 +56,7 @@ def extract(user_id: int, file_path_name: str, db: Session) -> models.Document:
 
 def pdf_convert(pdf_file: str) -> tuple:
     new_pdf_file = clean_file_name(pdf_file)
-    command = ["/usr/bin/pdftotext", new_pdf_file, "-"]
+    command = [find_exe("pdftotext"), new_pdf_file, "-"]
     result = subprocess.run(command, capture_output=True)
     content = str(result.stdout.decode("utf-8").replace("\n", " "))
     if content == '' or (not is_real_words(content)):
@@ -75,7 +77,7 @@ def docx_converter(file_name) -> tuple[str, str]:
 
 
 def pandoc_convert(file_name: str, type_from: str, exception_message: str = "Document extraction failed") -> str:
-    command = ["/usr/bin/pandoc", file_name, "-f", type_from, "-t", "markdown"]
+    command = [find_exe("pandoc"), file_name, "-f", type_from, "-t", "markdown"]
     result = subprocess.run(command, capture_output=True)
     content = str(result.stdout.decode("utf-8").replace("\n", " "))
     if content == '' or (not is_real_words(content)):
@@ -119,3 +121,13 @@ def is_real_words(word: str) -> bool:
             if o < 33:
                 return False
     return True
+
+
+def find_exe(command_name: str) -> str:
+    linux_bin = os.path.join("/usr/bin", command_name)
+    osx_brew_bin = os.path.join("/opt/homebrew/bin", command_name)
+    if os.path.exists(linux_bin):
+        return linux_bin
+    if os.path.exists(osx_brew_bin):
+        return osx_brew_bin
+    raise Exception("Binary program not found: " + command_name)
