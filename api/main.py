@@ -1,4 +1,7 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 from starlette.middleware.cors import CORSMiddleware
 
 from api.models.database import init_database
@@ -23,6 +26,11 @@ async def lifespan(_app: FastAPI):
     # Shutdown: Cleanup code can go here if needed
 
 app = FastAPI(lifespan=lifespan)
+
+# Static files and templates
+app.mount("/static", StaticFiles(directory="public"), name="static")
+templates = Jinja2Templates(directory="api/templates")
+
 allowed_origins = os.environ.get("ALLOWED_ORIGINS", "*").split(",")
 app.add_middleware(
     CORSMiddleware,
@@ -38,9 +46,9 @@ app.include_router(classifiers.router, prefix="/classifiers", tags=["classifiers
 app.include_router(extractors.router, prefix="/extractors", tags=["extractors"])
 app.include_router(service.router, prefix="/service", tags=["service"])
 
-@app.get("/")
-async def root():
-    return {"message": "Classifier and Extractor API"}
+@app.get("/", response_class=HTMLResponse)
+async def root(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
 
 
 if __name__ == "__main__":
