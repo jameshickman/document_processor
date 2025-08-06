@@ -1,4 +1,4 @@
-import {lit} from '../../node_modules/@lit';
+import {LitElement} from '../../node_modules/@lit';
 import {API_REST} from './API.js';
 import {bearer_handler} from './jwt_relay.js';
 
@@ -7,7 +7,7 @@ import {bearer_handler} from './jwt_relay.js';
  * and adds the server interface handling.
  */
 
-export class BaseComponent extends lit {
+export class BaseComponent extends LitElement {
     server = null;
     files_service_domain = '';
     origin_domain = '';
