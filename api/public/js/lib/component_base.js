@@ -1,12 +1,13 @@
+import {lit} from '../../node_modules/@lit';
 import {API_REST} from './API.js';
 import {bearer_handler} from './jwt_relay.js';
 
 /**
- * Base Class that extends HTMLElement
+ * Base Class that extends Lit
  * and adds the server interface handling.
  */
 
-export class BaseComponent extends HTMLElement {
+export class BaseComponent extends lit {
     server = null;
     files_service_domain = '';
     origin_domain = '';
