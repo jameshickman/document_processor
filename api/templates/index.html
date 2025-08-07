@@ -4,10 +4,25 @@
     <meta charset="UTF-8">
     <title>Document management interface</title>
     <link rel="stylesheet" href="/static/styles.css">
+    <script type="importmap">
+    {
+        "imports": {
+            "lit": "/static/node_modules/lit/index.js",
+            "lit/": "/static/node_modules/lit/",
+            "@lit/reactive-element": "/static/node_modules/@lit/reactive-element/reactive-element.js",
+            "@lit/reactive-element/": "/static/node_modules/@lit/reactive-element/",
+            "lit-html": "/static/node_modules/lit-html/lit-html.js",
+            "lit-html/": "/static/node_modules/lit-html/",
+            "lit-element": "/static/node_modules/lit-element/index.js",
+            "lit-element/": "/static/node_modules/lit-element/",
+            "@types/trusted-types": "/static/node_modules/@types/trusted-types/index.d.ts"
+        }
+    }
+    </script>
 </head>
 <body>
 
-<login-modal />
+<login-modal jsum></login-modal>
 </body>
 <script type="module">
     // Utility includes
@@ -22,7 +37,7 @@
          * Initialize server API and broadcast the connection
          * to all JSUM components.
          */
-        const api = new API_REST(window.location.hostname, (error) => {
+        const api = new API_REST(window.location.origin, (error) => {
             console.log("Server API error: " + error);
             multicall(
                 {

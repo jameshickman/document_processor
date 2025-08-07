@@ -1,8 +1,8 @@
 import {BaseComponent} from '../lib/component_base.js';
 import {HTTP_POST_FORM} from '../lib/API.js';
 import {multicall} from '../lib/jsum.js';
-import {css, html} from "/static/node_modules/lit/index.js";
-import {classMap} from '/static/node_modules/lit/directives/class-map.js';
+import {css, html} from "lit";
+import {classMap} from 'lit/directives/class-map.js';
 
 export class LoginModal extends BaseComponent {
     static properties = {
@@ -53,31 +53,11 @@ export class LoginModal extends BaseComponent {
         super();
         this.show = true;
         this.show_error = false;
-        this.server_operations_setup();
     }
 
     // JSUM listeners
     server_interface(api) {
-        self.init_server(api);
-    }
-
-    // Event handlers
-    async handle_submit(e) {
-        e.preventDefault();
-        this.show_error = false;
-        this.server.call(
-            "/login",
-            HTTP_POST_FORM,
-            {
-                username: this.username,
-                password: this.password
-            }
-        )
-        return false;
-    }
-
-    // Setup server operations
-    server_operations_setup() {
+        this.init_server(api);
         this.server.define_endpoint(
             "/login",
             (response) => {
@@ -103,7 +83,22 @@ export class LoginModal extends BaseComponent {
             },
             HTTP_POST_FORM
         );
-    };
+    }
+
+    // Event handlers
+    async handle_submit(e) {
+        e.preventDefault();
+        this.show_error = false;
+        this.server.call(
+            "/login",
+            HTTP_POST_FORM,
+            {
+                username: this.username,
+                password: this.password
+            }
+        )
+        return false;
+    }
 
     render() {
         const modal_classes = {
@@ -113,7 +108,7 @@ export class LoginModal extends BaseComponent {
             show_error: this.show_error
         };
         return html`
-            <div id="modal" class=${classMap(modal_classes)} jsum>
+            <div id="modal" class=${classMap(modal_classes)}>
                 <div class="modal-window">
                     <div class="modal-header">Log-in</div>
                     <p id="error" class=${classMap(error_classes)}>Invalid username or password</p>
