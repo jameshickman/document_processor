@@ -3,8 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <title>Document management interface</title>
+    <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
 
+<login-modal />
 </body>
+<script type="module">
+    // Utility includes
+    import {API_REST} from './static/js/lib/API.js';
+    import {multicall} from './static/js/lib/jsum.js';
+
+    // Components
+    import {LoginModal} from './static/js/components/login_modal.js';
+
+    window.addEventListener('load', () => {
+        /**
+         * Initialize server API and broadcast the connection
+         * to all JSUM components.
+         */
+        const api = new API_REST(window.location.hostname, (error) => {
+            console.log("Server API error: " + error);
+            multicall(
+                {
+                    'target': 'service_error',
+                    'query': '[jsum]',
+                    'params': [error]
+                }
+            );
+        });
+        multicall(
+            {
+                'target': 'server_interface',
+                'query': '[jsum]',
+                'params': [api]
+            }
+        );
+    });
+</script>
 </html>
