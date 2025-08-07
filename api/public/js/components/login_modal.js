@@ -1,8 +1,8 @@
 import {BaseComponent} from '../lib/component_base.js';
 import {HTTP_POST_FORM} from '../lib/API.js';
 import {multicall} from '../lib/jsum.js';
-import {css, html} from "lit";
-import {classMap} from 'lit/directives/class-map.js';
+import {css, html} from "/static/node_modules/lit/index.js";
+import {classMap} from '/static/node_modules/lit/directives/class-map.js';
 
 export class LoginModal extends BaseComponent {
     static properties = {

@@ -1,4 +1,4 @@
-import {LitElement} from 'lit';
+import {LitElement} from '/static/node_modules/lit/index.js';
 import {API_REST} from './API.js';
 import {bearer_handler} from './jwt_relay.js';
 
