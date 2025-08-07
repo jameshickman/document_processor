@@ -1,4 +1,4 @@
-import {LitElement} from '../../node_modules/@lit';
+import {LitElement} from 'lit';
 import {API_REST} from './API.js';
 import {bearer_handler} from './jwt_relay.js';
 
@@ -32,7 +32,7 @@ export class BaseComponent extends LitElement {
         }
         else {
             if (this.files_service_domain === '' || this.origin_domain === '' || this.generate_jwt_route === '') {
-                throw new Error("Missing server init values");
+                return new API_REST(window.location.origin, this.server_error_handel.bind(this));
             }
             this.server = new API_REST(this.files_service_domain, this.server_error_handel.bind(this));
             this.server.set_reauthorize(
