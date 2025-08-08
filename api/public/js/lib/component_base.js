@@ -50,10 +50,6 @@ export class BaseComponent extends LitElement {
         return this.server;
     }
 
-    connectedCallback() {
-        this.connect_event_handlers();
-    };
-
     /**
      * Override with method to set up server operations
      */
