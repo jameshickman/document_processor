@@ -2,7 +2,6 @@ import {BaseComponent} from '../lib/component_base.js';
 import {HTTP_POST_FORM} from '../lib/API.js';
 import {multicall} from '../lib/jsum.js';
 import {css, html} from "lit";
-import {classMap} from 'lit/directives/class-map.js';
 
 export class LoginModal extends BaseComponent {
     static properties = {
@@ -15,7 +14,7 @@ export class LoginModal extends BaseComponent {
     // Templating
     static styles = css`
         #modal {
-            display: none;
+            display: flex;
             justify-content: center;
             align-items: center;
             position: fixed;
@@ -26,15 +25,6 @@ export class LoginModal extends BaseComponent {
             height: 100%;
             overflow: auto;
             background-color: rgba(0,0,0,0.4);
-        }
-        .show_modal {
-            display: flex;
-        }
-        #error {
-            display: none;
-        }
-        .show_error {
-            display: block;
         }
         .modal-window {
             background-color: #fefefe;
@@ -101,17 +91,11 @@ export class LoginModal extends BaseComponent {
     }
 
     render() {
-        const modal_classes = {
-            show_modal: this.show
-        };
-        const error_classes = {
-            show_error: this.show_error
-        };
         return html`
-            <div id="modal" class=${classMap(modal_classes)}>
+            <div id="modal" ?hidden=${!this.show}>
                 <div class="modal-window">
                     <div class="modal-header">Log-in</div>
-                    <p id="error" class=${classMap(error_classes)}>Invalid username or password</p>
+                    <p id="error" ?hidden=${!this.show_error}>Invalid username or password</p>
                     <div class="modal-body">
                         <form id="login-form" class="form">
                             <div class="form-group">
