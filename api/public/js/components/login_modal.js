@@ -7,14 +7,13 @@ export class LoginModal extends BaseComponent {
     static properties = {
         show: {type: Boolean},
         show_error: {type: Boolean},
-        username: {type: String},
-        password: {type: String}
+        username: {type: String, state: true},
+        password: {type: String, state: true}
     };
 
     // Templating
     static styles = css`
         #modal {
-            display: flex;
             justify-content: center;
             align-items: center;
             position: fixed;
@@ -26,16 +25,30 @@ export class LoginModal extends BaseComponent {
             overflow: auto;
             background-color: rgba(0,0,0,0.4);
         }
+        #modal.show {
+            display: flex;
+        }
+        #modal.hide {
+            display: none;
+        }
         .modal-window {
             background-color: #fefefe;
-            margin: 15% auto;
+            margin: auto auto;
             padding: 20px;
             border: 1px solid #888;
-            width: 80%;
+            max-width: 20rem;
         }
         .modal-header {
             font-size: 1.2em;
             font-weight: bold;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        button {
+            margin-top: 10px;
+            display: block;
         }
     `;
 
@@ -43,23 +56,30 @@ export class LoginModal extends BaseComponent {
         super();
         this.show = true;
         this.show_error = false;
+        this.username = '';
+        this.password = '';
+    }
+
+    login_success(resp) {
+        this.username = '';
+        this.password = '';
+        this.show = false;
+        this.server.set_bearer_token(resp.jwt);
+        this.dispatchEvent(new CustomEvent('login', {detail: {username: this.username}}));
+        this.requestUpdate();
     }
 
     // JSUM listeners
     server_interface(api) {
         this.init_server(api);
         this.server.define_endpoint(
-            "/login",
+            "/auth/login",
             (response) => {
                 if (response.success) {
-                    this.show = false;
-                    this.dispatchEvent(new CustomEvent('login', {detail: response.data}));
-                    this.username = '';
-                    this.password = '';
                     multicall(
                         {
                             "target": "login_success",
-                            "query": ".login-listen",
+                            "query": "[jsum]",
                             "params": [response]
                         }
                     ).then((results) => {
@@ -76,11 +96,19 @@ export class LoginModal extends BaseComponent {
     }
 
     // Event handlers
+    _onUsernameInput(e) {
+        this.username = e.target.value;
+    }
+
+    _onPasswordInput(e) {
+        this.password = e.target.value;
+    }
+
     async handle_submit(e) {
         e.preventDefault();
         this.show_error = false;
         this.server.call(
-            "/login",
+            "/auth/login",
             HTTP_POST_FORM,
             {
                 username: this.username,
@@ -92,7 +120,7 @@ export class LoginModal extends BaseComponent {
 
     render() {
         return html`
-            <div id="modal" ?hidden=${!this.show}>
+            <div id="modal" class="login-listen ${this.show ? 'show' : 'hide'}">
                 <div class="modal-window">
                     <div class="modal-header">Log-in</div>
                     <p id="error" ?hidden=${!this.show_error}>Invalid username or password</p>
@@ -100,9 +128,9 @@ export class LoginModal extends BaseComponent {
                         <form id="login-form" class="form">
                             <div class="form-group">
                                 <label for="username">Username</label>
-                                <input type="text" id="username" name="username" value=${this.username} required />
+                                <input type="text" id="username" name="username" .value=${this.username} @input=${this._onUsernameInput} required />
                                 <label for="password">Password</label>
-                                <input type="password" id="password" name="password" value=${this.password} required />
+                                <input type="password" id="password" name="password" .value=${this.password} @input=${this._onPasswordInput} required />
                                 <button type="submit" class="btn btn-primary" @click=${this.handle_submit}>Log-in</button>
                             </div>
                         </form>
