@@ -21,7 +21,27 @@
     </script>
 </head>
 <body>
-
+<div class="app-container">
+    <files-list jsum></files-list>
+    <div class="sections">
+        <navigation-menu jsum class="navigation-menu">
+            <button data-view="about">About</button>
+            <button data-view="classifiers">Classifiers</button>
+            <button data-view="extractors">Extractors</button>
+        </navigation-menu>
+    </div>
+    <navigation-views class="navigation-views">
+        <div data-name="about" class="navigation-view">
+            {% include 'sections/about.j2' %}
+        </div>
+        <div data-name="classifiers" class="navigation-view">
+            {% include 'sections/classifiers.j2' %}
+        </div>
+        <div data-name="extractors" class="navigation-view">
+            {% include 'sections/extractors.j2' %}
+        </div>
+    </navigation-views>
+</div>
 <login-modal jsum></login-modal>
 </body>
 <script type="module">
@@ -29,8 +49,13 @@
     import {API_REST} from './static/js/lib/API.js';
     import {multicall} from './static/js/lib/jsum.js';
 
+    // Navigation components
+    import {NavigationMenu} from './statis/js/lib/menu.js';
+    import {NavigationView} from './static/js/lib/navigation.js';
+
     // Components
     import {LoginModal} from './static/js/components/login_modal.js';
+    import {FilesList} from './static/js/components/files_list.js';
 
     window.addEventListener('load', () => {
         /**
