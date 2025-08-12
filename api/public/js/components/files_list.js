@@ -24,7 +24,7 @@ export class FilesList extends BaseComponent {
             margin: 0;
             flex-grow: 1;
             overflow: auto;
-            max-width: 400px;
+            max-width: 25rem;
         }
         .files-list li {
             list-style: none;
