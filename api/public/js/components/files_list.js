@@ -11,18 +11,26 @@ export class FilesList extends BaseComponent {
 
     static styles = css`
         .container {
-            display: flex;flex-direction: column;
+            display: flex;
+            flex-direction: column;
             height: 100%;
         }
         .header {
             flex-grow: 0;
         }
         #files-list {
+            border: 0;
+            padding: 0;
+            margin: 0;
             flex-grow: 1;
-            overflow-y: auto;
+            overflow: auto;
+            max-width: 400px;
         }
-        .upload-form {
-            flex-grow: 0;
+        .files-list li {
+            list-style: none;
+            border: 0;
+            padding: 0;
+            margin: 0;
         }
     `;
 

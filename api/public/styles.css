@@ -21,3 +21,16 @@ details, embed, figure, figcaption, footer, header, menu, nav, output, section, 
 body {
     font-family: 'Verdana', 'Arial', 'Droid Sans', 'Lato', sans-serif;
 }
+
+.app-container {
+    display: flex;
+    flex-direction: row;
+}
+.files-widget-container {
+    flex-grow: 1;
+    height: 100vh;
+}
+.sections {
+    flex-grow: 2;
+    width: 100%;
+}
