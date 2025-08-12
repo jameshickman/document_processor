@@ -24,13 +24,13 @@
 <div class="app-container">
     <files-list jsum></files-list>
     <div class="sections">
-        <navigation-menu jsum class="navigation-menu">
+        <navigation-menu jsum class="navigation-menu" data-target="#main-views">
             <button data-view="about">About</button>
             <button data-view="classifiers">Classifiers</button>
             <button data-view="extractors">Extractors</button>
         </navigation-menu>
     </div>
-    <navigation-views class="navigation-views">
+    <navigation-views class="navigation-views" id="main-views">
         <div data-name="about" class="navigation-view">
             {% include 'sections/about.j2' %}
         </div>
