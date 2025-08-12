@@ -38,6 +38,7 @@ export class FilesList extends BaseComponent {
             "/documents",
             (resp) => {
                 this.files = resp;
+                this.form_element_file.value = '';
                 this.requestUpdate();
             },
             HTTP_GET
