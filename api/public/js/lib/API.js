@@ -72,6 +72,7 @@ class API_REST {
      */
     set_bearer_token(token) {
         this.#bearer_token = token;
+        this.#auth_active = true;
     }
 
     /**

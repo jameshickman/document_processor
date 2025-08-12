@@ -24,6 +24,7 @@ export class LoginModal extends BaseComponent {
             height: 100%;
             overflow: auto;
             background-color: rgba(0,0,0,0.4);
+            backdrop-filter: blur(10px);
         }
         #modal.show {
             display: flex;
@@ -64,7 +65,6 @@ export class LoginModal extends BaseComponent {
         this.username = '';
         this.password = '';
         this.show = false;
-        this.server.set_bearer_token(resp.jwt);
         this.dispatchEvent(new CustomEvent('login', {detail: {username: this.username}}));
         this.requestUpdate();
     }
@@ -76,6 +76,7 @@ export class LoginModal extends BaseComponent {
             "/auth/login",
             (response) => {
                 if (response.success) {
+                    this.server.set_bearer_token(response.jwt);
                     multicall(
                         {
                             "target": "login_success",
@@ -84,7 +85,7 @@ export class LoginModal extends BaseComponent {
                         }
                     ).then((results) => {
                         // For now, just log the results
-                        console.log(results);
+                        // console.log(results);
                     })
                 }
                 else {

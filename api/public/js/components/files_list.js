@@ -37,7 +37,7 @@ export class FilesList extends BaseComponent {
         this.server.define_endpoint(
             "/documents",
             (resp) => {
-                this.files = resp.data;
+                this.files = resp;
                 this.requestUpdate();
             },
             HTTP_GET
