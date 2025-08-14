@@ -60,6 +60,15 @@ export class FilesList extends BaseComponent {
         );
     };
 
+    get_checked_files() {
+        const file_ids = [];
+        const els_selected_files = this.renderRoot.querySelectorAll("#files-list input[type=checkbox]:checked");
+        for (const el_checkbox of els_selected_files) {
+            file_ids.push(el_checkbox.dataset.fileId);
+        }
+        return file_ids;
+    };
+
     #get_files() {
         this.server.call(
             "/documents",
@@ -89,15 +98,6 @@ export class FilesList extends BaseComponent {
         )
     };
 
-    file_item_clicked(e) {
-        const file_id = e.currentTarget.dataset.fileId;
-        multicall({
-            'target': 'file_selected',
-            'query': '[jsum]',
-            'params': [file_id]
-        });
-    };
-
     render() {
         return html`
             <div class="container">
@@ -105,9 +105,15 @@ export class FilesList extends BaseComponent {
                 <ul id="files-list">
                     ${this.files.map((f) => html`
                         <li>
-                            <button data-file-id="${f.id}" @click=${this.file_item_clicked}>
-                                ${f.name}
-                            </button>
+                            <nobr>
+                                <input 
+                                        type="checkbox"
+                                        id="check_${f.id}"
+                                        data-file-id="${f.id}" 
+                                        @click=${this.file_item_clicked} 
+                                />
+                                <label for="check_${f.id}">${f.name}</label>
+                            </nobr>
                         </li>
                     `)}
                 </ul>
