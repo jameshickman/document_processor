@@ -82,7 +82,7 @@ def list_classifiers(
     """
     Return the IDs and names of all the classifier sets.
     """
-    classifiers = db.query(models.ClassifierSets).filter(models.ClassifierSet.account_id == user.user_id).all()
+    classifiers = db.query(models.ClassifierSet).filter(models.ClassifierSet.account_id == user.user_id).all()
     return [{"id": c.id, "name": c.name} for c in classifiers]
 
 @router.get("/{classifier_set_id}")
@@ -92,15 +92,44 @@ def get_classifier(classifier_set_id: int,
     """
     Return one classifier record.
     """
-    db_classifier = db.query(models.ClassifierSet).filter(
+    classifier_set = db.query(models.ClassifierSet).filter(
         and_(
             models.ClassifierSet.id == classifier_set_id,
             models.ClassifierSet.account_id == user.user_id
         )
     ).first()
-    if db_classifier is None:
+
+    if classifier_set is None:
         raise HTTPException(status_code=404, detail="Classifier not found")
-    return db_classifier
+
+    classifiers = db.query(models.Classifier).filter(
+        models.Classifier.classifier_set == classifier_set.id
+    ).all()
+
+    l_c = []
+
+    for classifier in classifiers:
+        terms = db.query(models.ClassifierTerm).filter(
+            models.ClassifierTerm.classifier_id == classifier.id
+        ).all()
+        t = []
+        for term in terms:
+            t.append({
+                "term": term.term,
+                "distance": term.distance,
+                "weight": term.weight
+            })
+        l_c.append({
+            "id": classifier.id,
+            "name": classifier.name,
+            "terms": t
+        })
+
+    return {
+        'id': classifier_set.id,
+        'name': classifier_set.name,
+        'classifiers': l_c
+    }
 
 @router.get("/run/{classifier_set_id}/{document_id}")
 def run_classifier(
