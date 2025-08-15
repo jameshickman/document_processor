@@ -163,7 +163,7 @@ export class ClassifierEditor extends BaseComponent {
         
         .term-delete-btn {
             position: absolute;
-            top: 8px;
+            top: 12px;
             right: 8px;
             width: 24px;
             height: 24px;
@@ -185,7 +185,7 @@ export class ClassifierEditor extends BaseComponent {
         }
         
         .term-text-input {
-            width: calc(100% - 35px);
+            width: calc(100% - 45px);
             margin-bottom: 8px;
             padding: 6px;
             border: 1px solid #ccc;
