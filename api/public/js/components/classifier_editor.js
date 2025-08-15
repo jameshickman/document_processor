@@ -518,8 +518,9 @@ export class ClassifierEditor extends BaseComponent {
                 return;
             }
             
-            // Clear any previous results and show loading state
+            // Clear any previous results and reset file tracking
             this.run_results = { loading: true, expectedFiles: selectedFiles.length };
+            this.#currentRunFiles = []; // Reset the file tracking array
             this.requestUpdate();
             
             // Store file information for display
