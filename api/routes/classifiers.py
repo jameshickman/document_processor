@@ -183,4 +183,11 @@ def run_classifier(
         classifications_data.append(d_classifier)
 
     results = document_classifier_simple(document_text, classifications_data)
-    return results
+    
+    # Include the document_id in the response so the frontend can match results to files
+    response = {
+        "document_id": document_id,
+        **results
+    }
+    
+    return response
