@@ -61,12 +61,18 @@ export class FilesList extends BaseComponent {
     };
 
     get_selected_files() {
-        const file_ids = [];
+        const selected_files = [];
         const els_selected_files = this.renderRoot.querySelectorAll("#files-list input[type=checkbox]:checked");
         for (const el_checkbox of els_selected_files) {
-            file_ids.push(el_checkbox.dataset.fileId);
+            const fileId = el_checkbox.dataset.fileId;
+            // Find the file object to get the name
+            const file = this.files.find(f => f.id.toString() === fileId);
+            selected_files.push({
+                id: fileId,
+                name: file ? file.name : `File ${fileId}`
+            });
         }
-        return file_ids;
+        return selected_files;
     };
 
     #get_files() {

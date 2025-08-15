@@ -385,3 +385,71 @@ via public method get_selected_files(). The call the endpoint GET:/classifiers/r
     "Low Emitting Materials": 1.0
 }
 ```
+
+## Implementation Notes
+
+The classifier editor has been implemented as a complete LitJS component with the following features:
+
+### Architecture
+- **BaseComponent**: Extends the existing BaseComponent class for server communication
+- **Four-panel layout**: Matches the SVG mockup with classifier sets, classifiers, terms, and results panels
+- **CRUD Operations**: Full Create, Read, Update, Delete functionality for all levels
+
+### Key Features Implemented
+
+1. **Classifier Set Management**
+   - Load and display all classifier sets from GET:/classifiers/
+   - Create new classifier sets with user-provided names
+   - Rename existing classifier sets
+   - Delete classifier sets (UI ready, backend implementation may be needed)
+   - Select classifier set to load full details
+
+2. **Classifier Management**
+   - Display classifiers when a set is selected
+   - Create new classifiers within a set
+   - Rename and delete classifiers
+   - Select individual classifiers to edit terms
+
+3. **Terms Management**
+   - Display all terms for selected classifier
+   - Inline editing of term text, distance (integer), and weight (float)
+   - Add new terms with prompts for all three fields
+   - Delete individual terms
+   - Real-time updates to the data structure
+
+4. **File Integration**
+   - Communicates with files_list component via JSUM multicall
+   - Retrieves selected file IDs using the get_selected_files() method
+   - Runs classifier sets against selected files
+   - Displays formatted results in the results panel
+
+5. **API Integration**
+   - Uses the provided authorization header format
+   - Implements proper error handling
+   - Supports both loading and saving of classifier data
+   - Handles the /classifiers/run/{classifier_set_id}/{document_id} endpoint
+
+### CSS Styling
+- Matches the SVG mockup layout with four panels
+- Uses dashed borders as shown in the mockup
+- Responsive button layouts
+- Proper visual feedback for selections and states
+- Grid-based layout for term editing
+
+### Usage Instructions
+1. The component registers as `<classifier-editor>` custom element
+2. Requires server API initialization via the server_interface() method
+3. Automatically loads classifier sets on login_success()
+4. Provides jsum="classifier_editor" attribute for external communication
+
+### Testing Notes
+- Component is ready for testing with the provided API endpoints
+- Authorization header is properly configured
+- Error handling includes user-friendly alerts and console logging
+- All CRUD operations update the UI immediately for better UX
+
+### Future Enhancements
+- Delete endpoint for classifier sets (currently shows confirmation but needs backend)
+- Bulk operations for terms
+- Import/Export functionality
+- Advanced filtering and search
