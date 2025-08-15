@@ -14,7 +14,7 @@ export class ClassifierEditor extends BaseComponent {
         run_results: {type: Object, state: true}
     };
 
-    #currentRunFiles = [];
+    #currentRunFiles = new Map(); // Map of file ID -> file info
 
     constructor() {
         super();
@@ -319,19 +319,39 @@ export class ClassifierEditor extends BaseComponent {
                     this.run_results = { files: [] };
                 }
                 
-                // Find the corresponding file info for this result
-                const currentFileIndex = this.run_results.files.length;
-                const fileInfo = this.#currentRunFiles[currentFileIndex] || { 
-                    name: `File ${currentFileIndex + 1}`, 
-                    id: 'unknown' 
-                };
+                // Extract document ID from the response
+                const documentId = resp.document_id ? resp.document_id.toString() : null;
                 
-                // Add this file's results as a separate entry
-                this.run_results.files.push({
-                    fileName: fileInfo.name,
-                    fileId: fileInfo.id,
-                    results: resp
-                });
+                // Get classification results (everything except document_id)
+                const classificationResults = { ...resp };
+                delete classificationResults.document_id;
+                
+                // Find the file info using the map
+                const fileInfo = documentId ? this.#currentRunFiles.get(documentId) : null;
+                
+                if (!fileInfo) {
+                    console.error("Cannot find file for document_id:", documentId);
+                    return; // Skip this result if we can't match it
+                }
+                
+                // Check if we already have results for this file (prevent duplicates)
+                const existingResultIndex = this.run_results.files.findIndex(f => f.fileId === fileInfo.id);
+                
+                if (existingResultIndex >= 0) {
+                    // Update existing result
+                    this.run_results.files[existingResultIndex] = {
+                        fileName: fileInfo.name,
+                        fileId: fileInfo.id,
+                        results: classificationResults
+                    };
+                } else {
+                    // Add new result
+                    this.run_results.files.push({
+                        fileName: fileInfo.name,
+                        fileId: fileInfo.id,
+                        results: classificationResults
+                    });
+                }
                 
                 this.requestUpdate();
             },
@@ -520,14 +540,17 @@ export class ClassifierEditor extends BaseComponent {
             
             // Clear any previous results and reset file tracking
             this.run_results = { loading: true, expectedFiles: selectedFiles.length };
-            this.#currentRunFiles = []; // Reset the file tracking array
+            this.#currentRunFiles.clear(); // Reset the file tracking map
             this.requestUpdate();
             
-            // Store file information for display
-            this.#currentRunFiles = selectedFiles;
+            // Store file information for display using ID as key
+            selectedFiles.forEach(file => {
+                this.#currentRunFiles.set(file.id.toString(), file);
+            });
             
             // Run classification against all selected files in parallel
             // The API will handle multiple calls to the same endpoint automatically
+            // The callback will use document_id from the response to match results to files
             selectedFiles.forEach(file => {
                 this.server.call("/classifiers/run/{classifier_set_id}/{document_id}", HTTP_GET, null, null, {
                     classifier_set_id: this.selected_classifier_set_id,
