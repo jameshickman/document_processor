@@ -50,7 +50,6 @@ export class ClassifierEditor extends BaseComponent {
         .classifiers-panel,
         .terms-panel,
         .results-panel {
-            border: 2px dashed #333;
             padding: 15px;
             display: flex;
             flex-direction: column;
