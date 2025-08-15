@@ -95,3 +95,12 @@ body {
     overflow: auto;
     padding: 0;
 }
+
+.about-page {
+    padding: 2rem;
+}
+
+.about-page h1 {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+}
