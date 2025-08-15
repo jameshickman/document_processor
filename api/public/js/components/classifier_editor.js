@@ -332,26 +332,14 @@ export class ClassifierEditor extends BaseComponent {
                     console.error("Cannot find file for document_id:", documentId);
                     return; // Skip this result if we can't match it
                 }
-                
-                // Check if we already have results for this file (prevent duplicates)
-                const existingResultIndex = this.run_results.files.findIndex(f => f.fileId === fileInfo.id);
-                
-                if (existingResultIndex >= 0) {
-                    // Update existing result
-                    this.run_results.files[existingResultIndex] = {
-                        fileName: fileInfo.name,
-                        fileId: fileInfo.id,
-                        results: classificationResults
-                    };
-                } else {
-                    // Add new result
-                    this.run_results.files.push({
-                        fileName: fileInfo.name,
-                        fileId: fileInfo.id,
-                        results: classificationResults
-                    });
-                }
-                
+
+                // Add new result
+                this.run_results.files.push({
+                    fileName: fileInfo.name,
+                    fileId: fileInfo.id,
+                    results: classificationResults
+                });
+
                 this.requestUpdate();
             },
             HTTP_GET
