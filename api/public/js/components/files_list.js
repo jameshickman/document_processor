@@ -60,7 +60,7 @@ export class FilesList extends BaseComponent {
         );
     };
 
-    get_checked_files() {
+    get_selected_files() {
         const file_ids = [];
         const els_selected_files = this.renderRoot.querySelectorAll("#files-list input[type=checkbox]:checked");
         for (const el_checkbox of els_selected_files) {

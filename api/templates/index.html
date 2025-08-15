@@ -22,7 +22,7 @@
 </head>
 <body>
 <div class="app-container">
-    <files-list jsum class="files-widget-container"></files-list>
+    <files-list jsum='files_list' class="files-widget-container"></files-list>
     <div class="sections">
         <navigation-menu jsum class="navigation-menu" data-target="#main-views">
             <button data-view="about">About</button>
@@ -52,6 +52,7 @@
     // Navigation components
     import {NavigationMenu} from './static/js/lib/menu.js';
     import {NavigationView} from './static/js/lib/navigation.js';
+    import {NavigationView} from './static/js/lib/classifier_editor.js';
 
     // Components
     import {LoginModal} from './static/js/components/login_modal.js';
