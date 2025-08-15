@@ -12,8 +12,22 @@ class NavigationMenu extends HTMLElement {
 
     connectedCallback() {
         this.#navigation_control = this.dataset.target;
+        
+        // Set first tab as active by default
+        if (this.children.length > 0) {
+            this.children[0].classList.add('active');
+        }
+        
         for (const el_item of this.children) {
             el_item.addEventListener('click', (e) => {
+                // Remove active class from all tabs
+                for (const tab of this.children) {
+                    tab.classList.remove('active');
+                }
+                
+                // Add active class to clicked tab
+                e.currentTarget.classList.add('active');
+                
                 const view_name = e.currentTarget.dataset.view;
                 multicall({
                     'target': 'goto_view',

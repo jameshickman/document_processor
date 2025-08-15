@@ -13,24 +13,90 @@ export class FilesList extends BaseComponent {
         .container {
             display: flex;
             flex-direction: column;
-            height: 100%;
+            max-height: 90vh;
+            padding: 15px;
+            font-family: Arial, sans-serif;
+            max-width: 350px;
+            background: white;
+            overflow: hidden;
         }
+        
         .header {
-            flex-grow: 0;
+            margin: 0 0 15px 0;
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 5px;
         }
+        
         #files-list {
             border: 0;
             padding: 0;
-            margin: 0;
+            margin: 0 0 20px 0;
             flex-grow: 1;
             overflow: auto;
-            max-width: 25rem;
+            list-style: none;
         }
-        .files-list li {
+        
+        #files-list li {
             list-style: none;
             border: 0;
-            padding: 0;
+            padding: 8px;
+            margin: 5px 0;
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+        }
+        
+        #files-list li:hover {
+            background: #e5e5e5;
+        }
+        
+        #files-list li nobr {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        #files-list input[type="checkbox"] {
             margin: 0;
+            cursor: pointer;
+        }
+        
+        #files-list label {
+            cursor: pointer;
+            flex-grow: 1;
+            font-size: 14px;
+            color: #333;
+        }
+        
+        .upload-form {
+            border-top: 1px solid #ddd;
+            padding-top: 15px;
+        }
+        
+        .upload-form input[type="file"] {
+            width: 100%;
+            padding: 6px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            margin-bottom: 10px;
+        }
+        
+        .upload-form button {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #007bff;
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+            border-radius: 3px;
+            font-size: 14px;
+        }
+        
+        .upload-form button:hover {
+            background: #0056b3;
         }
     `;
 
@@ -107,7 +173,7 @@ export class FilesList extends BaseComponent {
     render() {
         return html`
             <div class="container">
-                <h1 class="header">Files List</h1>
+                <h3 class="header">Files List</h3>
                 <ul id="files-list">
                     ${this.files.map((f) => html`
                         <li>

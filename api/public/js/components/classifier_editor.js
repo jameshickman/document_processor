@@ -31,9 +31,10 @@ export class ClassifierEditor extends BaseComponent {
         .container {
             display: flex;
             gap: 20px;
-            height: 100vh;
+            max-height: 90vh;
             padding: 10px;
             font-family: Arial, sans-serif;
+            overflow: hidden;
         }
         
         .classifier-sets-panel,
@@ -202,6 +203,15 @@ export class ClassifierEditor extends BaseComponent {
             margin: 0 0 10px 0;
             color: #007bff;
             font-size: 16px;
+        }
+        
+        .classification-item {
+            padding: 4px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .classification-item:last-child {
+            border-bottom: none;
         }
         
         .loading {
@@ -634,7 +644,7 @@ export class ClassifierEditor extends BaseComponent {
                                         <div class="file-result">
                                             <h4>${fileResult.fileName} Results:</h4>
                                             ${Object.entries(fileResult.results).map(([classifier, score]) => html`
-                                                <div><strong>${classifier}:</strong> ${score}</div>
+                                                <div class="classification-item"><strong>${classifier}:</strong> ${score}</div>
                                             `)}
                                         </div>
                                     `) :
@@ -642,7 +652,7 @@ export class ClassifierEditor extends BaseComponent {
                                     html`
                                         <h4>Classification Results:</h4>
                                         ${Object.entries(this.run_results).map(([classifier, score]) => html`
-                                            <div><strong>${classifier}:</strong> ${score}</div>
+                                            <div class="classification-item"><strong>${classifier}:</strong> ${score}</div>
                                         `)}
                                     `
                                 }

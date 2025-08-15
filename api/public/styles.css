@@ -25,12 +25,73 @@ body {
 .app-container {
     display: flex;
     flex-direction: row;
+    height: 100vh;
+    overflow: hidden;
 }
 .files-widget-container {
-    flex-grow: 1;
-    height: 100vh;
+    flex-shrink: 0;
+    width: 350px;
 }
 .sections {
-    flex-grow: 2;
-    width: 100%;
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* Navigation Menu Styling */
+.navigation-menu {
+    display: flex;
+    background: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+    padding: 0;
+    margin: 0;
+    flex-shrink: 0;
+}
+
+.navigation-menu button {
+    background: #f8f9fa;
+    border: none;
+    padding: 12px 24px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #495057;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    transition: all 0.2s ease;
+    position: relative;
+    margin: 0;
+}
+
+.navigation-menu button:hover {
+    background: #e9ecef;
+    color: #007bff;
+}
+
+.navigation-menu button.active {
+    background: white;
+    color: #007bff;
+    border-bottom-color: #007bff;
+    font-weight: 600;
+}
+
+.navigation-menu button:first-child {
+    margin-left: 0;
+}
+
+.navigation-menu button:last-child {
+    margin-right: auto;
+}
+
+/* Navigation Views Styling */
+.navigation-views {
+    flex-grow: 1;
+    overflow: hidden;
+    background: white;
+}
+
+.navigation-view {
+    height: 100%;
+    overflow: auto;
+    padding: 0;
 }
