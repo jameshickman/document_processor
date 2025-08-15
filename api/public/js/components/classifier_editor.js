@@ -31,10 +31,19 @@ export class ClassifierEditor extends BaseComponent {
         .container {
             display: flex;
             gap: 20px;
-            max-height: 90vh;
+            height: 90vh;
             padding: 10px;
             font-family: Arial, sans-serif;
             overflow: hidden;
+        }
+        
+        .left-column {
+            display: flex;
+            flex-direction: column;
+            max-width: 300px;
+            gap: 20px;
+            height: 100%;
+            min-height: 0; /* Allow flex items to shrink */
         }
         
         .classifier-sets-panel,
@@ -43,12 +52,36 @@ export class ClassifierEditor extends BaseComponent {
         .results-panel {
             border: 2px dashed #333;
             padding: 15px;
-            flex: 1;
-            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            min-height: 0; /* Allow flex items to shrink */
+            height: 100%;
         }
         
-        .classifier-sets-panel {
-            max-width: 300px;
+        .classifier-sets-panel,
+        .classifiers-panel {
+            flex: 1;
+            min-height: 200px; /* Minimum height to ensure visibility */
+        }
+        
+        .terms-panel,
+        .results-panel {
+            flex: 1;
+            height: 100%;
+        }
+        
+        .classifier-sets-list,
+        .classifiers-list,
+        .terms-list,
+        .results-display {
+            flex: 1;
+            overflow-y: auto;
+            min-height: 0; /* Allow scrolling */
+        }
+        
+        .action-buttons {
+            flex-shrink: 0; /* Prevent buttons from being squeezed */
+            margin-top: 10px;
         }
         
         .panel-title {
@@ -234,6 +267,7 @@ export class ClassifierEditor extends BaseComponent {
             padding: 10px 20px;
             font-weight: bold;
             margin-top: 15px;
+            flex-shrink: 0; /* Prevent button from being squeezed */
         }
         
         .run-button:hover {
@@ -510,57 +544,60 @@ export class ClassifierEditor extends BaseComponent {
     render() {
         return html`
             <div class="container">
-                <!-- Classifier Sets Panel -->
-                <div class="classifier-sets-panel">
-                    <h3>Classifier Sets</h3>
-                    
-                    ${this.loading ? html`<div class="loading">Loading...</div>` : ''}
-                    
-                    <div class="classifier-sets-list">
-                        ${this.classifier_sets.map(set => html`
-                            <div 
-                                class="list-item ${this.selected_classifier_set_id === set.id ? 'selected' : ''}"
-                                data-classifier-set-id=${set.id}
-                                @click=${this.#classifier_set_clicked}
-                            >
-                                ${set.name}
-                            </div>
-                        `)}
+                <!-- Left Column: Classifier Sets and Classifiers stacked -->
+                <div class="left-column">
+                    <!-- Classifier Sets Panel -->
+                    <div class="classifier-sets-panel">
+                        <h3>Classifier Sets</h3>
+                        
+                        ${this.loading ? html`<div class="loading">Loading...</div>` : ''}
+                        
+                        <div class="classifier-sets-list">
+                            ${this.classifier_sets.map(set => html`
+                                <div 
+                                    class="list-item ${this.selected_classifier_set_id === set.id ? 'selected' : ''}"
+                                    data-classifier-set-id=${set.id}
+                                    @click=${this.#classifier_set_clicked}
+                                >
+                                    ${set.name}
+                                </div>
+                            `)}
+                        </div>
+                        
+                        <div class="action-buttons">
+                            <button class="btn btn-primary" @click=${this.#create_classifier_set_clicked}>Create new ClassifierSet</button>
+                            <button class="btn" @click=${this.#rename_classifier_set_clicked} ?disabled=${!this.selected_classifier_set_id}>Rename</button>
+                            <button class="btn btn-danger" @click=${this.#delete_classifier_set_clicked} ?disabled=${!this.selected_classifier_set_id}>Delete</button>
+                        </div>
                     </div>
-                    
-                    <div class="action-buttons">
-                        <button class="btn btn-primary" @click=${this.#create_classifier_set_clicked}>Create new ClassifierSet</button>
-                        <button class="btn" @click=${this.#rename_classifier_set_clicked} ?disabled=${!this.selected_classifier_set_id}>Rename</button>
-                        <button class="btn btn-danger" @click=${this.#delete_classifier_set_clicked} ?disabled=${!this.selected_classifier_set_id}>Delete</button>
-                    </div>
-                </div>
 
-                <!-- Classifiers Panel -->
-                <div class="classifiers-panel">
-                    <h3>Classifiers</h3>
-                    
-                    ${!this.current_classifier_set ? 
-                        html`<div class="no-selection">Select a classifier set to view classifiers</div>` :
-                        html`
-                            <div class="classifiers-list">
-                                ${this.current_classifier_set.classifiers?.map(classifier => html`
-                                    <div 
-                                        class="list-item ${this.selected_classifier_id === classifier.id ? 'selected' : ''}"
-                                        data-classifier-id=${classifier.id}
-                                        @click=${this.#classifier_clicked}
-                                    >
-                                        ${classifier.name}
-                                    </div>
-                                `) || ''}
-                            </div>
-                        `
-                    }
-                    
-                    <div class="action-buttons">
-                        <button class="btn btn-primary" @click=${this.#create_classifier_clicked} ?disabled=${!this.current_classifier_set}>New</button>
-                        <button class="btn" @click=${this.#rename_classifier_clicked} ?disabled=${!this.current_classifier}>Rename</button>
-                        <button class="btn btn-danger" @click=${this.#delete_classifier_clicked} ?disabled=${!this.current_classifier}>Delete</button>
-                        <button class="btn" @click=${this.#save_clicked} ?disabled=${!this.current_classifier_set}>Save</button>
+                    <!-- Classifiers Panel -->
+                    <div class="classifiers-panel">
+                        <h3>Classifiers</h3>
+                        
+                        ${!this.current_classifier_set ? 
+                            html`<div class="no-selection">Select a classifier set to view classifiers</div>` :
+                            html`
+                                <div class="classifiers-list">
+                                    ${this.current_classifier_set.classifiers?.map(classifier => html`
+                                        <div 
+                                            class="list-item ${this.selected_classifier_id === classifier.id ? 'selected' : ''}"
+                                            data-classifier-id=${classifier.id}
+                                            @click=${this.#classifier_clicked}
+                                        >
+                                            ${classifier.name}
+                                        </div>
+                                    `) || ''}
+                                </div>
+                            `
+                        }
+                        
+                        <div class="action-buttons">
+                            <button class="btn btn-primary" @click=${this.#create_classifier_clicked} ?disabled=${!this.current_classifier_set}>New</button>
+                            <button class="btn" @click=${this.#rename_classifier_clicked} ?disabled=${!this.current_classifier}>Rename</button>
+                            <button class="btn btn-danger" @click=${this.#delete_classifier_clicked} ?disabled=${!this.current_classifier}>Delete</button>
+                            <button class="btn" @click=${this.#save_clicked} ?disabled=${!this.current_classifier_set}>Save</button>
+                        </div>
                     </div>
                 </div>
 
@@ -621,12 +658,12 @@ export class ClassifierEditor extends BaseComponent {
                                     </div>
                                 `) || ''}
                             </div>
+                            
+                            <div class="action-buttons">
+                                <button class="btn btn-primary" @click=${this.#create_term_clicked} ?disabled=${!this.current_classifier}>Create a new Term</button>
+                            </div>
                         `
                     }
-                    
-                    <div class="action-buttons">
-                        <button class="btn btn-primary" @click=${this.#create_term_clicked} ?disabled=${!this.current_classifier}>Create a new Term</button>
-                    </div>
                 </div>
 
                 <!-- Results Panel -->
@@ -659,8 +696,8 @@ export class ClassifierEditor extends BaseComponent {
                             </div>
                         ` :
                         this.run_results && this.run_results.loading ?
-                        html`<div class="loading">Running classification...</div>` :
-                        html`<div class="no-selection">Run a classifier to see results here</div>`
+                        html`<div class="results-display loading">Running classification...</div>` :
+                        html`<div class="results-display no-selection">Run a classifier to see results here</div>`
                     }
                 </div>
             </div>
