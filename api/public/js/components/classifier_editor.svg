@@ -1,0 +1,373 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="210mm"
+   height="297mm"
+   viewBox="0 0 210 297"
+   version="1.1"
+   id="svg1"
+   inkscape:version="1.4.2 (2aeb623e1d, 2025-05-12)"
+   sodipodi:docname="classifier_editor.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#111111"
+     borderopacity="1"
+     inkscape:showpageshadow="0"
+     inkscape:pageopacity="0"
+     inkscape:pagecheckerboard="1"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="mm"
+     inkscape:zoom="1.52"
+     inkscape:cx="417.43421"
+     inkscape:cy="298.68421"
+     inkscape:window-width="1920"
+     inkscape:window-height="1015"
+     inkscape:window-x="0"
+     inkscape:window-y="37"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1" />
+  <defs
+     id="defs1">
+    <rect
+       x="559.86842"
+       y="35.526316"
+       width="214.47368"
+       height="258.55263"
+       id="rect17" />
+    <rect
+       x="309.86842"
+       y="42.763158"
+       width="208.55263"
+       height="192.76316"
+       id="rect16" />
+    <rect
+       x="313.15789"
+       y="539.47368"
+       width="206.57895"
+       height="16.447368"
+       id="rect15" />
+    <rect
+       x="41.447368"
+       y="547.36842"
+       width="207.89474"
+       height="15.789474"
+       id="rect14" />
+    <rect
+       x="155.92105"
+       y="503.94737"
+       width="94.078947"
+       height="17.763158"
+       id="rect13" />
+    <rect
+       x="40.789474"
+       y="501.97368"
+       width="93.421053"
+       height="18.421053"
+       id="rect12" />
+    <rect
+       x="43.421053"
+       y="458.55263"
+       width="207.23684"
+       height="19.078947"
+       id="rect11" />
+    <rect
+       x="46.710526"
+       y="455.92105"
+       width="202.63158"
+       height="17.105263"
+       id="rect10" />
+    <rect
+       x="44.078947"
+       y="282.89474"
+       width="207.89474"
+       height="138.15789"
+       id="rect8" />
+    <rect
+       x="43.421053"
+       y="419.07895"
+       width="156.57895"
+       height="21.710526"
+       id="rect7" />
+    <rect
+       x="33.552632"
+       y="36.184211"
+       width="209.21053"
+       height="130.26315"
+       id="rect6" />
+    <rect
+       x="39.473684"
+       y="41.447368"
+       width="118.42105"
+       height="287.5"
+       id="rect5" />
+    <rect
+       x="38.815789"
+       y="40.789474"
+       width="118.42105"
+       height="218.42105"
+       id="rect4" />
+  </defs>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <rect
+       style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:0.591892;stroke-dasharray:0.591892, 1.77568;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect1"
+       width="64.849464"
+       height="60.323696"
+       x="5.9572577"
+       y="5.4350538"
+       ry="0" />
+    <rect
+       style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:0.40135;stroke-dasharray:0.40135, 1.20405;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect2"
+       width="58.974369"
+       height="40.32235"
+       x="8.1985359"
+       y="7.7767329" />
+    <rect
+       style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:0.674;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect3"
+       width="56.063953"
+       height="8.8915281"
+       x="8.957468"
+       y="51.952251" />
+    <text
+       xml:space="preserve"
+       transform="scale(0.26458333)"
+       id="text3"
+       style="font-weight:bold;font-size:55.3754px;font-family:Sans;-inkscape-font-specification:'Sans, Bold';text-align:start;writing-mode:lr-tb;direction:ltr;white-space:pre;shape-inside:url(#rect4);display:inline;fill:none;fill-opacity:1;stroke:#000000;stroke-width:1.94268;stroke-dasharray:1.94268, 5.82803;stroke-dashoffset:0;stroke-opacity:1" />
+    <text
+       xml:space="preserve"
+       transform="scale(0.26458333)"
+       id="text4"
+       style="font-weight:bold;font-size:55.3754px;font-family:Sans;-inkscape-font-specification:'Sans, Bold';text-align:start;writing-mode:lr-tb;direction:ltr;white-space:pre;shape-inside:url(#rect5);display:inline;fill:none;fill-opacity:1;stroke:#000000;stroke-width:1.94268;stroke-dasharray:1.94268, 5.82803;stroke-dashoffset:0;stroke-opacity:1" />
+    <text
+       xml:space="preserve"
+       transform="matrix(0.26458333,0,0,0.26458333,0.17406798,0)"
+       id="text5"
+       style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:10.6667px;font-family:Sans;-inkscape-font-specification:'Sans, Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;text-align:start;writing-mode:lr-tb;direction:ltr;white-space:pre;shape-inside:url(#rect6);display:inline;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1.94268;stroke-dasharray:1.94268, 5.82803;stroke-dashoffset:0;stroke-opacity:1"><tspan
+         x="33.552734"
+         y="45.621124"
+         id="tspan1">List of Classifier Sets. Inline </tspan><tspan
+         x="33.552734"
+         y="58.954498"
+         id="tspan2">operations to rename and delete.
+</tspan><tspan
+         x="33.552734"
+         y="72.287872"
+         id="tspan3">
+</tspan><tspan
+         x="33.552734"
+         y="85.621246"
+         id="tspan4">Retrieve from GET:/classifiers/</tspan></text>
+    <text
+       xml:space="preserve"
+       transform="matrix(0.26458333,0,0,0.26458333,6.9627195,-56.398026)"
+       id="text6"
+       style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:10.6667px;font-family:Sans;-inkscape-font-specification:'Sans, Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;text-align:start;writing-mode:lr-tb;direction:ltr;white-space:pre;shape-inside:url(#rect7);display:inline;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1.94268;stroke-dasharray:1.94268, 5.82803;stroke-dashoffset:0;stroke-opacity:1"><tspan
+         x="43.421875"
+         y="428.51565"
+         id="tspan5">Button: Create new </tspan><tspan
+         x="43.421875"
+         y="450.22659"
+         id="tspan11"><tspan
+           dx="0 7.8281498 3.6562614 7.1979389 6.3489799 6.348978 3.6562595 0 7.9062767 7.2343979 5.2604332 7.6823158 7.2343941 5.0989761 3.7135544 7.8281479 3.6562653 7.197937 6.3489761 3.6562653 0 7.9062729 7.2343979 5.260437 3.7135468 7.8281555 3.6562653 7.197937 6.3489685 6.3489838 3.6562653 0 7.9062805 7.2343903 5.260437 3.7135468 7.682312 7.2344055"
+           id="tspan6">ClassifierSet Clasifier Classifier Ser</tspan></tspan></text>
+    <rect
+       style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:0.694562;stroke-dasharray:0.694562, 2.0837;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect1-2"
+       width="64.746796"
+       height="83.197998"
+       x="6.4466271"
+       y="71.22776"
+       ry="0" />
+    <rect
+       style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:0.464258;stroke-dasharray:0.464258, 1.39277;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect2-6"
+       width="58.911461"
+       height="54.010811"
+       x="9.8476458"
+       y="73.264091" />
+    <text
+       xml:space="preserve"
+       transform="scale(0.26458333)"
+       id="text8"
+       style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:10.6667px;font-family:Sans;-inkscape-font-specification:'Sans, Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;text-align:start;writing-mode:lr-tb;direction:ltr;white-space:pre;shape-inside:url(#rect8);display:inline;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1.94268;stroke-dasharray:1.94268, 5.82803;stroke-dashoffset:0;stroke-opacity:1"><tspan
+         x="44.078125"
+         y="292.33206"
+         id="tspan18">List orf Classifiers when a Set </tspan><tspan
+         x="44.078125"
+         y="305.66544"
+         id="tspan19">from above is selected. Inline </tspan><tspan
+         x="44.078125"
+         y="318.99881"
+         id="tspan20">operations to rename and delete.
+</tspan><tspan
+         x="44.078125"
+         y="332.33218"
+         id="tspan21">
+</tspan><tspan
+         x="44.078125"
+         y="345.66556"
+         id="tspan22">The full set of Classifiers is from
+</tspan><tspan
+         x="44.078125"
+         y="358.99893"
+         id="tspan23">GET:/classifiers/{classifiers_id}</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:2.82223px;font-family:Sans;-inkscape-font-specification:'Sans, Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.514001;stroke-dasharray:0.514001, 1.542;stroke-dashoffset:0;stroke-opacity:1"
+       x="35.3358"
+       y="89.122803"
+       id="text9"><tspan
+         sodipodi:role="line"
+         id="tspan9"
+         style="stroke-width:0.514"></tspan></text>
+    <text
+       xml:space="preserve"
+       transform="scale(0.26458333)"
+       id="text10"
+       style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:10.6667px;font-family:Sans;-inkscape-font-specification:'Sans, Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;text-align:start;writing-mode:lr-tb;direction:ltr;white-space:pre;shape-inside:url(#rect10);display:inline;fill:#000000;fill-opacity:1;stroke:none;stroke-width:2.5474;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+    <rect
+       style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:0.358608;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect9-2"
+       width="27.832197"
+       height="7.9884501"
+       x="9.5998631"
+       y="131.343" />
+    <rect
+       style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:0.353114;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect9-2-3"
+       width="26.967352"
+       height="7.9939446"
+       x="40.024197"
+       y="131.17316" />
+    <text
+       xml:space="preserve"
+       transform="scale(0.26458333)"
+       id="text12"
+       style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:10.6667px;font-family:Sans;-inkscape-font-specification:'Sans, Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;text-align:start;writing-mode:lr-tb;direction:ltr;white-space:pre;shape-inside:url(#rect12);display:inline;fill:#000000;fill-opacity:1;stroke:none;stroke-width:2.5474;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"><tspan
+         x="40.789062"
+         y="511.41214"
+         id="tspan24">Button: new</tspan></text>
+    <text
+       xml:space="preserve"
+       transform="scale(0.26458333)"
+       id="text13"
+       style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:10.6667px;font-family:Sans;-inkscape-font-specification:'Sans, Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;text-align:start;writing-mode:lr-tb;direction:ltr;white-space:pre;shape-inside:url(#rect13);display:inline;fill:#000000;fill-opacity:1;stroke:none;stroke-width:2.5474;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"><tspan
+         x="155.92188"
+         y="513.3848"
+         id="tspan25">Button: save</tspan></text>
+    <rect
+       style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:0.514;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect9-3"
+       width="58.312771"
+       height="7.8330588"
+       x="9.0369892"
+       y="142.98578" />
+    <text
+       xml:space="preserve"
+       transform="scale(0.26458333)"
+       id="text14"
+       style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:10.6667px;font-family:Sans;-inkscape-font-specification:'Sans, Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;text-align:start;writing-mode:lr-tb;direction:ltr;white-space:pre;shape-inside:url(#rect14);display:inline;fill:#000000;fill-opacity:1;stroke:none;stroke-width:2.5474;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"><tspan
+         x="41.447266"
+         y="556.80667"
+         id="tspan26">Button: Run against selected files</tspan></text>
+    <rect
+       style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:0.926551;stroke-dasharray:0.926551, 2.77966;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect1-8"
+       width="64.514801"
+       height="148.58963"
+       x="76.781647"
+       y="5.6156874"
+       ry="0" />
+    <rect
+       style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:0.717267;stroke-dasharray:0.717267, 2.1518;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect2-1"
+       width="58.658451"
+       height="129.47737"
+       x="80.053917"
+       y="8.2473946" />
+    <rect
+       style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:0.514;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect9-3-0"
+       width="58.312771"
+       height="7.8330588"
+       x="80.725151"
+       y="141.05014" />
+    <text
+       xml:space="preserve"
+       transform="scale(0.26458333)"
+       id="text15"
+       style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:10.6667px;font-family:Sans;-inkscape-font-specification:'Sans, Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;text-align:start;writing-mode:lr-tb;direction:ltr;white-space:pre;shape-inside:url(#rect15);fill:#000000;fill-opacity:1;stroke:none;stroke-width:2.5474;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"><tspan
+         x="313.1582"
+         y="548.91214"
+         id="tspan27">Button: Create a new Term</tspan></text>
+    <text
+       xml:space="preserve"
+       transform="scale(0.26458333)"
+       id="text16"
+       style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:10.6667px;font-family:Sans;-inkscape-font-specification:'Sans, Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;text-align:start;writing-mode:lr-tb;direction:ltr;white-space:pre;shape-inside:url(#rect16);fill:#000000;fill-opacity:1;stroke:none;stroke-width:2.5474;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"><tspan
+         x="309.86914"
+         y="52.201202"
+         id="tspan28">LIst of Terms within the Classifier.
+</tspan><tspan
+         x="309.86914"
+         y="65.534576"
+         id="tspan29">
+</tspan><tspan
+         x="309.86914"
+         y="78.86795"
+         id="tspan30">Update and Delete operations.
+</tspan><tspan
+         x="309.86914"
+         y="92.201324"
+         id="tspan31">
+</tspan><tspan
+         x="309.86914"
+         y="105.5347"
+         id="tspan32">Term fields:
+</tspan><tspan
+         x="309.86914"
+         y="118.86807"
+         id="tspan33">Text: the term
+</tspan><tspan
+         x="309.86914"
+         y="132.20145"
+         id="tspan34">Integer: distance
+</tspan><tspan
+         x="309.86914"
+         y="145.53482"
+         id="tspan35">Flaot: weight</tspan></text>
+    <rect
+       style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:0.926551;stroke-dasharray:0.926551, 2.77966;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect1-8-4"
+       width="64.514801"
+       height="148.58963"
+       x="144.31305"
+       y="5.483397"
+       ry="0" />
+    <text
+       xml:space="preserve"
+       transform="scale(0.26458333)"
+       id="text17"
+       style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:10.6667px;font-family:Sans;-inkscape-font-specification:'Sans, Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;text-align:start;writing-mode:lr-tb;direction:ltr;white-space:pre;shape-inside:url(#rect17);fill:#000000;fill-opacity:1;stroke:none;stroke-width:2.5474;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"><tspan
+         x="559.86914"
+         y="44.96292"
+         id="tspan36">When a Classifier Set is run against </tspan><tspan
+         x="559.86914"
+         y="58.296294"
+         id="tspan37">a set of selected files display the </tspan><tspan
+         x="559.86914"
+         y="71.629668"
+         id="tspan38">formatted results here.</tspan></text>
+  </g>
+</svg>
