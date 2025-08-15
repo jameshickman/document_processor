@@ -229,6 +229,7 @@ class API_REST {
     }
 
     #call_if_not_in_flight(signature, url, verb, data, headers, is_form, call_params, is_retry) {
+        if (!headers) headers = {};
         if (this.#auth_active) {
             headers['Authorization'] = "Bearer " + this.#bearer_token;
         }
