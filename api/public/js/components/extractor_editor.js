@@ -251,15 +251,26 @@ export class ExtractorEditor extends BaseComponent {
         .run-button {
             background: #28a745;
             color: white;
-            border: none;
+            border: 1px solid #28a745;
             padding: 10px 20px;
             font-weight: bold;
             margin-top: 15px;
             flex-shrink: 0;
+            cursor: pointer;
+            transition: all 0.3s ease;
         }
         
-        .run-button:hover {
+        .run-button:hover:not(:disabled) {
             background: #218838;
+            border-color: #218838;
+        }
+        
+        .run-button:disabled {
+            background: #6c757d;
+            border-color: #6c757d;
+            color: #ffffff;
+            cursor: not-allowed;
+            opacity: 0.6;
         }
     `;
 
