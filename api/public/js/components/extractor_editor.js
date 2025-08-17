@@ -123,13 +123,13 @@ export class ExtractorEditor extends BaseComponent {
         }
         
         .prompt-editor {
-            flex: 1;
+            flex: 0 0 auto;
             margin-bottom: 15px;
         }
         
         .prompt-textarea {
             width: 100%;
-            height: 200px;
+            height: 120px;
             padding: 10px;
             border: 1px solid #ddd;
             border-radius: 3px;
