@@ -17,14 +17,15 @@ export class LoginModal extends BaseComponent {
             justify-content: center;
             align-items: center;
             position: fixed;
-            z-index: 1;
+            z-index: 1000;
             left: 0;
             top: 0;
             width: 100%;
             height: 100%;
             overflow: auto;
-            background-color: rgba(0,0,0,0.4);
+            background-color: rgba(0,0,0,0.5);
             backdrop-filter: blur(10px);
+            font-family: Arial, sans-serif;
         }
         #modal.show {
             display: flex;
@@ -33,23 +34,83 @@ export class LoginModal extends BaseComponent {
             display: none;
         }
         .modal-window {
-            background-color: #fefefe;
-            margin: auto auto;
-            padding: 20px;
-            border: 1px solid #888;
-            max-width: 20rem;
+            background-color: #ffffff;
+            margin: auto;
+            padding: 30px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            max-width: 400px;
+            min-width: 300px;
+            position: relative;
         }
         .modal-header {
-            font-size: 1.2em;
+            font-size: 24px;
             font-weight: bold;
+            color: #333;
+            margin-bottom: 20px;
+            text-align: center;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+        }
+        .modal-body {
+            margin-top: 15px;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
         }
         label {
             display: block;
             margin-bottom: 5px;
+            font-size: 14px;
+            color: #666;
+            font-weight: bold;
         }
-        button {
+        input[type="text"], input[type="password"] {
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+        input[type="text"]:focus, input[type="password"]:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+        }
+        .btn {
+            padding: 10px 20px;
+            border: 1px solid #ccc;
+            background: #fff;
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 14px;
+            transition: all 0.3s ease;
             margin-top: 10px;
-            display: block;
+        }
+        .btn:hover {
+            background: #f0f0f0;
+        }
+        .btn-primary {
+            background: #007bff;
+            color: white;
+            border-color: #007bff;
+            font-weight: bold;
+        }
+        .btn-primary:hover {
+            background: #0056b3;
+            border-color: #0056b3;
+        }
+        #error {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 10px;
+            border: 1px solid #f5c6cb;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            font-size: 14px;
         }
     `;
 
