@@ -11,7 +11,8 @@ export class ClassifierEditor extends BaseComponent {
         selected_classifier_set_id: {type: Number, state: true},
         selected_classifier_id: {type: Number, state: true},
         loading: {type: Boolean, state: true},
-        run_results: {type: Object, state: true}
+        run_results: {type: Object, state: true},
+        results_collapsed: {type: Boolean, state: true}
     };
 
     #currentRunFiles = new Map(); // Map of file ID -> file info
@@ -25,6 +26,7 @@ export class ClassifierEditor extends BaseComponent {
         this.selected_classifier_id = null;
         this.loading = false;
         this.run_results = null;
+        this.results_collapsed = false;
     }
 
     static styles = css`
@@ -67,6 +69,13 @@ export class ClassifierEditor extends BaseComponent {
         .results-panel {
             flex: 1;
             height: 100%;
+            transition: all 0.3s ease;
+        }
+        
+        .results-panel.collapsed {
+            flex: 0 0 40px;
+            min-width: 40px;
+            max-width: 40px;
         }
         
         .classifier-sets-list,
@@ -288,6 +297,50 @@ export class ClassifierEditor extends BaseComponent {
             color: #ffffff;
             cursor: not-allowed;
             opacity: 0.6;
+        }
+        
+        .header-with-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+        
+        .header-with-toggle h3 {
+            margin: 0;
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+        
+        .collapse-toggle {
+            background: #007bff;
+            color: white;
+            border: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+        
+        .collapse-toggle:hover {
+            background: #0056b3;
+        }
+        
+        .results-panel.collapsed {
+            padding: 5px;
+        }
+        
+        .results-panel.collapsed > *:not(.collapse-toggle) {
+            display: none;
+        }
+        
+        .results-panel.collapsed .collapse-toggle {
+            margin: 0 auto;
         }
     `;
 
@@ -533,6 +586,10 @@ export class ClassifierEditor extends BaseComponent {
         }
     }
 
+    #toggle_results_column(e) {
+        this.results_collapsed = !this.results_collapsed;
+    }
+
     async #run_against_files_clicked(e) {
         if (!this.selected_classifier_set_id) {
             alert("Please select a classifier set first");
@@ -711,10 +768,17 @@ export class ClassifierEditor extends BaseComponent {
                 </div>
 
                 <!-- Results Panel -->
-                <div class="results-panel">
-                    <h3>Classification Results</h3>
+                <div class="results-panel ${this.results_collapsed ? 'collapsed' : ''}">
+                    ${!this.results_collapsed ? html`
+                        <div class="header-with-toggle">
+                            <h3>Classification Results</h3>
+                            <button class="collapse-toggle" @click=${this.#toggle_results_column} title="Collapse results">←</button>
+                        </div>` : html`
+                        <button class="collapse-toggle" @click=${this.#toggle_results_column} title="Expand results">→</button>`}
                     
-                    <button class="btn run-button" @click=${this.#run_against_files_clicked} ?disabled=${!this.selected_classifier_set_id}>Run against selected files</button>
+                    ${!this.results_collapsed ? html`
+                        
+                        <button class="btn run-button" @click=${this.#run_against_files_clicked} ?disabled=${!this.selected_classifier_set_id}>Run against selected files</button>
                     
                     ${this.run_results && !this.run_results.loading ? 
                         html`
@@ -739,10 +803,11 @@ export class ClassifierEditor extends BaseComponent {
                                 }
                             </div>
                         ` :
-                        this.run_results && this.run_results.loading ?
-                        html`<div class="results-display loading">Running classification...</div>` :
-                        html`<div class="results-display no-selection">Run a classifier to see results here</div>`
-                    }
+                            this.run_results && this.run_results.loading ?
+                            html`<div class="results-display loading">Running classification...</div>` :
+                            html`<div class="results-display no-selection">Run a classifier to see results here</div>`
+                        }
+                    ` : ''}
                 </div>
             </div>
         `;

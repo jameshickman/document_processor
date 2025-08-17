@@ -9,7 +9,8 @@ export class ExtractorEditor extends BaseComponent {
         current_extractor: {type: Object, state: true},
         selected_extractor_id: {type: Number, state: true},
         loading: {type: Boolean, state: true},
-        run_results: {type: Object, state: true}
+        run_results: {type: Object, state: true},
+        results_collapsed: {type: Boolean, state: true}
     };
     static styles = css`
         .container {
@@ -42,6 +43,13 @@ export class ExtractorEditor extends BaseComponent {
         
         .right-column {
             flex: 1;
+            transition: all 0.3s ease;
+        }
+        
+        .right-column.collapsed {
+            flex: 0 0 40px;
+            min-width: 40px;
+            max-width: 40px;
         }
         
         .panel {
@@ -272,6 +280,50 @@ export class ExtractorEditor extends BaseComponent {
             cursor: not-allowed;
             opacity: 0.6;
         }
+        
+        .header-with-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+        
+        .header-with-toggle h3 {
+            margin: 0;
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+        
+        .collapse-toggle {
+            background: #007bff;
+            color: white;
+            border: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+        
+        .collapse-toggle:hover {
+            background: #0056b3;
+        }
+        
+        .panel.collapsed {
+            padding: 5px;
+        }
+        
+        .panel.collapsed > *:not(.collapse-toggle) {
+            display: none;
+        }
+        
+        .panel.collapsed .collapse-toggle {
+            margin: 0 auto;
+        }
     `;
 
     #currentRunFiles = new Map(); // Map of file ID -> file info
@@ -283,6 +335,7 @@ export class ExtractorEditor extends BaseComponent {
         this.selected_extractor_id = null;
         this.loading = false;
         this.run_results = null;
+        this.results_collapsed = false;
     }
 
     server_interface(api) {
@@ -468,6 +521,10 @@ export class ExtractorEditor extends BaseComponent {
         }
     }
 
+    #toggle_results_column(e) {
+        this.results_collapsed = !this.results_collapsed;
+    }
+
     async #run_against_files_clicked(e) {
         if (!this.selected_extractor_id) {
             alert("Please select an extractor first");
@@ -615,13 +672,20 @@ export class ExtractorEditor extends BaseComponent {
                 </div>
 
                 <!-- Right Column: Testing Area -->
-                <div class="right-column">
-                    <div class="panel">
-                        <h3>Test Extractor</h3>
+                <div class="right-column ${this.results_collapsed ? 'collapsed' : ''}">
+                    <div class="panel ${this.results_collapsed ? 'collapsed' : ''}">
+                        ${!this.results_collapsed ? html`
+                            <div class="header-with-toggle">
+                                <h3>Test Extractor</h3>
+                                <button class="collapse-toggle" @click=${this.#toggle_results_column} title="Collapse results">←</button>
+                            </div>` : html`
+                            <button class="collapse-toggle" @click=${this.#toggle_results_column} title="Expand results">→</button>`}
                         
-                        <button class="btn run-button" @click=${this.#run_against_files_clicked} ?disabled=${!this.selected_extractor_id}>Run against selected files</button>
-                        
-                        ${this.run_results && !this.run_results.loading ? 
+                        ${!this.results_collapsed ? html`
+                            
+                            <button class="btn run-button" @click=${this.#run_against_files_clicked} ?disabled=${!this.selected_extractor_id}>Run against selected files</button>
+                            
+                            ${this.run_results && !this.run_results.loading ? 
                             html`
                                 <div class="results-display">
                                     ${this.run_results.files ? 
@@ -648,10 +712,11 @@ export class ExtractorEditor extends BaseComponent {
                                     }
                                 </div>
                             ` :
-                            this.run_results && this.run_results.loading ?
-                            html`<div class="results-display loading">Running extraction...</div>` :
-                            html`<div class="results-display no-selection">Run an extractor to see results here</div>`
-                        }
+                                this.run_results && this.run_results.loading ?
+                                html`<div class="results-display loading">Running extraction...</div>` :
+                                html`<div class="results-display no-selection">Run an extractor to see results here</div>`
+                            }
+                        ` : ''}
                     </div>
                 </div>
             </div>
