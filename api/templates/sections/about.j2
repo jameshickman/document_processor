@@ -22,6 +22,18 @@
                 <li><strong>Terms:</strong> Keywords and phrases that help identify each category</li>
                 <li><strong>Weights & Distance:</strong> Fine-tune how strictly terms must match</li>
             </ul>
+            
+            <h4>Using Wildcards in Terms</h4>
+            <p>Make your classifier terms more flexible with wildcards:</p>
+            <ul>
+                <li><strong>* (asterisk):</strong> Matches any word or number<br>
+                    <em>Example: "invoice *" matches "invoice 123", "invoice total", "invoice amount"</em></li>
+                <li><strong>? (question mark):</strong> Matches any single word<br>
+                    <em>Example: "contract ?" matches "contract date", "contract terms" but not "contract end date"</em></li>
+                <li><strong># (hash):</strong> Matches any number<br>
+                    <em>Example: "total #" matches "total 1500", "total 99.99" but not "total amount"</em></li>
+            </ul>
+            
             <p>Run classifiers against your files to automatically categorize documents.</p>
         </div>
 
@@ -111,6 +123,14 @@
     margin-top: 25px;
     margin-bottom: 10px;
     font-size: 18px;
+}
+
+.about-page h4 {
+    color: #007bff;
+    margin-top: 20px;
+    margin-bottom: 10px;
+    font-size: 16px;
+    font-weight: 600;
 }
 
 .intro-section {
