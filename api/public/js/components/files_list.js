@@ -7,6 +7,8 @@ export class FilesList extends BaseComponent {
     static properties = {
         files: {type: Array, state: true},
         form_element_file: {type: HTMLElement, state: true},
+        upload_progress: {type: Number, state: true},
+        uploading: {type: Boolean, state: true}
     };
 
     static styles = css`
@@ -98,12 +100,57 @@ export class FilesList extends BaseComponent {
         .upload-form button:hover {
             background: #0056b3;
         }
+        
+        .upload-form button:disabled {
+            background: #6c757d;
+            border-color: #6c757d;
+            cursor: not-allowed;
+        }
+        
+        .progress-container {
+            margin: 10px 0;
+            display: none;
+        }
+        
+        .progress-container.show {
+            display: block;
+        }
+        
+        .progress-bar-wrapper {
+            width: 100%;
+            height: 20px;
+            background-color: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #007bff, #0056b3);
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 10px;
+        }
+        
+        .progress-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 12px;
+            font-weight: bold;
+            color: #333;
+            z-index: 1;
+        }
     `;
 
     constructor() {
         super();
         this.files = [];
         this.form_element_file = null;
+        this.upload_progress = 0;
+        this.uploading = false;
     }
 
     server_interface(api) {
@@ -120,7 +167,10 @@ export class FilesList extends BaseComponent {
         this.server.define_endpoint(
             "/documents",
             (res) => {
+                this.uploading = false;
+                this.upload_progress = 0;
                 this.#get_files();
+                this.requestUpdate();
             },
             HTTP_POST_FORM
         );
@@ -161,13 +211,28 @@ export class FilesList extends BaseComponent {
         if (!this.form_element_file || this.form_element_file.files.length === 0) {
             return;
         }
+        
+        // Start upload with progress tracking
+        this.uploading = true;
+        this.upload_progress = 0;
+        this.requestUpdate();
+        
+        // Use the enhanced call method with progress callback
         this.server.call(
             "/documents",
             HTTP_POST_FORM,
             {
                 file: this.form_element_file
+            },
+            null, // headers
+            null, // path_vars
+            false, // is_retry
+            (percent, loaded, total) => {
+                // Progress callback
+                this.upload_progress = Math.round(percent);
+                this.requestUpdate();
             }
-        )
+        );
     };
 
     render() {
@@ -192,7 +257,15 @@ export class FilesList extends BaseComponent {
                 <div class="upload-form">
                     <form id="upload-form" class="form">
                         <input type="file" name="file" @input=${this.form_element_file_changed} />
-                        <button @click=${this.upload_button_clicked}>Upload</button>
+                        <button @click=${this.upload_button_clicked} ?disabled=${this.uploading}>
+                            ${this.uploading ? 'Uploading...' : 'Upload'}
+                        </button>
+                        <div class="progress-container ${this.uploading ? 'show' : ''}">
+                            <div class="progress-bar-wrapper">
+                                <div class="progress-bar" style="width: ${this.upload_progress}%"></div>
+                                <div class="progress-text">${this.upload_progress}%</div>
+                            </div>
+                        </div>
                     </form>
                 </div>
             </div>
