@@ -39,6 +39,11 @@ export class ExtractorEditor extends BaseComponent {
         .middle-column {
             flex: 1;
             max-width: 500px;
+            transition: all 0.3s ease;
+        }
+        
+        .container:has(.right-column.collapsed) .middle-column {
+            max-width: none;
         }
         
         .right-column {
@@ -677,9 +682,9 @@ export class ExtractorEditor extends BaseComponent {
                         ${!this.results_collapsed ? html`
                             <div class="header-with-toggle">
                                 <h3>Test Extractor</h3>
-                                <button class="collapse-toggle" @click=${this.#toggle_results_column} title="Collapse results">←</button>
+                                <button class="collapse-toggle" @click=${this.#toggle_results_column} title="Collapse results">→</button>
                             </div>` : html`
-                            <button class="collapse-toggle" @click=${this.#toggle_results_column} title="Expand results">→</button>`}
+                            <button class="collapse-toggle" @click=${this.#toggle_results_column} title="Expand results">←</button>`}
                         
                         ${!this.results_collapsed ? html`
                             

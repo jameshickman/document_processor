@@ -78,6 +78,10 @@ export class ClassifierEditor extends BaseComponent {
             max-width: 40px;
         }
         
+        .container:has(.results-panel.collapsed) .terms-panel {
+            flex: 2;
+        }
+        
         .classifier-sets-list,
         .classifiers-list,
         .terms-list,
@@ -772,9 +776,9 @@ export class ClassifierEditor extends BaseComponent {
                     ${!this.results_collapsed ? html`
                         <div class="header-with-toggle">
                             <h3>Classification Results</h3>
-                            <button class="collapse-toggle" @click=${this.#toggle_results_column} title="Collapse results">←</button>
+                            <button class="collapse-toggle" @click=${this.#toggle_results_column} title="Collapse results">→</button>
                         </div>` : html`
-                        <button class="collapse-toggle" @click=${this.#toggle_results_column} title="Expand results">→</button>`}
+                        <button class="collapse-toggle" @click=${this.#toggle_results_column} title="Expand results">←</button>`}
                     
                     ${!this.results_collapsed ? html`
                         
