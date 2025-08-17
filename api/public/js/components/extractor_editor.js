@@ -205,6 +205,9 @@ export class ExtractorEditor extends BaseComponent {
             flex: 1;
             overflow-y: auto;
             min-height: 0;
+            max-width: 100%;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
         }
         
         .file-result {
@@ -213,6 +216,8 @@ export class ExtractorEditor extends BaseComponent {
             background: white;
             border: 1px solid #ddd;
             border-radius: 3px;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
         }
         
         .file-result h4 {

@@ -221,6 +221,10 @@ export class ClassifierEditor extends BaseComponent {
             padding: 15px;
             border-radius: 5px;
             margin-top: 10px;
+            max-width: 100%;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            overflow-x: auto;
         }
         
         .file-result {
@@ -229,6 +233,8 @@ export class ClassifierEditor extends BaseComponent {
             background: white;
             border: 1px solid #ddd;
             border-radius: 3px;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
         }
         
         .file-result h4 {

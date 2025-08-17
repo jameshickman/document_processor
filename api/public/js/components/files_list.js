@@ -8,7 +8,8 @@ export class FilesList extends BaseComponent {
         files: {type: Array, state: true},
         form_element_file: {type: HTMLElement, state: true},
         upload_progress: {type: Number, state: true},
-        uploading: {type: Boolean, state: true}
+        uploading: {type: Boolean, state: true},
+        has_selected_files: {type: Boolean, state: true}
     };
 
     static styles = css`
@@ -144,19 +145,30 @@ export class FilesList extends BaseComponent {
             z-index: 1;
         }
         
-        .delete-btn {
+        .delete-selected-btn {
             background: #dc3545;
             color: white;
-            border: none;
-            padding: 4px 8px;
-            font-size: 12px;
+            border: 1px solid #dc3545;
+            padding: 8px 16px;
+            font-size: 14px;
             border-radius: 3px;
             cursor: pointer;
-            margin-left: 8px;
+            margin-top: 10px;
+            width: 100%;
+            font-weight: bold;
+            transition: all 0.3s ease;
         }
         
-        .delete-btn:hover {
+        .delete-selected-btn:hover:not(:disabled) {
             background: #c82333;
+            border-color: #c82333;
+        }
+        
+        .delete-selected-btn:disabled {
+            background: #6c757d;
+            border-color: #6c757d;
+            cursor: not-allowed;
+            opacity: 0.6;
         }
     `;
 
@@ -166,6 +178,7 @@ export class FilesList extends BaseComponent {
         this.form_element_file = null;
         this.upload_progress = 0;
         this.uploading = false;
+        this.has_selected_files = false;
     }
 
     server_interface(api) {
@@ -216,6 +229,11 @@ export class FilesList extends BaseComponent {
         return selected_files;
     };
 
+    #update_selection_state() {
+        const els_selected_files = this.renderRoot.querySelectorAll("#files-list input[type=checkbox]:checked");
+        this.has_selected_files = els_selected_files.length > 0;
+    };
+
     #get_files() {
         this.server.call(
             "/documents",
@@ -231,13 +249,29 @@ export class FilesList extends BaseComponent {
         this.form_element_file = e.target;
     };
 
-    #delete_file_clicked(e) {
-        e.stopPropagation(); // Prevent checkbox toggle
-        const fileId = e.target.dataset.fileId;
-        const fileName = e.target.dataset.fileName;
+    file_item_clicked(e) {
+        // Update selection state when checkbox is clicked
+        setTimeout(() => this.#update_selection_state(), 0);
+    };
+
+    #delete_selected_clicked(e) {
+        const selectedFiles = this.get_selected_files();
         
-        if (confirm(`Are you sure you want to delete "${fileName}"?`)) {
-            this.server.call("/documents/{id}", HTTP_DELETE, null, null, {id: fileId});
+        if (selectedFiles.length === 0) {
+            alert("Please select files to delete");
+            return;
+        }
+        
+        const fileNames = selectedFiles.map(f => f.name).join(", ");
+        const confirmMessage = selectedFiles.length === 1 
+            ? `Are you sure you want to delete "${fileNames}"?`
+            : `Are you sure you want to delete ${selectedFiles.length} files: ${fileNames}?`;
+        
+        if (confirm(confirmMessage)) {
+            // Delete each selected file
+            selectedFiles.forEach(file => {
+                this.server.call("/documents/{id}", HTTP_DELETE, null, null, {id: file.id});
+            });
         }
     };
 
@@ -285,13 +319,6 @@ export class FilesList extends BaseComponent {
                                         @click=${this.file_item_clicked} 
                                 />
                                 <label for="check_${f.id}">${f.name}</label>
-                                <button 
-                                    class="delete-btn"
-                                    data-file-id="${f.id}"
-                                    data-file-name="${f.name}"
-                                    @click=${this.#delete_file_clicked}
-                                    title="Delete file"
-                                >✕</button>
                             </nobr>
                         </li>
                     `)}
@@ -309,6 +336,13 @@ export class FilesList extends BaseComponent {
                             </div>
                         </div>
                     </form>
+                    <button 
+                        class="delete-selected-btn"
+                        @click=${this.#delete_selected_clicked}
+                        ?disabled=${!this.has_selected_files}
+                    >
+                        Delete Selected Files
+                    </button>
                 </div>
             </div>
         `;
