@@ -1,4 +1,161 @@
 <main class="about-page">
-    <h1>About</h1>
-    <p>This is a simple document management interface.</p>
+    <h1>Welcome to Document Processor</h1>
+    
+    <div class="intro-section">
+        <p>Document Processor is a powerful AI-driven platform that helps you automatically classify and extract information from your documents. Upload documents and use AI to analyze their content with custom classifiers and extractors.</p>
+    </div>
+
+    <div class="getting-started">
+        <h2>Getting Started</h2>
+        
+        <div class="step">
+            <h3>1. Upload Your Documents</h3>
+            <p>Use the <strong>Files List</strong> panel on the left to upload documents (PDF, Word, text files, etc.). Your uploaded files will appear in the list where you can select them for processing.</p>
+        </div>
+
+        <div class="step">
+            <h3>2. Create Classifiers</h3>
+            <p>Go to the <strong>Classifiers</strong> tab to create document classification rules:</p>
+            <ul>
+                <li><strong>Classifier Sets:</strong> Groups of related classification categories</li>
+                <li><strong>Categories:</strong> Individual classification types (e.g., "Invoice", "Contract", "Report")</li>
+                <li><strong>Terms:</strong> Keywords and phrases that help identify each category</li>
+                <li><strong>Weights & Distance:</strong> Fine-tune how strictly terms must match</li>
+            </ul>
+            <p>Run classifiers against your files to automatically categorize documents.</p>
+        </div>
+
+        <div class="step">
+            <h3>3. Build Extractors</h3>
+            <p>Visit the <strong>Extractors</strong> tab to create information extraction tools:</p>
+            <ul>
+                <li><strong>Prompt:</strong> Describe what information you want to extract</li>
+                <li><strong>Fields:</strong> Define specific data points to extract (names, dates, amounts, etc.)</li>
+                <li><strong>Testing:</strong> Run extractors against selected files to pull out structured data</li>
+            </ul>
+            <p>Perfect for extracting key information like invoice amounts, contract dates, or contact details.</p>
+        </div>
+    </div>
+
+    <div class="tips-section">
+        <h2>Pro Tips</h2>
+        <ul>
+            <li><strong>Start Simple:</strong> Begin with basic classifiers and extractors, then refine them based on results</li>
+            <li><strong>Use Multiple Files:</strong> Test your tools against several documents to ensure accuracy</li>
+            <li><strong>Iterate:</strong> Adjust terms, prompts, and fields based on the results you see</li>
+            <li><strong>Collapse Results:</strong> Use the arrow buttons to hide result panels when editing</li>
+            <li><strong>Bulk Operations:</strong> Select multiple files to process them all at once</li>
+        </ul>
+    </div>
+
+    <div class="workflow-section">
+        <h2>Typical Workflow</h2>
+        <ol>
+            <li>Upload a batch of documents you want to process</li>
+            <li>Create a classifier to categorize document types</li>
+            <li>Run the classifier to see how well it identifies your document categories</li>
+            <li>Create extractors for each document type to pull out specific information</li>
+            <li>Test and refine your extractors until they capture the data you need</li>
+            <li>Process new documents using your trained classifiers and extractors</li>
+        </ol>
+    </div>
+
+    <div class="help-section">
+        <h2>Need Help?</h2>
+        <p>If you encounter any issues or have questions about using Document Processor, don't hesitate to reach out for support. The system is designed to learn and improve with your feedback.</p>
+    </div>
 </main>
+
+<style>
+/* Force absolute positioning for all navigation views to ensure proper scrolling */
+.navigation-views {
+    position: relative !important;
+}
+
+.navigation-view {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    padding: 0 !important;
+}
+
+.navigation-view[data-name="about"] .about-page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    line-height: 1.6;
+    color: #333;
+    min-height: 100%;
+}
+
+.about-page h1 {
+    color: #007bff;
+    border-bottom: 3px solid #007bff;
+    padding-bottom: 10px;
+    margin-bottom: 30px;
+}
+
+.about-page h2 {
+    color: #007bff;
+    margin-top: 40px;
+    margin-bottom: 20px;
+    font-size: 24px;
+}
+
+.about-page h3 {
+    color: #333;
+    margin-top: 25px;
+    margin-bottom: 10px;
+    font-size: 18px;
+}
+
+.intro-section {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 30px;
+    border-left: 4px solid #007bff;
+}
+
+.intro-section p {
+    margin: 0;
+    font-size: 18px;
+}
+
+.step {
+    margin-bottom: 30px;
+    padding: 20px;
+    background: #ffffff;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+}
+
+.step h3 {
+    margin-top: 0;
+    color: #007bff;
+}
+
+.tips-section, .workflow-section, .help-section {
+    background: #f8f9fa;
+    padding: 25px;
+    border-radius: 8px;
+    margin-bottom: 25px;
+}
+
+.about-page ul, .about-page ol {
+    padding-left: 25px;
+}
+
+.about-page li {
+    margin-bottom: 8px;
+}
+
+strong {
+    color: #007bff;
+    font-weight: 600;
+}
+</style>
