@@ -82,7 +82,12 @@ def get_extractor(
     ).first()
     if db_extractor is None:
         raise HTTPException(status_code=404, detail="Extractor not found")
-    return db_extractor
+    return {
+        "name": db_extractor.name,
+        "id": db_extractor.id,
+        "prompt": db_extractor.prompt,
+        "fields": [{"name": field.name, "description": field.description} for field in db_extractor.fields]
+    }
 
 @router.get("/run/{extractor_id}/{document_id}")
 def run_extractor(
