@@ -181,10 +181,11 @@ class API_REST {
      * @param {object} headers          Headers, key:value.
      * @param {object} path_vars        Values to inject into route.
      * @param {boolean} is_retry        Internal flag to prevent caching retry attempts.
+     * @param {function} onProgress     Optional progress callback for HTTP_POST_FORM (percent, loaded, total).
      * @returns {boolean}               If initiating a network transaction, true.
      *                                  Else if an identical request in progress, false.
      */
-    call(signature, http_verb, data, headers, path_vars, is_retry = false) {
+    call(signature, http_verb, data, headers, path_vars, is_retry = false, onProgress = null) {
         if (http_verb === undefined) {
             http_verb = "get";
         }
@@ -205,16 +206,16 @@ class API_REST {
             
             switch(http_verb) {
                 case HTTP_POST_FORM:
-                    return this.#call_if_not_in_flight(signature_key, url, "POST", data, headers, true, call_params, is_retry);
+                    return this.#call_if_not_in_flight(signature_key, url, "POST", data, headers, true, call_params, is_retry, onProgress);
                 case HTTP_POST_JSON:
-                    return this.#call_if_not_in_flight(signature_key, url, "POST", data, headers, false, call_params, is_retry);
+                    return this.#call_if_not_in_flight(signature_key, url, "POST", data, headers, false, call_params, is_retry, undefined);
                 case HTTP_DELETE:
-                    return this.#call_if_not_in_flight(signature_key, url, "DELETE", null, headers, false, call_params, is_retry);
+                    return this.#call_if_not_in_flight(signature_key, url, "DELETE", null, headers, false, call_params, is_retry, undefined);
                 case HTTP_PUT:
-                    return this.#call_if_not_in_flight(signature_key, url, "PUT", data, headers, false, call_params, is_retry);
+                    return this.#call_if_not_in_flight(signature_key, url, "PUT", data, headers, false, call_params, is_retry, undefined);
                 default:
                     // HTTP_GET
-                    return this.#call_if_not_in_flight(signature_key, url, "GET", null, headers, false, call_params, is_retry);
+                    return this.#call_if_not_in_flight(signature_key, url, "GET", null, headers, false, call_params, is_retry, undefined);
             }
         }
         throw new Error(signature_key + " has not been defined.");
@@ -228,7 +229,7 @@ class API_REST {
         return path;
     }
 
-    #call_if_not_in_flight(signature, url, verb, data, headers, is_form, call_params, is_retry) {
+    #call_if_not_in_flight(signature, url, verb, data, headers, is_form, call_params, is_retry, onProgress) {
         if (!headers) headers = {};
         if (this.#auth_active) {
             headers['Authorization'] = "Bearer " + this.#bearer_token;
@@ -243,6 +244,12 @@ class API_REST {
                 launch: () => {
                     const controller = new AbortController();
                     const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+                    
+                    // Use XMLHttpRequest for form uploads with progress, otherwise use fetch
+                    if (is_form && onProgress && typeof onProgress === 'function') {
+                        this.#xhr_request(url, verb, data, headers, callbacks_key, onProgress, timeoutId, call_params, is_retry);
+                        return; // XMLHttpRequest handles its own flow
+                    }
                     
                     fetch(this.#build_request(url, verb, data, headers, is_form, controller.signal))
                     .then(async (response) => {
@@ -353,6 +360,137 @@ class API_REST {
         return true;
     }
 
+    #xhr_request(url, verb, data, headers, callbacks_key, onProgress, timeoutId, call_params, is_retry) {
+        const xhr = new XMLHttpRequest();
+        
+        // Set up progress tracking
+        xhr.upload.addEventListener('progress', (event) => {
+            if (event.lengthComputable) {
+                const percentComplete = (event.loaded / event.total) * 100;
+                onProgress(percentComplete, event.loaded, event.total);
+            }
+        });
+        
+        // Set up response handlers
+        xhr.addEventListener('load', () => {
+            clearTimeout(timeoutId);
+            
+            if (xhr.status >= 200 && xhr.status < 300) {
+                // Success - handle retry completion tracking
+                if (is_retry) {
+                    this.#pending_retries--;
+                    if (this.#pending_retries <= 0) {
+                        // All retries completed successfully
+                        this.#is_refreshing_auth = false;
+                        this.#auth_retry_count = 0;
+                        this.#pending_retries = 0;
+                    }
+                } else if (!this.#is_refreshing_auth) {
+                    // Regular successful call, reset retry count
+                    this.#auth_retry_count = 0;
+                }
+                
+                try {
+                    const payload = JSON.parse(xhr.responseText);
+                    for (const cb of this.#operations[callbacks_key]) {
+                        cb(payload);
+                    }
+                } catch (json_error) {
+                    console.log(json_error);
+                }
+            } else if (xhr.status === 401 && this.#cb_revalidate && !is_retry) {
+                // Handle authentication errors properly
+                if (this.#auth_retry_count < this.#max_auth_retries) {
+                    // Cache this specific failed request for retry (with deduplication)
+                    this.#cache_failed_call(call_params);
+                    
+                    // Only start auth refresh if not already in progress
+                    if (!this.#is_refreshing_auth) {
+                        this.#auth_retry_count++;
+                        this.#is_refreshing_auth = true;
+                        
+                        this.#cb_revalidate(this, {status: xhr.status, statusText: xhr.statusText})
+                        .catch(auth_error => {
+                            this.#clear_auth_state();
+                            this.#error_handler(auth_error);
+                        });
+                    }
+                    return;
+                } else {
+                    this.#clear_auth_state();
+                    this.#error_handler(new Error("Maximum authentication retries exceeded"));
+                    return;
+                }
+            } else {
+                // Handle retry completion tracking on non-auth errors
+                if (is_retry) {
+                    this.#pending_retries--;
+                    if (this.#pending_retries <= 0) {
+                        this.#is_refreshing_auth = false;
+                        this.#pending_retries = 0;
+                    }
+                }
+                
+                // Handle other HTTP errors
+                this.#error_handler({status: xhr.status, statusText: xhr.statusText});
+            }
+            this.#purge();
+        });
+        
+        xhr.addEventListener('error', () => {
+            clearTimeout(timeoutId);
+            this.#purge();
+            
+            // Handle retry completion tracking on error
+            if (is_retry) {
+                this.#pending_retries--;
+                if (this.#pending_retries <= 0) {
+                    this.#is_refreshing_auth = false;
+                    this.#pending_retries = 0;
+                }
+            }
+            
+            this.#error_handler(new Error('Network error'));
+        });
+        
+        xhr.addEventListener('abort', () => {
+            clearTimeout(timeoutId);
+            this.#purge();
+            this.#error_handler(new Error("Request timeout"));
+        });
+        
+        // Prepare form data
+        const formData = new FormData();
+        for (const key in data) {
+            if (data[key] instanceof HTMLInputElement && data[key].type === 'file') {
+                const fileInput = data[key];
+                if (fileInput.files && fileInput.files.length > 0) {
+                    for (let i = 0; i < fileInput.files.length; i++) {
+                        formData.append(key, fileInput.files[i]);
+                    }
+                }
+            } else {
+                formData.append(key, data[key]);
+            }
+        }
+        
+        // Open request
+        xhr.open(verb, url, true);
+        
+        // Set headers including Authorization if available
+        for (const headerName in headers) {
+            if (headerName.toLowerCase() !== 'content-type') {
+                xhr.setRequestHeader(headerName, headers[headerName]);
+            }
+        }
+        
+        // Set timeout
+        xhr.timeout = 30000;
+        
+        // Send request
+        xhr.send(formData);
+    }
+
     #build_request(url, verb, data, headers, is_form, signal) {
         if (!is_form && data) {
             headers['Content-Type'] = 'application/json';
@@ -401,6 +539,7 @@ class API_REST {
         }
         //console.log(this.#in_flight);
     }
+
 
     /**
      * Download any file type
