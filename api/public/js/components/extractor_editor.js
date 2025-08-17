@@ -1,5 +1,5 @@
 import {BaseComponent} from '../lib/component_base.js';
-import { HTTP_GET, HTTP_POST_JSON } from "../lib/API.js";
+import { HTTP_GET, HTTP_POST_JSON, HTTP_DELETE } from "../lib/API.js";
 import {multicall} from '../lib/jsum.js';
 import {html, css} from "lit";
 
@@ -335,6 +335,18 @@ export class ExtractorEditor extends BaseComponent {
             },
             HTTP_GET
         );
+        
+        // Delete extractor endpoint
+        this.server.define_endpoint(
+            "/extractors/{id}",
+            (resp) => {
+                this.current_extractor = null;
+                this.selected_extractor_id = null;
+                this.#load_extractors();
+                this.requestUpdate();
+            },
+            HTTP_DELETE
+        );
     }
 
     login_success() {
@@ -372,6 +384,15 @@ export class ExtractorEditor extends BaseComponent {
             if (newName && newName !== currentName) {
                 const updatedExtractor = {...this.current_extractor, name: newName};
                 this.server.call("/extractors/{id}", HTTP_POST_JSON, updatedExtractor, null, {id: this.selected_extractor_id});
+            }
+        }
+    }
+
+    #delete_extractor_clicked(e) {
+        if (this.selected_extractor_id) {
+            const extractorName = this.extractors.find(e => e.id === this.selected_extractor_id)?.name || "this extractor";
+            if (confirm(`Are you sure you want to delete "${extractorName}"? This action cannot be undone.`)) {
+                this.server.call("/extractors/{id}", HTTP_DELETE, null, null, {id: this.selected_extractor_id});
             }
         }
     }
@@ -505,6 +526,7 @@ export class ExtractorEditor extends BaseComponent {
                         <div class="action-buttons">
                             <button class="btn btn-primary" @click=${this.#create_extractor_clicked}>Create New</button>
                             <button class="btn" @click=${this.#rename_extractor_clicked} ?disabled=${!this.selected_extractor_id}>Rename</button>
+                            <button class="btn btn-danger" @click=${this.#delete_extractor_clicked} ?disabled=${!this.selected_extractor_id}>Delete</button>
                         </div>
                     </div>
                 </div>

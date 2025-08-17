@@ -1,5 +1,5 @@
 import {BaseComponent} from '../lib/component_base.js';
-import { HTTP_GET, HTTP_POST_JSON } from "../lib/API.js";
+import { HTTP_GET, HTTP_POST_JSON, HTTP_DELETE } from "../lib/API.js";
 import {multicall} from '../lib/jsum.js';
 import {html, css} from "lit";
 
@@ -344,6 +344,20 @@ export class ClassifierEditor extends BaseComponent {
             },
             HTTP_GET
         );
+        
+        // Delete classifier set endpoint
+        this.server.define_endpoint(
+            "/classifiers/{id}",
+            (resp) => {
+                this.current_classifier_set = null;
+                this.current_classifier = null;
+                this.selected_classifier_set_id = null;
+                this.selected_classifier_id = null;
+                this.#load_classifier_sets();
+                this.requestUpdate();
+            },
+            HTTP_DELETE
+        );
     }
 
     login_success() {
@@ -386,9 +400,11 @@ export class ClassifierEditor extends BaseComponent {
     }
 
     #delete_classifier_set_clicked(e) {
-        if (this.selected_classifier_set_id && confirm("Delete this classifier set?")) {
-            // Implementation would depend on DELETE endpoint
-            console.log("Delete classifier set", this.selected_classifier_set_id);
+        if (this.selected_classifier_set_id) {
+            const setName = this.classifier_sets.find(s => s.id === this.selected_classifier_set_id)?.name || "this classifier set";
+            if (confirm(`Are you sure you want to delete "${setName}"? This action cannot be undone.`)) {
+                this.server.call("/classifiers/{id}", HTTP_DELETE, null, null, {id: this.selected_classifier_set_id});
+            }
         }
     }
 

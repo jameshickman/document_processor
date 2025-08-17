@@ -1,5 +1,5 @@
 import {BaseComponent} from '../lib/component_base.js';
-import { HTTP_GET, HTTP_POST_FORM } from "../lib/API.js";
+import { HTTP_GET, HTTP_POST_FORM, HTTP_DELETE } from "../lib/API.js";
 import {multicall} from '../lib/jsum.js';
 import {html, css} from "lit";
 
@@ -143,6 +143,21 @@ export class FilesList extends BaseComponent {
             color: #333;
             z-index: 1;
         }
+        
+        .delete-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            font-size: 12px;
+            border-radius: 3px;
+            cursor: pointer;
+            margin-left: 8px;
+        }
+        
+        .delete-btn:hover {
+            background: #c82333;
+        }
     `;
 
     constructor() {
@@ -174,6 +189,16 @@ export class FilesList extends BaseComponent {
             },
             HTTP_POST_FORM
         );
+        
+        // Delete document endpoint
+        this.server.define_endpoint(
+            "/documents/{id}",
+            (res) => {
+                this.#get_files();
+                this.requestUpdate();
+            },
+            HTTP_DELETE
+        );
     };
 
     get_selected_files() {
@@ -204,6 +229,16 @@ export class FilesList extends BaseComponent {
 
     form_element_file_changed(e) {
         this.form_element_file = e.target;
+    };
+
+    #delete_file_clicked(e) {
+        e.stopPropagation(); // Prevent checkbox toggle
+        const fileId = e.target.dataset.fileId;
+        const fileName = e.target.dataset.fileName;
+        
+        if (confirm(`Are you sure you want to delete "${fileName}"?`)) {
+            this.server.call("/documents/{id}", HTTP_DELETE, null, null, {id: fileId});
+        }
     };
 
     upload_button_clicked(e) {
@@ -250,6 +285,13 @@ export class FilesList extends BaseComponent {
                                         @click=${this.file_item_clicked} 
                                 />
                                 <label for="check_${f.id}">${f.name}</label>
+                                <button 
+                                    class="delete-btn"
+                                    data-file-id="${f.id}"
+                                    data-file-name="${f.name}"
+                                    @click=${this.#delete_file_clicked}
+                                    title="Delete file"
+                                >✕</button>
                             </nobr>
                         </li>
                     `)}
