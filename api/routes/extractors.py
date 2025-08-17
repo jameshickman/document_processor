@@ -126,4 +126,4 @@ def run_extractor(
     )
 
     result = fact_extractor.extract_facts(document_text, extraction_query)
-    return result
+    return {"id": extractor_id, "document_id": document_id, "result": result}
