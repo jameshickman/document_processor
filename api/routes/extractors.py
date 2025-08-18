@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
 from api import models
@@ -9,6 +10,12 @@ from lib.fact_extractor.fact_extractor import FactExtractor
 from lib.fact_extractor.models import ExtractionQuery
 from api.util.llm_config import llm_config
 from api.dependencies import get_current_user_info
+from api.util.import_export import (
+    export_extractor_to_yaml, 
+    import_extractor_from_yaml,
+    create_extractor_with_fields,
+    create_extractor_fields
+)
 
 router = APIRouter()
 
@@ -32,10 +39,9 @@ def create_or_update_extractor(
     """
     if extractor_id == 0:
         # Create new extractor
-        db_extractor = models.Extractor(name=extractor.name, prompt=extractor.prompt, account_id=user.user_id)
-        db.add(db_extractor)
-        db.commit()
-        db.refresh(db_extractor)
+        fields_data = [{'name': f.name, 'description': f.description} for f in extractor.fields]
+        extractor_id = create_extractor_with_fields(db, extractor.name, extractor.prompt, user.user_id, fields_data)
+        return {"id": extractor_id}
     else:
         # Update existing extractor
         db_extractor = db.query(models.Extractor).filter(
@@ -51,12 +57,11 @@ def create_or_update_extractor(
         # Delete existing fields
         db.query(models.ExtractorField).filter(models.ExtractorField.extractor_id == extractor_id).delete()
         db.commit()
-    
-    # Add new fields
-    for field in extractor.fields:
-        db_field = models.ExtractorField(**field.model_dump(), extractor_id=db_extractor.id)
-        db.add(db_field)
-    db.commit()
+        
+        # Add new fields using utility function
+        fields_data = [{'name': f.name, 'description': f.description} for f in extractor.fields]
+        create_extractor_fields(db, db_extractor.id, fields_data)
+        
     return {"id": db_extractor.id}
 
 @router.get("/")
@@ -152,3 +157,53 @@ def run_extractor(
 
     result = fact_extractor.extract_facts(document_text, extraction_query)
     return {"id": extractor_id, "document_id": document_id, "result": result}
+
+
+@router.get("/export/{extractor_id}")
+def export_extractor(
+        extractor_id: int,
+        db: Session = Depends(get_db),
+        user = Depends(get_current_user_info)):
+    """
+    Export an extractor configuration as a YAML file.
+    """
+    yaml_content = export_extractor_to_yaml(db, extractor_id, user.user_id)
+    
+    # Get the extractor name for the filename
+    db_extractor = db.query(models.Extractor).filter(
+        and_(
+            models.Extractor.id == extractor_id,
+            models.Extractor.account_id == user.user_id
+        )
+    ).first()
+    
+    if db_extractor is None:
+        raise HTTPException(status_code=404, detail="Extractor not found")
+    
+    filename = f"{db_extractor.name.replace(' ', '_')}_extractor.yaml"
+    
+    return PlainTextResponse(
+        content=yaml_content,
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+@router.post("/import")
+async def import_extractor(
+        file: UploadFile = File(...),
+        db: Session = Depends(get_db),
+        user = Depends(get_current_user_info)):
+    """
+    Import an extractor configuration from a YAML file.
+    """
+    if not file.filename.endswith(('.yaml', '.yml')):
+        raise HTTPException(status_code=400, detail="File must be a YAML file (.yaml or .yml)")
+    
+    try:
+        content = await file.read()
+        yaml_content = content.decode('utf-8')
+    except UnicodeDecodeError:
+        raise HTTPException(status_code=400, detail="File must be valid UTF-8 text")
+    
+    extractor_id = import_extractor_from_yaml(db, yaml_content, user.user_id)
+    
+    return {"success": True, "extractor_id": extractor_id, "message": "Extractor imported successfully"}

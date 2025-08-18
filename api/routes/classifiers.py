@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi.responses import PlainTextResponse
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
@@ -8,6 +9,13 @@ from pydantic import BaseModel
 from typing import List
 from lib.classifier import document_classifier_simple
 from api.dependencies import get_current_user_info
+from api.util.import_export import (
+    export_classifier_to_yaml, 
+    import_classifier_from_yaml,
+    create_classifier_set_with_classifiers,
+    create_classifiers_with_terms,
+    insert_classifier_terms
+)
 
 router = APIRouter()
 
@@ -35,45 +43,22 @@ def create_or_update_classifier(
     """
     if classifiers_id == 0:
         # Create new classifier set
-        classifier_set = models.ClassifierSet(
-            name=classifier.name,
-            account_id=user.user_id
-        )
-        db.add(classifier_set)
-        db.commit()
-        db.refresh(classifier_set)
-        set_id = classifier_set.id
-        create_doc_classes_set(db, set_id, classifier.classifiers)
-        classifiers_id = classifier_set.id
+        classifiers_data = [{'name': c.name, 'terms': c.terms} for c in classifier.classifiers]
+        classifiers_id = create_classifier_set_with_classifiers(db, classifier.name, user.user_id, classifiers_data)
     else:
         # Update existing classifier
         q = text("DELETE FROM classifiers WHERE classifier_set = :id")
         db.execute(q, {"id": classifiers_id})
         db.commit()
-        classifier_set = db.query(models.Classifier).filter(models.Classifier.id == classifiers_id).first()
+        classifier_set = db.query(models.ClassifierSet).filter(models.ClassifierSet.id == classifiers_id).first()
         classifier_set.name = classifier.name
         db.add(classifier_set)
         db.commit()
-        create_doc_classes_set(db, classifiers_id, classifier.classifiers)
+        classifiers_data = [{'name': c.name, 'terms': c.terms} for c in classifier.classifiers]
+        create_classifiers_with_terms(db, classifiers_id, classifiers_data)
 
     return {"id": classifiers_id}
 
-def create_doc_classes_set(db: Session, set_id: int, doc_classes: list[Classifier]):
-    for doc_type in doc_classes:
-        doc_classification = models.Classifier()
-        doc_classification.name = doc_type.name
-        doc_classification.classifier_set = set_id
-        db.add(doc_classification)
-        db.commit()
-        insert_terms(db, doc_classification.id, doc_type.terms)
-    pass
-
-def insert_terms(db: Session, doc_class_id: int, terms: List[ClassifierTerm]):
-    for term in terms:
-        classifier_term = models.ClassifierTerm(term=term.term, distance=term.distance, weight=term.weight, classifier_id=doc_class_id)
-        db.add(classifier_term)
-        db.commit()
-    pass
 
 @router.get("/")
 def list_classifiers(
@@ -233,3 +218,52 @@ def run_classifier(
     }
     
     return response
+
+@router.get("/export/{classifier_set_id}")
+def export_classifier(
+        classifier_set_id: int,
+        db: Session = Depends(get_db),
+        user = Depends(get_current_user_info)):
+    """
+    Export a classifier set configuration as a YAML file.
+    """
+    yaml_content = export_classifier_to_yaml(db, classifier_set_id, user.user_id)
+    
+    # Get the classifier set name for the filename
+    classifier_set = db.query(models.ClassifierSet).filter(
+        and_(
+            models.ClassifierSet.id == classifier_set_id,
+            models.ClassifierSet.account_id == user.user_id
+        )
+    ).first()
+    
+    if classifier_set is None:
+        raise HTTPException(status_code=404, detail="Classifier set not found")
+    
+    filename = f"{classifier_set.name.replace(' ', '_')}_classifier.yaml"
+    
+    return PlainTextResponse(
+        content=yaml_content,
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+@router.post("/import")
+async def import_classifier(
+        file: UploadFile = File(...),
+        db: Session = Depends(get_db),
+        user = Depends(get_current_user_info)):
+    """
+    Import a classifier set configuration from a YAML file.
+    """
+    if not file.filename.endswith(('.yaml', '.yml')):
+        raise HTTPException(status_code=400, detail="File must be a YAML file (.yaml or .yml)")
+    
+    try:
+        content = await file.read()
+        yaml_content = content.decode('utf-8')
+    except UnicodeDecodeError:
+        raise HTTPException(status_code=400, detail="File must be valid UTF-8 text")
+    
+    classifier_set_id = import_classifier_from_yaml(db, yaml_content, user.user_id)
+    
+    return {"success": True, "classifier_set_id": classifier_set_id, "message": "Classifier imported successfully"}
