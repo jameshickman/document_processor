@@ -1,5 +1,5 @@
 import {BaseComponent} from '../lib/component_base.js';
-import { HTTP_GET, HTTP_POST_JSON } from "../lib/API.js";
+import { HTTP_GET, HTTP_POST_JSON, HTTP_DELETE } from "../lib/API.js";
 import {multicall} from '../lib/jsum.js';
 import {html, css} from "lit";
 
@@ -11,7 +11,8 @@ export class ClassifierEditor extends BaseComponent {
         selected_classifier_set_id: {type: Number, state: true},
         selected_classifier_id: {type: Number, state: true},
         loading: {type: Boolean, state: true},
-        run_results: {type: Object, state: true}
+        run_results: {type: Object, state: true},
+        results_collapsed: {type: Boolean, state: true}
     };
 
     #currentRunFiles = new Map(); // Map of file ID -> file info
@@ -25,6 +26,7 @@ export class ClassifierEditor extends BaseComponent {
         this.selected_classifier_id = null;
         this.loading = false;
         this.run_results = null;
+        this.results_collapsed = false;
     }
 
     static styles = css`
@@ -67,6 +69,17 @@ export class ClassifierEditor extends BaseComponent {
         .results-panel {
             flex: 1;
             height: 100%;
+            transition: all 0.3s ease;
+        }
+        
+        .results-panel.collapsed {
+            flex: 0 0 40px;
+            min-width: 40px;
+            max-width: 40px;
+        }
+        
+        .container:has(.results-panel.collapsed) .terms-panel {
+            flex: 2;
         }
         
         .classifier-sets-list,
@@ -221,6 +234,10 @@ export class ClassifierEditor extends BaseComponent {
             padding: 15px;
             border-radius: 5px;
             margin-top: 10px;
+            max-width: 100%;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            overflow-x: auto;
         }
         
         .file-result {
@@ -229,6 +246,8 @@ export class ClassifierEditor extends BaseComponent {
             background: white;
             border: 1px solid #ddd;
             border-radius: 3px;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
         }
         
         .file-result h4 {
@@ -262,15 +281,70 @@ export class ClassifierEditor extends BaseComponent {
         .run-button {
             background: #28a745;
             color: white;
-            border: none;
+            border: 1px solid #28a745;
             padding: 10px 20px;
             font-weight: bold;
             margin-top: 15px;
             flex-shrink: 0; /* Prevent button from being squeezed */
+            cursor: pointer;
+            transition: all 0.3s ease;
         }
         
-        .run-button:hover {
+        .run-button:hover:not(:disabled) {
             background: #218838;
+            border-color: #218838;
+        }
+        
+        .run-button:disabled {
+            background: #6c757d;
+            border-color: #6c757d;
+            color: #ffffff;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        
+        .header-with-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+        
+        .header-with-toggle h3 {
+            margin: 0;
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+        
+        .collapse-toggle {
+            background: #007bff;
+            color: white;
+            border: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+        
+        .collapse-toggle:hover {
+            background: #0056b3;
+        }
+        
+        .results-panel.collapsed {
+            padding: 5px;
+        }
+        
+        .results-panel.collapsed > *:not(.collapse-toggle) {
+            display: none;
+        }
+        
+        .results-panel.collapsed .collapse-toggle {
+            margin: 0 auto;
         }
     `;
 
@@ -344,6 +418,20 @@ export class ClassifierEditor extends BaseComponent {
             },
             HTTP_GET
         );
+        
+        // Delete classifier set endpoint
+        this.server.define_endpoint(
+            "/classifiers/{id}",
+            (resp) => {
+                this.current_classifier_set = null;
+                this.current_classifier = null;
+                this.selected_classifier_set_id = null;
+                this.selected_classifier_id = null;
+                this.#load_classifier_sets();
+                this.requestUpdate();
+            },
+            HTTP_DELETE
+        );
     }
 
     login_success() {
@@ -386,9 +474,11 @@ export class ClassifierEditor extends BaseComponent {
     }
 
     #delete_classifier_set_clicked(e) {
-        if (this.selected_classifier_set_id && confirm("Delete this classifier set?")) {
-            // Implementation would depend on DELETE endpoint
-            console.log("Delete classifier set", this.selected_classifier_set_id);
+        if (this.selected_classifier_set_id) {
+            const setName = this.classifier_sets.find(s => s.id === this.selected_classifier_set_id)?.name || "this classifier set";
+            if (confirm(`Are you sure you want to delete "${setName}"? This action cannot be undone.`)) {
+                this.server.call("/classifiers/{id}", HTTP_DELETE, null, null, {id: this.selected_classifier_set_id});
+            }
         }
     }
 
@@ -498,6 +588,10 @@ export class ClassifierEditor extends BaseComponent {
         if (this.current_classifier_set && this.selected_classifier_set_id) {
             this.server.call("/classifiers/{id}", HTTP_POST_JSON, this.current_classifier_set, null, {id: this.selected_classifier_set_id});
         }
+    }
+
+    #toggle_results_column(e) {
+        this.results_collapsed = !this.results_collapsed;
     }
 
     async #run_against_files_clicked(e) {
@@ -678,10 +772,17 @@ export class ClassifierEditor extends BaseComponent {
                 </div>
 
                 <!-- Results Panel -->
-                <div class="results-panel">
-                    <h3>Classification Results</h3>
+                <div class="results-panel ${this.results_collapsed ? 'collapsed' : ''}">
+                    ${!this.results_collapsed ? html`
+                        <div class="header-with-toggle">
+                            <h3>Classification Results</h3>
+                            <button class="collapse-toggle" @click=${this.#toggle_results_column} title="Collapse results">→</button>
+                        </div>` : html`
+                        <button class="collapse-toggle" @click=${this.#toggle_results_column} title="Expand results">←</button>`}
                     
-                    <button class="btn run-button" @click=${this.#run_against_files_clicked} ?disabled=${!this.selected_classifier_set_id}>Run against selected files</button>
+                    ${!this.results_collapsed ? html`
+                        
+                        <button class="btn run-button" @click=${this.#run_against_files_clicked} ?disabled=${!this.selected_classifier_set_id}>Run against selected files</button>
                     
                     ${this.run_results && !this.run_results.loading ? 
                         html`
@@ -706,10 +807,11 @@ export class ClassifierEditor extends BaseComponent {
                                 }
                             </div>
                         ` :
-                        this.run_results && this.run_results.loading ?
-                        html`<div class="results-display loading">Running classification...</div>` :
-                        html`<div class="results-display no-selection">Run a classifier to see results here</div>`
-                    }
+                            this.run_results && this.run_results.loading ?
+                            html`<div class="results-display loading">Running classification...</div>` :
+                            html`<div class="results-display no-selection">Run a classifier to see results here</div>`
+                        }
+                    ` : ''}
                 </div>
             </div>
         `;

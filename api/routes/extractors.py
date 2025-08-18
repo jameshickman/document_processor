@@ -89,6 +89,31 @@ def get_extractor(
         "fields": [{"name": field.name, "description": field.description} for field in db_extractor.fields]
     }
 
+@router.delete("/{extractor_id}")
+def delete_extractor(
+        extractor_id: int,
+        db: Session = Depends(get_db),
+        user = Depends(get_current_user_info)):
+    """
+    Delete an extractor and its associated fields.
+    """
+    db_extractor = db.query(models.Extractor).filter(
+        and_(
+            models.Extractor.account_id == user.user_id,
+            models.Extractor.id == extractor_id
+        )
+    ).first()
+    if db_extractor is None:
+        raise HTTPException(status_code=404, detail="Extractor not found")
+    
+    # Delete associated fields first (cascade should handle this, but being explicit)
+    db.query(models.ExtractorField).filter(models.ExtractorField.extractor_id == extractor_id).delete()
+    
+    # Delete the extractor
+    db.delete(db_extractor)
+    db.commit()
+    return {"success": True}
+
 @router.get("/run/{extractor_id}/{document_id}")
 def run_extractor(
         extractor_id: int,

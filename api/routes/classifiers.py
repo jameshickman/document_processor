@@ -131,6 +131,48 @@ def get_classifier(classifier_set_id: int,
         'classifiers': l_c
     }
 
+@router.delete("/{classifier_set_id}")
+def delete_classifier_set(
+        classifier_set_id: int,
+        db: Session = Depends(get_db),
+        user = Depends(get_current_user_info)):
+    """
+    Delete a classifier set and all its associated classifiers and terms.
+    Only allows deletion if the classifier set is owned by the requesting user.
+    """
+    # Verify ownership before deletion
+    classifier_set = db.query(models.ClassifierSet).filter(
+        and_(
+            models.ClassifierSet.id == classifier_set_id,
+            models.ClassifierSet.account_id == user.user_id
+        )
+    ).first()
+    
+    if classifier_set is None:
+        raise HTTPException(status_code=404, detail="Classifier set not found")
+    
+    # Delete associated terms first
+    classifiers = db.query(models.Classifier).filter(
+        models.Classifier.classifier_set == classifier_set_id
+    ).all()
+    
+    for classifier in classifiers:
+        # Delete all terms for this classifier
+        db.query(models.ClassifierTerm).filter(
+            models.ClassifierTerm.classifier_id == classifier.id
+        ).delete()
+    
+    # Delete all classifiers in the set
+    db.query(models.Classifier).filter(
+        models.Classifier.classifier_set == classifier_set_id
+    ).delete()
+    
+    # Delete the classifier set itself
+    db.delete(classifier_set)
+    db.commit()
+    
+    return {"success": True}
+
 @router.get("/run/{classifier_set_id}/{document_id}")
 def run_classifier(
         classifier_set_id: int, document_id: int,
