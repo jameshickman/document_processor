@@ -1,0 +1,16 @@
+[uwsgi]
+module = main:app
+master = true
+processes = 5
+socket = /tmp/docserver.sock
+chmod-socket = 664
+die-on-term = true
+
+env=DOCUMENT_STORAGE=
+env=JWT_SECRET=
+env=PASSWORD_SECRET=
+env=POSTGRES_HOST=
+env=POSTGRES_PORT=
+env=POSTGRES_USER=
+env=POSTGRES_PASSWORD=
+env=POSTGRES_DB=
