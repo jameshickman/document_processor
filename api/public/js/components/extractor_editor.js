@@ -1,5 +1,5 @@
 import {BaseComponent} from '../lib/component_base.js';
-import { HTTP_GET, HTTP_POST_JSON, HTTP_DELETE } from "../lib/API.js";
+import { HTTP_GET, HTTP_POST_JSON, HTTP_DELETE, HTTP_POST_FORM } from "../lib/API.js";
 import {multicall} from '../lib/jsum.js';
 import {html, css} from "lit";
 
@@ -421,6 +421,17 @@ export class ExtractorEditor extends BaseComponent {
             },
             HTTP_DELETE
         );
+        
+        // Import extractor endpoint
+        this.server.define_endpoint(
+            "/extractors/import",
+            (resp) => {
+                alert("Extractor imported successfully!");
+                this.#load_extractors();
+                this.requestUpdate();
+            },
+            HTTP_POST_FORM
+        );
     }
 
     login_success() {
@@ -526,6 +537,42 @@ export class ExtractorEditor extends BaseComponent {
         }
     }
 
+    #export_extractor_clicked(e) {
+        if (this.selected_extractor_id) {
+            // Create a download link to the export endpoint
+            const exportUrl = `/api/extractors/export/${this.selected_extractor_id}`;
+            const link = document.createElement('a');
+            link.href = exportUrl;
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    }
+
+    #import_extractor_clicked(e) {
+        // Create a hidden file input
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = '.yaml,.yml';
+        fileInput.style.display = 'none';
+        
+        fileInput.onchange = (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                // Call the import endpoint
+                this.server.call("/extractors/import", HTTP_POST_FORM, formData);
+            }
+        };
+        
+        document.body.appendChild(fileInput);
+        fileInput.click();
+        document.body.removeChild(fileInput);
+    }
+
     #toggle_results_column(e) {
         this.results_collapsed = !this.results_collapsed;
     }
@@ -605,6 +652,8 @@ export class ExtractorEditor extends BaseComponent {
                             <button class="btn btn-primary" @click=${this.#create_extractor_clicked}>Create New</button>
                             <button class="btn" @click=${this.#rename_extractor_clicked} ?disabled=${!this.selected_extractor_id}>Rename</button>
                             <button class="btn btn-danger" @click=${this.#delete_extractor_clicked} ?disabled=${!this.selected_extractor_id}>Delete</button>
+                            <button class="btn" @click=${this.#export_extractor_clicked} ?disabled=${!this.selected_extractor_id}>Export</button>
+                            <button class="btn" @click=${this.#import_extractor_clicked}>Import</button>
                         </div>
                     </div>
                 </div>

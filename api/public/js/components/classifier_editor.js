@@ -1,5 +1,5 @@
 import {BaseComponent} from '../lib/component_base.js';
-import { HTTP_GET, HTTP_POST_JSON, HTTP_DELETE } from "../lib/API.js";
+import { HTTP_GET, HTTP_POST_JSON, HTTP_DELETE, HTTP_POST_FORM } from "../lib/API.js";
 import {multicall} from '../lib/jsum.js';
 import {html, css} from "lit";
 
@@ -432,6 +432,17 @@ export class ClassifierEditor extends BaseComponent {
             },
             HTTP_DELETE
         );
+        
+        // Import classifier endpoint
+        this.server.define_endpoint(
+            "/classifiers/import",
+            (resp) => {
+                alert("Classifier imported successfully!");
+                this.#load_classifier_sets();
+                this.requestUpdate();
+            },
+            HTTP_POST_FORM
+        );
     }
 
     login_success() {
@@ -594,6 +605,42 @@ export class ClassifierEditor extends BaseComponent {
         this.results_collapsed = !this.results_collapsed;
     }
 
+    #export_classifier_clicked(e) {
+        if (this.selected_classifier_set_id) {
+            // Create a download link to the export endpoint
+            const exportUrl = `/api/classifiers/export/${this.selected_classifier_set_id}`;
+            const link = document.createElement('a');
+            link.href = exportUrl;
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    }
+
+    #import_classifier_clicked(e) {
+        // Create a hidden file input
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = '.yaml,.yml';
+        fileInput.style.display = 'none';
+        
+        fileInput.onchange = (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                // Call the import endpoint
+                this.server.call("/classifiers/import", HTTP_POST_FORM, formData);
+            }
+        };
+        
+        document.body.appendChild(fileInput);
+        fileInput.click();
+        document.body.removeChild(fileInput);
+    }
+
     async #run_against_files_clicked(e) {
         if (!this.selected_classifier_set_id) {
             alert("Please select a classifier set first");
@@ -673,6 +720,8 @@ export class ClassifierEditor extends BaseComponent {
                             <button class="btn btn-primary" @click=${this.#create_classifier_set_clicked}>Create new ClassifierSet</button>
                             <button class="btn" @click=${this.#rename_classifier_set_clicked} ?disabled=${!this.selected_classifier_set_id}>Rename</button>
                             <button class="btn btn-danger" @click=${this.#delete_classifier_set_clicked} ?disabled=${!this.selected_classifier_set_id}>Delete</button>
+                            <button class="btn" @click=${this.#export_classifier_clicked} ?disabled=${!this.selected_classifier_set_id}>Export</button>
+                            <button class="btn" @click=${this.#import_classifier_clicked}>Import</button>
                         </div>
                     </div>
 
