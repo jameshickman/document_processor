@@ -433,6 +433,8 @@ export class ClassifierEditor extends BaseComponent {
             HTTP_DELETE
         );
         
+        // Note: Export now uses direct API download method instead of endpoint callback
+        
         // Import classifier endpoint
         this.server.define_endpoint(
             "/classifiers/import",
@@ -607,14 +609,21 @@ export class ClassifierEditor extends BaseComponent {
 
     #export_classifier_clicked(e) {
         if (this.selected_classifier_set_id) {
-            // Create a download link to the export endpoint
-            const exportUrl = `/api/classifiers/export/${this.selected_classifier_set_id}`;
-            const link = document.createElement('a');
-            link.href = exportUrl;
-            link.style.display = 'none';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            // Use the enhanced download method from API.js library
+            const exportUrl = `/classifiers/export/${this.selected_classifier_set_id}`;
+            this.server.download(
+                exportUrl,
+                null, // no content, using URL
+                'classifier_export.yaml', // default filename
+                null, // auto-detect MIME type
+                (filename) => {
+                    console.log(`Classifier exported as: ${filename}`);
+                },
+                (error) => {
+                    console.error('Export failed:', error);
+                    alert('Export failed. Please try again.');
+                }
+            );
         }
     }
 

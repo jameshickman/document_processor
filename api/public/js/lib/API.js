@@ -542,42 +542,209 @@ class API_REST {
 
 
     /**
-     * Download any file type
+     * Download any file type with proper authentication and error handling.
+     * 
+     * This method handles authenticated downloads by automatically including
+     * Authorization headers when available. It supports both direct URL downloads
+     * and content-based downloads from API responses.
+     * 
+     * Features:
+     * - Automatic Bearer token authentication
+     * - Content-Disposition filename parsing with fallback
+     * - Robust MIME type detection
+     * - Error handling with optional callbacks
+     * - Memory cleanup of blob URLs
+     * - Cross-browser compatibility
+     * 
+     * @param {string} url - The URL to download from, or null if using content parameter
+     * @param {string} content - Optional content to download as file (alternative to URL)
+     * @param {string} defaultFilename - Default filename if Content-Disposition header not found
+     * @param {string} mimeType - MIME type for the content (defaults to auto-detection)
+     * @param {function} onSuccess - Optional success callback
+     * @param {function} onError - Optional error callback
+     * 
+     * @example
+     * // Download from URL (authenticated)
+     * api.download('/api/classifiers/export/123');
+     * 
+     * @example
+     * // Download content with custom filename
+     * api.download(null, yamlContent, 'my-classifier.yaml', 'application/yaml');
+     * 
+     * @example
+     * // Download with callbacks
+     * api.download('/api/data/export', null, 'data.json', null, 
+     *   () => console.log('Download started'),
+     *   (error) => console.error('Download failed:', error)
+     * );
      */
-    download(url) {
+    download(url, content = null, defaultFilename = 'download', mimeType = null, onSuccess = null, onError = null) {
+        try {
+            if (url) {
+                // URL-based download (authenticated)
+                this.#downloadFromUrl(url, defaultFilename, onSuccess, onError);
+            } else if (content) {
+                // Content-based download
+                this.#downloadFromContent(content, defaultFilename, mimeType, onSuccess, onError);
+            } else {
+                throw new Error('Either url or content must be provided');
+            }
+        } catch (error) {
+            if (onError) {
+                onError(error);
+            } else {
+                console.error('Download error:', error);
+            }
+        }
+    }
+
+    /**
+     * Internal method to handle URL-based downloads with authentication
+     * @private
+     */
+    #downloadFromUrl(url, defaultFilename, onSuccess, onError) {
         const params = {
-            method: "get"
+            method: "GET"
         };
+        
         if (this.#bearer_token !== null) {
             params['headers'] = {
                 "Authorization": "Bearer " + this.#bearer_token
             };
         }
+        
         const req = new Request(url, params);
-
-        let filename = '';
 
         fetch(req)
             .then(result => {
                 if (!result.ok) {
-                    throw Error(result.statusText);
+                    throw new Error(`HTTP ${result.status}: ${result.statusText}`);
                 }
-                const header = result.headers.get('Content-Disposition');
-                const parts = header.split(';');
-                filename = parts[1].split('=')[1].replaceAll("\"", "");
-                return result.blob();
+                
+                // Extract filename from Content-Disposition header
+                const filename = this.#extractFilename(result.headers, defaultFilename);
+                
+                return result.blob().then(blob => ({ blob, filename }));
             })
-            .then(blob => {
-                if (blob != null) {
-                    const file_url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = file_url;
-                    a.download = filename;
-                    document.body.appendChild(a);
-                    a.click();
-                    a.remove();
+            .then(({ blob, filename }) => {
+                this.#triggerDownload(blob, filename);
+                if (onSuccess) onSuccess(filename);
+            })
+            .catch(error => {
+                if (onError) {
+                    onError(error);
+                } else {
+                    console.error('Download failed:', error);
                 }
             });
+    }
+
+    /**
+     * Internal method to handle content-based downloads
+     * @private
+     */
+    #downloadFromContent(content, filename, mimeType, onSuccess, onError) {
+        try {
+            // Auto-detect MIME type if not provided
+            if (!mimeType) {
+                mimeType = this.#detectMimeType(filename, content);
+            }
+            
+            const blob = new Blob([content], { type: mimeType });
+            this.#triggerDownload(blob, filename);
+            
+            if (onSuccess) onSuccess(filename);
+        } catch (error) {
+            if (onError) {
+                onError(error);
+            } else {
+                console.error('Content download failed:', error);
+            }
+        }
+    }
+
+    /**
+     * Extract filename from Content-Disposition header with robust parsing
+     * @private
+     */
+    #extractFilename(headers, defaultFilename) {
+        try {
+            const contentDisposition = headers.get('Content-Disposition') || headers.get('content-disposition');
+            
+            if (!contentDisposition) {
+                return defaultFilename;
+            }
+            
+            // Handle both quoted and unquoted filenames
+            const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+            if (filenameMatch && filenameMatch[1]) {
+                return filenameMatch[1].replace(/['"]/g, '').trim();
+            }
+            
+            // Fallback to simple parsing
+            const parts = contentDisposition.split(';');
+            for (const part of parts) {
+                if (part.trim().startsWith('filename=')) {
+                    return part.split('=')[1].replace(/['"]/g, '').trim();
+                }
+            }
+            
+            return defaultFilename;
+        } catch (error) {
+            console.warn('Failed to parse Content-Disposition header:', error);
+            return defaultFilename;
+        }
+    }
+
+    /**
+     * Auto-detect MIME type based on file extension and content
+     * @private
+     */
+    #detectMimeType(filename, content) {
+        const extension = filename.split('.').pop()?.toLowerCase();
+        
+        const mimeTypes = {
+            'yaml': 'application/yaml',
+            'yml': 'application/yaml',
+            'json': 'application/json',
+            'xml': 'application/xml',
+            'csv': 'text/csv',
+            'txt': 'text/plain',
+            'html': 'text/html',
+            'css': 'text/css',
+            'js': 'application/javascript',
+            'pdf': 'application/pdf',
+            'zip': 'application/zip'
+        };
+        
+        return mimeTypes[extension] || 'application/octet-stream';
+    }
+
+    /**
+     * Trigger the actual download with proper cleanup
+     * @private
+     */
+    #triggerDownload(blob, filename) {
+        if (!blob) {
+            throw new Error('No blob content to download');
+        }
+        
+        const fileUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        
+        link.href = fileUrl;
+        link.download = filename;
+        link.style.display = 'none';
+        
+        // Add to DOM, click, and cleanup
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Clean up the blob URL to prevent memory leaks
+        setTimeout(() => {
+            window.URL.revokeObjectURL(fileUrl);
+        }, 100);
     }
 }
 

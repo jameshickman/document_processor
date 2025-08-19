@@ -422,6 +422,8 @@ export class ExtractorEditor extends BaseComponent {
             HTTP_DELETE
         );
         
+        // Note: Export now uses direct API download method instead of endpoint callback
+        
         // Import extractor endpoint
         this.server.define_endpoint(
             "/extractors/import",
@@ -539,14 +541,21 @@ export class ExtractorEditor extends BaseComponent {
 
     #export_extractor_clicked(e) {
         if (this.selected_extractor_id) {
-            // Create a download link to the export endpoint
-            const exportUrl = `/api/extractors/export/${this.selected_extractor_id}`;
-            const link = document.createElement('a');
-            link.href = exportUrl;
-            link.style.display = 'none';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            // Use the enhanced download method from API.js library
+            const exportUrl = `/extractors/export/${this.selected_extractor_id}`;
+            this.server.download(
+                exportUrl,
+                null, // no content, using URL
+                'extractor_export.yaml', // default filename
+                null, // auto-detect MIME type
+                (filename) => {
+                    console.log(`Extractor exported as: ${filename}`);
+                },
+                (error) => {
+                    console.error('Export failed:', error);
+                    alert('Export failed. Please try again.');
+                }
+            );
         }
     }
 
