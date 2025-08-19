@@ -635,11 +635,11 @@ export class ClassifierEditor extends BaseComponent {
         fileInput.style.display = 'none';
         
         fileInput.onchange = (event) => {
-            const file = event.target;
-            if (file) {
-                // Call the import endpoint
+            const inputElement = event.target;
+            if (inputElement.files && inputElement.files.length > 0) {
+                // Call the import endpoint - API.js will handle FormData creation
                 this.server.call("/classifiers/import", HTTP_POST_FORM, {
-                    file: file
+                    file: inputElement
                 });
             }
         };
