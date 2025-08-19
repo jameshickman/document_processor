@@ -637,11 +637,10 @@ export class ClassifierEditor extends BaseComponent {
         fileInput.onchange = (event) => {
             const file = event.target.files[0];
             if (file) {
-                const formData = new FormData();
-                formData.append('file', file);
-                
                 // Call the import endpoint
-                this.server.call("/classifiers/import", HTTP_POST_FORM, formData);
+                this.server.call("/classifiers/import", HTTP_POST_FORM, {
+                    file: file
+                });
             }
         };
         
