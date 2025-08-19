@@ -28,6 +28,27 @@ class Extractor(BaseModel):
     prompt: str
     fields: List[ExtractorField]
 
+@router.post("/import")
+async def import_extractor(
+        file: UploadFile = File(...),
+        db: Session = Depends(get_db),
+        user = Depends(get_current_user_info)):
+    """
+    Import an extractor configuration from a YAML file.
+    """
+    if not file.filename.endswith(('.yaml', '.yml')):
+        raise HTTPException(status_code=400, detail="File must be a YAML file (.yaml or .yml)")
+    
+    try:
+        content = await file.read()
+        yaml_content = content.decode('utf-8')
+    except UnicodeDecodeError:
+        raise HTTPException(status_code=400, detail="File must be valid UTF-8 text")
+    
+    extractor_id = import_extractor_from_yaml(db, yaml_content, user.user_id)
+    
+    return {"success": True, "extractor_id": extractor_id, "message": "Extractor imported successfully"}
+
 @router.post("/{extractor_id}")
 def create_or_update_extractor(
         extractor_id: int,
@@ -186,24 +207,3 @@ def export_extractor(
         content=yaml_content,
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
-
-@router.post("/import")
-async def import_extractor(
-        file: UploadFile = File(...),
-        db: Session = Depends(get_db),
-        user = Depends(get_current_user_info)):
-    """
-    Import an extractor configuration from a YAML file.
-    """
-    if not file.filename.endswith(('.yaml', '.yml')):
-        raise HTTPException(status_code=400, detail="File must be a YAML file (.yaml or .yml)")
-    
-    try:
-        content = await file.read()
-        yaml_content = content.decode('utf-8')
-    except UnicodeDecodeError:
-        raise HTTPException(status_code=400, detail="File must be valid UTF-8 text")
-    
-    extractor_id = import_extractor_from_yaml(db, yaml_content, user.user_id)
-    
-    return {"success": True, "extractor_id": extractor_id, "message": "Extractor imported successfully"}

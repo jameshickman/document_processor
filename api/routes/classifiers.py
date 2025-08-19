@@ -32,6 +32,27 @@ class Classifiers(BaseModel):
     name: str
     classifiers: List[Classifier]
 
+@router.post("/import")
+async def import_classifier(
+        file: UploadFile = File(...),
+        db: Session = Depends(get_db),
+        user = Depends(get_current_user_info)):
+    """
+    Import a classifier set configuration from a YAML file.
+    """
+    if not file.filename.endswith(('.yaml', '.yml')):
+        raise HTTPException(status_code=400, detail="File must be a YAML file (.yaml or .yml)")
+    
+    try:
+        content = await file.read()
+        yaml_content = content.decode('utf-8')
+    except UnicodeDecodeError:
+        raise HTTPException(status_code=400, detail="File must be valid UTF-8 text")
+    
+    classifier_set_id = import_classifier_from_yaml(db, yaml_content, user.user_id)
+    
+    return {"success": True, "classifier_set_id": classifier_set_id, "message": "Classifier imported successfully"}
+
 @router.post("/{classifiers_id}")
 def create_or_update_classifier(
         classifiers_id: int,
@@ -246,24 +267,3 @@ def export_classifier(
         content=yaml_content,
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
-
-@router.post("/import")
-async def import_classifier(
-        file: UploadFile = File(...),
-        db: Session = Depends(get_db),
-        user = Depends(get_current_user_info)):
-    """
-    Import a classifier set configuration from a YAML file.
-    """
-    if not file.filename.endswith(('.yaml', '.yml')):
-        raise HTTPException(status_code=400, detail="File must be a YAML file (.yaml or .yml)")
-    
-    try:
-        content = await file.read()
-        yaml_content = content.decode('utf-8')
-    except UnicodeDecodeError:
-        raise HTTPException(status_code=400, detail="File must be valid UTF-8 text")
-    
-    classifier_set_id = import_classifier_from_yaml(db, yaml_content, user.user_id)
-    
-    return {"success": True, "classifier_set_id": classifier_set_id, "message": "Classifier imported successfully"}
