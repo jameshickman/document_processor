@@ -85,9 +85,14 @@
   "csrf_token": "abc123-secure-token-xyz789",
   "status": "completed",
   "result": {
-    "field1": "extracted_value1",
-    "field2": "extracted_value2",
-    ...
+    "confidence": 1,
+    "found": true,
+    "explanation": "Explanation ...",
+    "extracted_data": {
+      "field_1": "value 1",
+      "field_2": "value 2",
+      ...
+    }
   },
   "timestamp": "2025-01-21T10:30:00Z"
 }</pre>
