@@ -1,8 +1,0 @@
-API Configuration and documentation page.
-
-Provide documentation here for using the /service/* end-points
-
-This needs to show the names and IDs of the Classifiers and Extractors. Show two tables with this reference information
-using the <api-reference> custom element.
-
-Implement the widget to retrieve and regenerate the API key and secret.
