@@ -1,5 +1,5 @@
 import {BaseComponent} from '../lib/component_base.js';
-import {HTTP_POST_FORM} from '../lib/API.js';
+import {HTTP_POST_FORM, HTTP_POST_JSON} from '../lib/API.js';
 import {multicall} from '../lib/jsum.js';
 import {css, html} from "lit";
 
@@ -188,16 +188,6 @@ export class LoginModal extends BaseComponent {
         this.requestUpdate();
     }
 
-    async fetchGoogleClientId() {
-        try {
-            const response = await fetch('/auth/google_client_id');
-            const data = await response.json();
-            this.google_client_id = data.client_id;
-            this.requestUpdate();
-        } catch (error) {
-            console.error('Failed to fetch Google Client ID:', error);
-        }
-    }
 
     handleGoogleLogin() {
         if (!this.google_client_id) {
@@ -207,7 +197,7 @@ export class LoginModal extends BaseComponent {
 
         const params = new URLSearchParams({
             client_id: this.google_client_id,
-            redirect_uri: window.location.origin + '/auth/google/callback',
+            redirect_uri: window.location.origin + '/',
             scope: 'openid email profile',
             response_type: 'code',
             access_type: 'offline',
@@ -218,10 +208,54 @@ export class LoginModal extends BaseComponent {
         window.location.href = googleAuthUrl;
     }
 
+    handleGoogleCallback(code) {
+        // Exchange the authorization code for a JWT token
+        this.server.call(
+            "/auth/google/token",
+            HTTP_POST_JSON,
+            {
+                code: code
+            }
+        );
+    }
+
     // JSUM listeners
     server_interface(api) {
         this.init_server(api);
-        this.fetchGoogleClientId();
+        
+        // Define and call Google Client ID endpoint
+        this.server.define_endpoint(
+            "/auth/google_client_id",
+            (response) => {
+                this.google_client_id = response.client_id;
+                this.requestUpdate();
+            },
+            'GET'
+        );
+        
+        // Define Google OAuth token exchange endpoint
+        this.server.define_endpoint(
+            "/auth/google/token",
+            (response) => {
+                if (response.jwt) {
+                    this.server.set_bearer_token(response.jwt);
+                    multicall(
+                        {
+                            "target": "login_success",
+                            "query": "[jsum]",
+                            "params": [response]
+                        }
+                    ).then((results) => {
+                        // For now, just log the results
+                        // console.log(results);
+                    })
+                }
+                else {
+                    this.show_error = true;
+                }
+            },
+            HTTP_POST_JSON
+        );
         
         this.server.define_endpoint(
             "/auth/login",
@@ -245,6 +279,20 @@ export class LoginModal extends BaseComponent {
             },
             HTTP_POST_FORM
         );
+        
+        // Immediately call the Google Client ID endpoint
+        this.server.call('/auth/google_client_id', 'GET');
+        
+        // Check for Google OAuth callback code in URL - do this AFTER defining endpoints
+        const urlParams = new URLSearchParams(window.location.search);
+        const code = urlParams.get('code');
+        
+        if (code) {
+            // Google OAuth callback detected, exchange code for JWT
+            this.handleGoogleCallback(code);
+            // Clean up URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
     }
 
     // Event handlers
