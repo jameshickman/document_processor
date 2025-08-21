@@ -8,6 +8,9 @@ Supports:
 
 Test if the extracted text is actual text and not "subsetted fonts" garbage.
 See: https://stackoverflow.com/questions/8039423/pdf-data-extraction-gives-symbols-gibberish
+
+TODO: Integrate https://pypi.org/project/markdrop/ and Dockling to implement PDF -> Markdown
+TODO: Find an LLM tuned to understand tables and check-marks
 """
 
 import os

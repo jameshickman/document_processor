@@ -1,5 +1,5 @@
 import {BaseComponent} from '../lib/component_base.js';
-import { HTTP_GET, HTTP_POST_JSON, HTTP_DELETE } from "../lib/API.js";
+import { HTTP_GET, HTTP_POST_JSON, HTTP_DELETE, HTTP_POST_FORM } from "../lib/API.js";
 import {multicall} from '../lib/jsum.js';
 import {html, css} from "lit";
 
@@ -421,6 +421,19 @@ export class ExtractorEditor extends BaseComponent {
             },
             HTTP_DELETE
         );
+        
+        // Note: Export now uses direct API download method instead of endpoint callback
+        
+        // Import extractor endpoint
+        this.server.define_endpoint(
+            "/extractors/import",
+            (resp) => {
+                alert("Extractor imported successfully!");
+                this.#load_extractors();
+                this.requestUpdate();
+            },
+            HTTP_POST_FORM
+        );
     }
 
     login_success() {
@@ -526,6 +539,48 @@ export class ExtractorEditor extends BaseComponent {
         }
     }
 
+    #export_extractor_clicked(e) {
+        if (this.selected_extractor_id) {
+            // Use the enhanced download method from API.js library
+            const exportUrl = `/extractors/export/${this.selected_extractor_id}`;
+            this.server.download(
+                exportUrl,
+                null, // no content, using URL
+                'extractor_export.yaml', // default filename
+                null, // auto-detect MIME type
+                (filename) => {
+                    console.log(`Extractor exported as: ${filename}`);
+                },
+                (error) => {
+                    console.error('Export failed:', error);
+                    alert('Export failed. Please try again.');
+                }
+            );
+        }
+    }
+
+    #import_extractor_clicked(e) {
+        // Create a hidden file input
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = '.yaml,.yml';
+        fileInput.style.display = 'none';
+        
+        fileInput.onchange = (event) => {
+            const inputElement = event.target;
+            if (inputElement.files && inputElement.files.length > 0) {
+                // Call the import endpoint - API.js will handle FormData creation
+                this.server.call("/extractors/import", HTTP_POST_FORM, {
+                    file: inputElement
+                });
+            }
+        };
+        
+        document.body.appendChild(fileInput);
+        fileInput.click();
+        document.body.removeChild(fileInput);
+    }
+
     #toggle_results_column(e) {
         this.results_collapsed = !this.results_collapsed;
     }
@@ -605,6 +660,8 @@ export class ExtractorEditor extends BaseComponent {
                             <button class="btn btn-primary" @click=${this.#create_extractor_clicked}>Create New</button>
                             <button class="btn" @click=${this.#rename_extractor_clicked} ?disabled=${!this.selected_extractor_id}>Rename</button>
                             <button class="btn btn-danger" @click=${this.#delete_extractor_clicked} ?disabled=${!this.selected_extractor_id}>Delete</button>
+                            <button class="btn" @click=${this.#export_extractor_clicked} ?disabled=${!this.selected_extractor_id}>Export</button>
+                            <button class="btn" @click=${this.#import_extractor_clicked}>Import</button>
                         </div>
                     </div>
                 </div>
