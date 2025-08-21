@@ -38,11 +38,59 @@
             <h4>Extraction</h4>
             <div class="endpoint">
                 <code>POST /service/extractor</code>
-                <p>Extract information from a document using the specified extractor.</p>
+                <p>Extract information from a document using the specified extractor. This operation runs asynchronously in the background.</p>
+                
+                <h5>Request Parameters:</h5>
+                <ul>
+                    <li><strong>extractor_id</strong> (required): The ID of the extractor to use</li>
+                    <li><strong>file_id</strong> (required): The ID of the uploaded document file</li>
+                    <li><strong>web_hook</strong> (required): URL where extraction results will be sent via POST</li>
+                    <li><strong>csrf_token</strong> (optional): CSRF protection token for webhook validation</li>
+                </ul>
+                
+                <h5>Webhook Details:</h5>
+                <p>When extraction completes, results are sent to your webhook URL via POST request:</p>
+                <ul>
+                    <li>The webhook receives the extracted data as JSON</li>
+                    <li>Include a CSRF token to verify webhook authenticity</li>
+                    <li>Ensure your webhook endpoint can handle POST requests</li>
+                    <li>Webhook should return 200 status for successful receipt</li>
+                </ul>
+                
+                <h5>CSRF Token Usage:</h5>
+                <p>The CSRF token provides security verification for webhook calls:</p>
+                <ul>
+                    <li>Generate a unique token for each extraction request</li>
+                    <li>Store the token to validate incoming webhook calls</li>
+                    <li>The system will include this token in the webhook payload</li>
+                    <li>Verify the token matches before processing webhook data</li>
+                </ul>
+
+                <h5>Example Request:</h5>
                 <pre>curl -X POST -u "your-api-key:your-api-secret" \
   -H "Content-Type: application/json" \
-  -d '{"extractor_id": 1, "file_id": 123, "web_hook": "https://your-webhook.com", "csrf_token": ""}' \
+  -d '{
+    "extractor_id": 1, 
+    "file_id": 123, 
+    "web_hook": "https://your-domain.com/api/extraction-webhook", 
+    "csrf_token": "abc123-secure-token-xyz789"
+  }' \
   {{request.url_root}}service/extractor</pre>
+  
+                <h5>Example Webhook Payload:</h5>
+                <p>Your webhook will receive a POST request similar to:</p>
+                <pre>{
+  "extractor_id": 1,
+  "file_id": 123,
+  "csrf_token": "abc123-secure-token-xyz789",
+  "status": "completed",
+  "result": {
+    "field1": "extracted_value1",
+    "field2": "extracted_value2",
+    ...
+  },
+  "timestamp": "2025-01-21T10:30:00Z"
+}</pre>
             </div>
             
             <h4>File Cleanup</h4>
@@ -102,5 +150,15 @@
     font-family: 'Courier New', monospace;
     font-size: 14px;
     margin: 10px 0;
+}
+
+.endpoint ul {
+    padding-left: 25px;
+    margin: 10px 0;
+}
+
+.endpoint li {
+    margin: 5px 0;
+    padding-left: 5px;
 }
 </style>
