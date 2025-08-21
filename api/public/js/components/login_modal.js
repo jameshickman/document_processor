@@ -3,12 +3,18 @@ import {HTTP_POST_FORM} from '../lib/API.js';
 import {multicall} from '../lib/jsum.js';
 import {css, html} from "lit";
 
+/*
+ * Login Modal Component with Google OAuth2 support
+ * Uses end-points defined in api/routes/auth.py
+ */
+
 export class LoginModal extends BaseComponent {
     static properties = {
         show: {type: Boolean},
         show_error: {type: Boolean},
         username: {type: String, state: true},
-        password: {type: String, state: true}
+        password: {type: String, state: true},
+        google_client_id: {type: String, state: true}
     };
 
     // Templating
@@ -112,6 +118,57 @@ export class LoginModal extends BaseComponent {
             margin-bottom: 15px;
             font-size: 14px;
         }
+        .google-signin-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            padding: 12px 20px;
+            border: 1px solid #dadce0;
+            border-radius: 4px;
+            background: white;
+            color: #3c4043;
+            font-family: 'Roboto', Arial, sans-serif;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            margin-bottom: 15px;
+            text-decoration: none;
+        }
+        .google-signin-btn:hover {
+            background: #f8f9fa;
+            border-color: #dadce0;
+            box-shadow: 0 1px 2px 0 rgba(60, 64, 67, 0.30), 0 1px 3px 1px rgba(60, 64, 67, 0.15);
+        }
+        .google-signin-btn:active {
+            background: #f1f3f4;
+        }
+        .google-logo {
+            width: 18px;
+            height: 18px;
+            margin-right: 12px;
+        }
+        .divider {
+            display: flex;
+            align-items: center;
+            margin: 20px 0;
+            color: #666;
+            font-size: 12px;
+        }
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: #ddd;
+        }
+        .divider::before {
+            margin-right: 16px;
+        }
+        .divider::after {
+            margin-left: 16px;
+        }
     `;
 
     constructor() {
@@ -120,6 +177,7 @@ export class LoginModal extends BaseComponent {
         this.show_error = false;
         this.username = '';
         this.password = '';
+        this.google_client_id = '';
     }
 
     login_success(resp) {
@@ -130,9 +188,41 @@ export class LoginModal extends BaseComponent {
         this.requestUpdate();
     }
 
+    async fetchGoogleClientId() {
+        try {
+            const response = await fetch('/auth/google_client_id');
+            const data = await response.json();
+            this.google_client_id = data.client_id;
+            this.requestUpdate();
+        } catch (error) {
+            console.error('Failed to fetch Google Client ID:', error);
+        }
+    }
+
+    handleGoogleLogin() {
+        if (!this.google_client_id) {
+            console.error('Google Client ID not available');
+            return;
+        }
+
+        const params = new URLSearchParams({
+            client_id: this.google_client_id,
+            redirect_uri: window.location.origin + '/auth/google/callback',
+            scope: 'openid email profile',
+            response_type: 'code',
+            access_type: 'offline',
+            prompt: 'consent'
+        });
+
+        const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+        window.location.href = googleAuthUrl;
+    }
+
     // JSUM listeners
     server_interface(api) {
         this.init_server(api);
+        this.fetchGoogleClientId();
+        
         this.server.define_endpoint(
             "/auth/login",
             (response) => {
@@ -187,6 +277,19 @@ export class LoginModal extends BaseComponent {
                     <div class="modal-header">Log-in</div>
                     <p id="error" ?hidden=${!this.show_error}>Invalid username or password</p>
                     <div class="modal-body">
+                        ${this.google_client_id ? html`
+                            <button class="google-signin-btn" @click=${this.handleGoogleLogin}>
+                                <svg class="google-logo" viewBox="0 0 24 24">
+                                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                                </svg>
+                                Sign in with Google
+                            </button>
+                            <div class="divider">or</div>
+                        ` : ''}
+                        
                         <form id="login-form" class="form">
                             <div class="form-group">
                                 <label for="username">Username</label>
