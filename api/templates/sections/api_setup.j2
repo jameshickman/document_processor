@@ -1,0 +1,106 @@
+<div class="api-config-section">
+    <h2>API Configuration</h2>
+    
+    <div class="api-credentials-section">
+        <h3>API Credentials</h3>
+        <p>Use these credentials to authenticate with the API endpoints. Your API secret should be kept secure.</p>
+        <api-config jsum></api-config>
+    </div>
+    
+    <div class="api-reference-section">
+        <h3>API Reference</h3>
+        <p>Below are the available classifiers and extractors with their IDs for use with the API endpoints.</p>
+        <api-reference jsum></api-reference>
+    </div>
+    
+    <div class="api-documentation">
+        <h3>API Documentation</h3>
+        <p>Use the following endpoints with HTTP Basic Authentication using your API key as username and API secret as password:</p>
+        
+        <div class="endpoint-docs">
+            <h4>File Upload</h4>
+            <div class="endpoint">
+                <code>POST /service/file</code>
+                <p>Upload a document file for processing. Returns file ID.</p>
+                <pre>curl -X POST -u "your-api-key:your-api-secret" \
+  -F "file=@document.pdf" \
+  {{request.url_root}}service/file</pre>
+            </div>
+            
+            <h4>Classification</h4>
+            <div class="endpoint">
+                <code>GET /service/classifier/{classifier_id}/{file_id}</code>
+                <p>Classify a document using the specified classifier.</p>
+                <pre>curl -u "your-api-key:your-api-secret" \
+  {{request.url_root}}service/classifier/1/123</pre>
+            </div>
+            
+            <h4>Extraction</h4>
+            <div class="endpoint">
+                <code>POST /service/extractor</code>
+                <p>Extract information from a document using the specified extractor.</p>
+                <pre>curl -X POST -u "your-api-key:your-api-secret" \
+  -H "Content-Type: application/json" \
+  -d '{"extractor_id": 1, "file_id": 123, "web_hook": "https://your-webhook.com", "csrf_token": ""}' \
+  {{request.url_root}}service/extractor</pre>
+            </div>
+            
+            <h4>File Cleanup</h4>
+            <div class="endpoint">
+                <code>DELETE /service/file/{file_id}</code>
+                <p>Remove an uploaded file from the system.</p>
+                <pre>curl -X DELETE -u "your-api-key:your-api-secret" \
+  {{request.url_root}}service/file/123</pre>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.api-config-section {
+    padding: 20px;
+    max-width: 1000px;
+}
+
+.api-credentials-section,
+.api-reference-section,
+.api-documentation {
+    margin-bottom: 30px;
+    padding: 20px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background-color: #f9f9f9;
+}
+
+.endpoint-docs h4 {
+    color: #333;
+    margin-top: 20px;
+}
+
+.endpoint {
+    margin: 15px 0;
+    padding: 10px;
+    background-color: #fff;
+    border-left: 4px solid #007bff;
+    border-radius: 4px;
+}
+
+.endpoint code {
+    background-color: #e9ecef;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    color: #d63384;
+}
+
+.endpoint pre {
+    background-color: #f8f9fa;
+    padding: 10px;
+    border-radius: 4px;
+    overflow-x: auto;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    margin: 10px 0;
+}
+</style>
