@@ -132,7 +132,6 @@ class ApiReference extends BaseComponent {
 
     connectedCallback() {
         super.connectedCallback();
-        this.loadData();
     }
 
     server_interface(api) {
@@ -170,7 +169,6 @@ class ApiReference extends BaseComponent {
             console.warn('Unexpected classifiers response format:', resp);
             this.classifiers = [];
         }
-        this.checkLoadingComplete();
         this.requestUpdate();
     }
 
@@ -189,44 +187,9 @@ class ApiReference extends BaseComponent {
             console.warn('Unexpected extractors response format:', resp);
             this.extractors = [];
         }
-        this.checkLoadingComplete();
         this.requestUpdate();
     }
 
-    checkLoadingComplete() {
-        // Loading is complete when we have responses for both endpoints
-        if (this.classifiers !== null && this.extractors !== null) {
-            this.loading = false;
-            this.error = '';
-        }
-    }
-
-    loadData() {
-        this.loading = true;
-        this.error = '';
-        this.classifiers = [];
-        this.extractors = [];
-        this.requestUpdate();
-
-        if (this.server) {
-            try {
-                this.server.call("/classifiers");
-                this.server.call("/extractors");
-            } catch (err) {
-                this.loading = false;
-                this.error = 'Failed to load data from server';
-                this.requestUpdate();
-            }
-        } else {
-            this.loading = false;
-            this.error = 'Server connection not available';
-            this.requestUpdate();
-        }
-    }
-
-    refreshData() {
-        this.loadData();
-    }
 
     renderTable(title, data, emptyMessage) {
         return html`
@@ -295,12 +258,6 @@ class ApiReference extends BaseComponent {
                         'No extractors available'
                     )}
                 </div>
-                <button 
-                    class="refresh-button" 
-                    @click=${this.refreshData}
-                    ?disabled=${this.loading}>
-                    Refresh Data
-                </button>
             </div>
         `;
     }

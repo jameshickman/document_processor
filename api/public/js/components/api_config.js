@@ -150,7 +150,6 @@ class ApiConfig extends BaseComponent {
 
     connectedCallback() {
         super.connectedCallback();
-        this.loadApiCredentials();
     }
 
     server_interface(api) {
@@ -172,6 +171,12 @@ class ApiConfig extends BaseComponent {
             },
             HTTP_GET
         );
+    }
+
+    login_success() {
+        // Called when user successfully logs in
+        // Fetch the API credentials information
+        this.loadApiCredentials();
     }
 
     handleApiCredentialsResponse(resp) {
