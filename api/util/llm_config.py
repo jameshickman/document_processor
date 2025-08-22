@@ -7,5 +7,5 @@ llm_config = LLMConfig(
     model_name=os.environ.get("OPENAI_MODEL_NAME", "gemma3n"), # gpt-4
     temperature=float(os.environ.get("OPENAI_TEMPERATURE", 0)),
     max_tokens=int(os.environ.get("OPENAI_MAX_TOKENS", 2048)),
-    timeout=int(os.environ.get("OPENAI_TIMEOUT", 120)),
+    timeout=int(os.environ.get("OPENAI_TIMEOUT", 360)),
 )
