@@ -243,7 +243,7 @@ class API_REST {
                 },
                 launch: () => {
                     const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+                    const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 minuet timeout
                     
                     // Use XMLHttpRequest for form uploads with progress, otherwise use fetch
                     if (is_form && onProgress && typeof onProgress === 'function') {
