@@ -13,7 +13,8 @@ If the information relating to the question cannot be found, return 'found' as f
 
 Where field values are complex data, use JSON format and don't wrap in a string.
 Simple data is text, number, or boolean so encode those normally.
-s
+You must provide an answer to every field defined below, if unknown return "unknown" for the value.
+
 Example JSON structure to return:
 {
 "confidence": <number>,
