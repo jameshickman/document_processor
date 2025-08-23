@@ -11,6 +11,9 @@ Provide a confidence for your answer on a scale between 0 and 1.
 Provide an explanation for the answer. 
 If the information relating to the question cannot be found, return 'found' as false, else true indicating that enough information found to answer the question.
 
+Where field values are complex data, use JSON format and don't wrap in a string.
+Simple data is text, number, or boolean so encode those normally.
+s
 Example JSON structure to return:
 {
 "confidence": <number>,
