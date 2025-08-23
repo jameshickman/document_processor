@@ -8,8 +8,14 @@ $document_text
 $query_question
 
 Provide a confidence for your answer on a scale between 0 and 1.
-Provide an explanation for the answer. 
-If the information relating to the question cannot be found, return 'found' as false, else true indicating that enough information found to answer the question.
+
+Provide an explanation for the answer. Specifically quote text from the document supporting the explanation.
+Watch out for non-text characters indicating a checkbox in close proximity to text that contributes to the answer.
+There may be cases where text that would be an affirmative answer is next to a character that indicates an unchecked box,
+hence a negative answer.  
+
+If the information relating to the question cannot be found,
+return 'found' as false, else true indicating that enough information found to answer the question.
 
 Where field values are complex data, use JSON format and don't wrap in a string.
 Simple data is text, number, or boolean so encode those normally.
