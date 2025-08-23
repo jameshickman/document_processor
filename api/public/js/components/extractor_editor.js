@@ -3,6 +3,7 @@ import { HTTP_GET, HTTP_POST_JSON, HTTP_DELETE, HTTP_POST_FORM } from "../lib/AP
 import {multicall} from '../lib/jsum.js';
 import {html, css} from "lit";
 
+
 export class ExtractorEditor extends BaseComponent {
     static properties = {
         extractors: {type: Array, state: true},
@@ -201,6 +202,8 @@ export class ExtractorEditor extends BaseComponent {
             padding: 6px;
             border: 1px solid #ccc;
             border-radius: 2px;
+            font-family: inherit;
+            resize: vertical;
         }
         
         .field-label {
@@ -246,6 +249,31 @@ export class ExtractorEditor extends BaseComponent {
         
         .extraction-item:last-child {
             border-bottom: none;
+        }
+        
+        .array-value {
+            margin: 4px 0;
+            padding-left: 20px;
+        }
+        
+        .array-value li {
+            margin: 2px 0;
+        }
+        
+        .object-value {
+            margin: 4px 0;
+            padding-left: 15px;
+            border-left: 2px solid #e0e0e0;
+        }
+        
+        .object-item {
+            margin: 2px 0;
+            padding: 2px 0;
+        }
+        
+        .null-value {
+            color: #999;
+            font-style: italic;
         }
         
         .loading {
@@ -499,14 +527,17 @@ export class ExtractorEditor extends BaseComponent {
     #create_field_clicked(e) {
         if (!this.current_extractor) return;
         
-        const name = prompt("Enter field name:");
-        const description = prompt("Enter field description:");
+        const newField = { name: '', description: '' };
+        this.current_extractor.fields = [...this.current_extractor.fields, newField];
+        this.requestUpdate();
         
-        if (name && description) {
-            const newField = { name, description };
-            this.current_extractor.fields = [...this.current_extractor.fields, newField];
-            this.requestUpdate();
-        }
+        // Scroll to bottom after update completes
+        this.updateComplete.then(() => {
+            const fieldsList = this.shadowRoot.querySelector('.fields-list');
+            if (fieldsList) {
+                fieldsList.scrollTop = fieldsList.scrollHeight;
+            }
+        });
     }
 
     #delete_field_clicked(e) {
@@ -583,6 +614,34 @@ export class ExtractorEditor extends BaseComponent {
 
     #toggle_results_column(e) {
         this.results_collapsed = !this.results_collapsed;
+    }
+
+    #renderExtractionValue(value) {
+        if (value === null || value === undefined) {
+            return html`<span class="null-value">null</span>`;
+        }
+        
+        if (Array.isArray(value)) {
+            return html`
+                <ul class="array-value">
+                    ${value.map(item => html`<li>${this.#renderExtractionValue(item)}</li>`)}
+                </ul>
+            `;
+        }
+        
+        if (typeof value === 'object') {
+            return html`
+                <div class="object-value">
+                    ${Object.entries(value).map(([key, val]) => html`
+                        <div class="object-item">
+                            <strong>${key}:</strong> ${this.#renderExtractionValue(val)}
+                        </div>
+                    `)}
+                </div>
+            `;
+        }
+        
+        return html`${value}`;
     }
 
     async #run_against_files_clicked(e) {
@@ -710,15 +769,15 @@ export class ExtractorEditor extends BaseComponent {
                                                 />
                                                 
                                                 <div class="field-label">Description:</div>
-                                                <input 
-                                                    type="text" 
+                                                <textarea 
                                                     class="field-input" 
                                                     .value=${field.description}
                                                     data-field-index=${index}
                                                     data-field="description"
                                                     @input=${this.#field_changed}
                                                     placeholder="Field description..."
-                                                />
+                                                    rows="3"
+                                                ></textarea>
                                             </div>
                                         `) || ''}
                                     </div>
@@ -764,7 +823,7 @@ export class ExtractorEditor extends BaseComponent {
                                                     ${fileResult.results.extracted_data ? html`
                                                         <div><strong>Extracted Data:</strong></div>
                                                         ${Object.entries(fileResult.results.extracted_data).map(([key, value]) => html`
-                                                            <div class="extraction-item"><strong>${key}:</strong> ${value}</div>
+                                                            <div class="extraction-item"><strong>${key}:</strong> ${this.#renderExtractionValue(value)}</div>
                                                         `)}
                                                     ` : ''}
                                                 ` : html`<div>No results</div>`}

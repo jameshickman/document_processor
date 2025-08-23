@@ -560,15 +560,17 @@ export class ClassifierEditor extends BaseComponent {
     #create_term_clicked(e) {
         if (!this.current_classifier) return;
         
-        const term = prompt("Enter term:");
-        const distance = parseInt(prompt("Enter distance (0-5):", "1"));
-        const weight = parseFloat(prompt("Enter weight (0.0-1.0):", "1.0"));
+        const newTerm = { term: '', distance: 1, weight: 1.0 };
+        this.current_classifier.terms = [...this.current_classifier.terms, newTerm];
+        this.requestUpdate();
         
-        if (term) {
-            const newTerm = { term, distance: distance || 1, weight: weight || 1.0 };
-            this.current_classifier.terms = [...this.current_classifier.terms, newTerm];
-            this.requestUpdate();
-        }
+        // Scroll to bottom after update completes
+        this.updateComplete.then(() => {
+            const termsList = this.shadowRoot.querySelector('.terms-list');
+            if (termsList) {
+                termsList.scrollTop = termsList.scrollHeight;
+            }
+        });
     }
 
     #delete_term_clicked(e) {
@@ -792,7 +794,7 @@ export class ClassifierEditor extends BaseComponent {
                                         
                                         <div class="term-controls">
                                             <div class="term-control-group">
-                                                <label class="term-control-label">Distance</label>
+                                                <label class="term-control-label">Fuzzy Match</label>
                                                 <input 
                                                     type="number" 
                                                     class="term-input" 
@@ -805,7 +807,7 @@ export class ClassifierEditor extends BaseComponent {
                                             </div>
                                             
                                             <div class="term-control-group">
-                                                <label class="term-control-label">Weight</label>
+                                                <label class="term-control-label">Score Weight</label>
                                                 <input 
                                                     type="number" 
                                                     class="term-input" 
