@@ -357,6 +357,16 @@ export class ExtractorEditor extends BaseComponent {
         .panel.collapsed .collapse-toggle {
             margin: 0 auto;
         }
+        
+        @keyframes flashBorder {
+            0% { border-color: #007bff; box-shadow: 0 0 10px rgba(0, 123, 255, 0.5); }
+            50% { border-color: #0056b3; box-shadow: 0 0 20px rgba(0, 123, 255, 0.8); }
+            100% { border-color: #ddd; box-shadow: none; }
+        }
+        
+        .flash-new {
+            animation: flashBorder 2s ease-out;
+        }
     `;
 
     #currentRunFiles = new Map(); // Map of file ID -> file info
@@ -531,11 +541,22 @@ export class ExtractorEditor extends BaseComponent {
         this.current_extractor.fields = [...this.current_extractor.fields, newField];
         this.requestUpdate();
         
-        // Scroll to bottom after update completes
+        // Scroll to bottom and flash the new field after update completes
         this.updateComplete.then(() => {
             const fieldsList = this.shadowRoot.querySelector('.fields-list');
             if (fieldsList) {
                 fieldsList.scrollTop = fieldsList.scrollHeight;
+                
+                // Flash the last (newest) field row
+                const fieldRows = this.shadowRoot.querySelectorAll('.field-row');
+                const lastFieldRow = fieldRows[fieldRows.length - 1];
+                if (lastFieldRow) {
+                    lastFieldRow.classList.add('flash-new');
+                    // Remove the class after animation completes
+                    setTimeout(() => {
+                        lastFieldRow.classList.remove('flash-new');
+                    }, 2000);
+                }
             }
         });
     }

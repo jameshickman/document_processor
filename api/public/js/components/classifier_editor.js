@@ -346,6 +346,16 @@ export class ClassifierEditor extends BaseComponent {
         .results-panel.collapsed .collapse-toggle {
             margin: 0 auto;
         }
+        
+        @keyframes flashBorder {
+            0% { border-color: #007bff; box-shadow: 0 0 10px rgba(0, 123, 255, 0.5); }
+            50% { border-color: #0056b3; box-shadow: 0 0 20px rgba(0, 123, 255, 0.8); }
+            100% { border-color: #ddd; box-shadow: none; }
+        }
+        
+        .flash-new {
+            animation: flashBorder 2s ease-out;
+        }
     `;
 
     server_interface(api) {
@@ -564,11 +574,22 @@ export class ClassifierEditor extends BaseComponent {
         this.current_classifier.terms = [...this.current_classifier.terms, newTerm];
         this.requestUpdate();
         
-        // Scroll to bottom after update completes
+        // Scroll to bottom and flash the new term after update completes
         this.updateComplete.then(() => {
             const termsList = this.shadowRoot.querySelector('.terms-list');
             if (termsList) {
                 termsList.scrollTop = termsList.scrollHeight;
+                
+                // Flash the last (newest) term row
+                const termRows = this.shadowRoot.querySelectorAll('.term-row');
+                const lastTermRow = termRows[termRows.length - 1];
+                if (lastTermRow) {
+                    lastTermRow.classList.add('flash-new');
+                    // Remove the class after animation completes
+                    setTimeout(() => {
+                        lastTermRow.classList.remove('flash-new');
+                    }, 2000);
+                }
             }
         });
     }
