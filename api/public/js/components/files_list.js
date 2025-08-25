@@ -202,7 +202,7 @@ export class FilesList extends BaseComponent {
             "/documents",
             (resp) => {
                 this.files = resp;
-                this.form_element_file.value = '';
+                if (this.form_element_file) this.form_element_file.value = '';
                 this.requestUpdate();
             },
             HTTP_GET
@@ -214,7 +214,7 @@ export class FilesList extends BaseComponent {
                 this.upload_progress = 0;
                 // Reset the file input
                 if (this.form_element_file) {
-                    this.form_element_file.value = '';
+                    if (this.form_element_file) this.form_element_file.value = '';
                     this.form_element_file = null;
                 }
                 this.#get_files();
