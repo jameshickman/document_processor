@@ -181,6 +181,21 @@ export class FilesList extends BaseComponent {
         this.has_selected_files = false;
     }
 
+    server_error_handel = (err) => {
+        console.log("Server communication error: " + err);
+        
+        // Reset upload state on any error during upload
+        if (this.uploading) {
+            this.uploading = false;
+            this.upload_progress = 0;
+            if (this.form_element_file) {
+                this.form_element_file.value = '';
+                this.form_element_file = null;
+            }
+            this.requestUpdate();
+        }
+    };
+
     server_interface(api) {
         this.init_server(api);
         this.server.define_endpoint(
@@ -197,6 +212,11 @@ export class FilesList extends BaseComponent {
             (res) => {
                 this.uploading = false;
                 this.upload_progress = 0;
+                // Reset the file input
+                if (this.form_element_file) {
+                    this.form_element_file.value = '';
+                    this.form_element_file = null;
+                }
                 this.#get_files();
                 this.requestUpdate();
             },
@@ -281,13 +301,18 @@ export class FilesList extends BaseComponent {
             return;
         }
         
+        // Prevent double-clicks during upload
+        if (this.uploading) {
+            return;
+        }
+        
         // Start upload with progress tracking
         this.uploading = true;
         this.upload_progress = 0;
         this.requestUpdate();
         
         // Use the enhanced call method with progress callback
-        this.server.call(
+        const success = this.server.call(
             "/documents",
             HTTP_POST_FORM,
             {
@@ -302,6 +327,13 @@ export class FilesList extends BaseComponent {
                 this.requestUpdate();
             }
         );
+        
+        // If call failed to start (duplicate in progress), reset state
+        if (!success) {
+            this.uploading = false;
+            this.upload_progress = 0;
+            this.requestUpdate();
+        }
     };
 
     render() {

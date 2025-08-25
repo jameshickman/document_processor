@@ -132,7 +132,7 @@ class API_REST {
      */
     #generate_cache_key(call_params) {
         const {signature, http_verb, data, headers, path_vars} = call_params;
-        return cyrb53(signature + http_verb + JSON.stringify(data) + JSON.stringify(headers) + JSON.stringify(path_vars));
+        return cyrb53(signature + http_verb + this.#serializeDataForKey(data) + JSON.stringify(headers) + JSON.stringify(path_vars));
     }
 
     /**
@@ -227,6 +227,36 @@ class API_REST {
             path = path.replace(token, data[n]);
         }
         return path;
+    }
+
+    #serializeDataForKey(data) {
+        if (!data) return 'null';
+        
+        try {
+            // Create a serializable version of data for key generation
+            const serializable = {};
+            for (const key in data) {
+                if (data[key] instanceof HTMLInputElement) {
+                    // For file inputs, use file count and names for uniqueness
+                    if (data[key].type === 'file' && data[key].files) {
+                        const fileInfo = Array.from(data[key].files).map(f => ({
+                            name: f.name,
+                            size: f.size,
+                            lastModified: f.lastModified
+                        }));
+                        serializable[key] = `file_input:${JSON.stringify(fileInfo)}`;
+                    } else {
+                        serializable[key] = `input_element:${data[key].value}`;
+                    }
+                } else {
+                    serializable[key] = data[key];
+                }
+            }
+            return JSON.stringify(serializable);
+        } catch (error) {
+            // Fallback for any serialization issues
+            return 'serialization_error:' + Date.now();
+        }
     }
 
     #call_if_not_in_flight(signature, url, verb, data, headers, is_form, call_params, is_retry, onProgress) {
@@ -346,7 +376,7 @@ class API_REST {
             }
         }
 
-        const key = cyrb53(url + verb + JSON.stringify(data) + JSON.stringify(headers));
+        const key = cyrb53(url + verb + this.#serializeDataForKey(data) + JSON.stringify(headers));
         if (this.#in_flight.hasOwnProperty(key)) {
             if (this.#in_flight[key].resolved()) {
                 delete this.#in_flight[key];
