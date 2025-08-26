@@ -68,13 +68,31 @@ def create_or_update_classifier(
         classifiers_id = create_classifier_set_with_classifiers(db, classifier.name, user.user_id, classifiers_data)
     else:
         # Update existing classifier
-        q = text("DELETE FROM classifiers WHERE classifier_set = :id")
-        db.execute(q, {"id": classifiers_id})
+        # First delete associated terms, then classifiers (to avoid foreign key constraint violations)
+        classifiers_in_set = db.query(models.Classifier).filter(
+            models.Classifier.classifier_set == classifiers_id
+        ).all()
+        
+        for classifier_obj in classifiers_in_set:
+            # Delete all terms for this classifier
+            db.query(models.ClassifierTerm).filter(
+                models.ClassifierTerm.classifier_id == classifier_obj.id
+            ).delete()
+        
+        # Now delete all classifiers in the set
+        db.query(models.Classifier).filter(
+            models.Classifier.classifier_set == classifiers_id
+        ).delete()
+        
         db.commit()
+        
+        # Update the classifier set name
         classifier_set = db.query(models.ClassifierSet).filter(models.ClassifierSet.id == classifiers_id).first()
         classifier_set.name = classifier.name
         db.add(classifier_set)
         db.commit()
+        
+        # Create new classifiers with their terms
         classifiers_data = [{'name': c.name, 'terms': c.terms} for c in classifier.classifiers]
         create_classifiers_with_terms(db, classifiers_id, classifiers_data)
 
