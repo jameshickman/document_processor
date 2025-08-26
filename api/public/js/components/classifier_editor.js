@@ -16,6 +16,7 @@ export class ClassifierEditor extends BaseComponent {
     };
 
     #currentRunFiles = new Map(); // Map of file ID -> file info
+    #creating_new_set = false;
 
     constructor() {
         super();
@@ -387,6 +388,12 @@ export class ClassifierEditor extends BaseComponent {
         this.server.define_endpoint(
             "/classifiers/{id}",
             (resp) => {
+                // If this was a new classifier set creation, automatically select it
+                if (this.#creating_new_set && resp && resp.id) {
+                    this.selected_classifier_set_id = resp.id;
+                    this.current_classifier_set = resp;
+                    this.#creating_new_set = false;
+                }
                 this.#load_classifier_sets();
                 this.requestUpdate();
             },
@@ -481,6 +488,7 @@ export class ClassifierEditor extends BaseComponent {
                 name: name,
                 classifiers: []
             };
+            this.#creating_new_set = true;
             this.server.call("/classifiers/{id}", HTTP_POST_JSON, newSet, null, {id: 0});
         }
     }
@@ -534,6 +542,12 @@ export class ClassifierEditor extends BaseComponent {
             };
             
             this.current_classifier_set = updatedSet;
+            
+            // Update current_classifier reference if it was pointing to a classifier in the old set
+            if (this.current_classifier && this.selected_classifier_id) {
+                this.current_classifier = updatedSet.classifiers.find(c => c.id === this.selected_classifier_id) || null;
+            }
+            
             this.requestUpdate();
         }
     }
@@ -622,6 +636,14 @@ export class ClassifierEditor extends BaseComponent {
 
     #save_clicked(e) {
         if (this.current_classifier_set && this.selected_classifier_set_id) {
+            // Ensure current_classifier changes are reflected in the classifier_set before saving
+            if (this.current_classifier && this.selected_classifier_id) {
+                const classifierIndex = this.current_classifier_set.classifiers.findIndex(c => c.id === this.selected_classifier_id);
+                if (classifierIndex >= 0) {
+                    this.current_classifier_set.classifiers[classifierIndex] = this.current_classifier;
+                }
+            }
+            
             this.server.call("/classifiers/{id}", HTTP_POST_JSON, this.current_classifier_set, null, {id: this.selected_classifier_set_id});
         }
     }
