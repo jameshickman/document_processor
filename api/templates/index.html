@@ -28,6 +28,7 @@
             <button data-view="about">Introduction</button>
             <button data-view="classifiers">Classifiers</button>
             <button data-view="extractors">Extractors</button>
+            <button data-view="action_chains">Action Chains</button>
             <button data-view="api_setup">Service API settings</button>
         </navigation-menu>
         <navigation-views class="navigation-views" id="main-views">
@@ -39,6 +40,9 @@
             </div>
             <div data-name="extractors" class="navigation-view">
                 {% include 'sections/extractors.j2' %}
+            </div>
+            <div data-name="action_chains">
+                {% include 'sections/action_chains.j2' %}
             </div>
             <div data-name="api_setup" class="navigation-view">
                 {% include 'sections/api_setup.j2' %}
