@@ -90,10 +90,26 @@ def list_extractors(
         db: Session = Depends(get_db),
         user = Depends(get_current_user_info)):
     """
-    Return the IDs and names of all the extractors.
+    Return the IDs and names of all the extractors along with their field definitions.
     """
     extractors = db.query(models.Extractor).filter(models.Extractor.account_id == user.user_id).all()
-    return [{"id": e.id, "name": e.name} for e in extractors]
+    
+    result = []
+    for extractor in extractors:
+        # Get all fields for this extractor
+        fields = db.query(models.ExtractorField).filter(
+            models.ExtractorField.extractor_id == extractor.id
+        ).all()
+        
+        fields_data = [{"name": f.name, "description": f.description} for f in fields]
+        
+        result.append({
+            "id": extractor.id, 
+            "name": extractor.name,
+            "fields": fields_data
+        })
+    
+    return result
 
 @router.get("/{extractor_id}")
 def get_extractor(

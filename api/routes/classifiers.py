@@ -104,10 +104,26 @@ def list_classifiers(
         db: Session = Depends(get_db),
         user = Depends(get_current_user_info)):
     """
-    Return the IDs and names of all the classifier sets.
+    Return the IDs and names of all the classifier sets along with their individual classifiers.
     """
-    classifiers = db.query(models.ClassifierSet).filter(models.ClassifierSet.account_id == user.user_id).all()
-    return [{"id": c.id, "name": c.name} for c in classifiers]
+    classifier_sets = db.query(models.ClassifierSet).filter(models.ClassifierSet.account_id == user.user_id).all()
+    
+    result = []
+    for classifier_set in classifier_sets:
+        # Get all classifiers within this set
+        classifiers = db.query(models.Classifier).filter(
+            models.Classifier.classifier_set == classifier_set.id
+        ).all()
+        
+        classifiers_data = [{"id": c.id, "name": c.name} for c in classifiers]
+        
+        result.append({
+            "id": classifier_set.id, 
+            "name": classifier_set.name,
+            "classifiers": classifiers_data
+        })
+    
+    return result
 
 @router.get("/{classifier_set_id}")
 def get_classifier(classifier_set_id: int,

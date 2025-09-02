@@ -369,6 +369,11 @@ export class ClassifierEditor extends BaseComponent {
                 this.classifier_sets = resp;
                 this.loading = false;
                 this.requestUpdate();
+                multicall({
+                    target: "classifiers",
+                    query: "[jsum=action_chain_builder]",
+                    params: resp
+                });
             },
             HTTP_GET
         );

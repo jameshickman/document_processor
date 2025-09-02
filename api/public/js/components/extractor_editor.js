@@ -391,6 +391,11 @@ export class ExtractorEditor extends BaseComponent {
                 this.extractors = resp;
                 this.loading = false;
                 this.requestUpdate();
+                multicall({
+                    target: "extractors",
+                    query: "[jsum=action_chain_builder]",
+                    params: resp
+                });
             },
             HTTP_GET
         );
