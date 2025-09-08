@@ -1,20 +1,26 @@
 import fitz
 import re
 import os
+import glob
 
 
-def highlight_pdf(input_file: str, strings: list[str]) -> str:
+def highlight_pdf(input_file: str, strings: list[str], extractor_id: int) -> str:
     """
     Load the input_file PDF, search for the strings and highlight them in yellow.
-    Write the highlighted version of the file name.pdf as name.marked.pdf
+    Write the highlighted version of the file name.pdf as name.marked.<extractor_id>.pdf
+
+    Deletes any old marked-up versions of the file and includes the extractor_id in the filename.
     """
+    
+    # Generate output filename with extractor_id
+    base_name = os.path.splitext(input_file)[0]
+    output_file = f"{base_name}.marked.{extractor_id}.pdf"
+    
+    # Clean up any old marked files for this base document
+    _cleanup_old_marked_files(base_name, extractor_id)
     
     # Open the PDF document
     pdf_doc = fitz.open(input_file)
-    
-    # Generate output filename
-    base_name = os.path.splitext(input_file)[0]
-    output_file = f"{base_name}.marked.pdf"
     
     total_matches = 0
     
@@ -101,3 +107,46 @@ def highlight_matching_data(page, matched_values, type):
         # highlight.setColors(colors= fitz.utils.getColor('red'))
         highlight.update()
     return matches_found
+
+
+def _cleanup_old_marked_files(base_name: str, extractor_id: int) -> None:
+    """
+    Delete any old marked-up versions of the file for the specific extractor_id.
+    
+    Args:
+        base_name: Base filename without extension (e.g., "/path/to/document")
+        extractor_id: Extractor ID - only files with this specific ID will be cleaned up
+    """
+    # Pattern to match marked files for this specific document and extractor_id
+    pattern = f"{base_name}.marked.{extractor_id}.pdf"
+    
+    # Find existing marked file for this specific combination
+    if os.path.exists(pattern):
+        try:
+            os.remove(pattern)
+            print(f"Cleaned up existing marked file: {pattern}")
+        except OSError as e:
+            print(f"Warning: Could not remove existing marked file {pattern}: {e}")
+
+
+def get_marked_files(input_file: str, extractor_id: int = None) -> list[str]:
+    """
+    Get a list of marked versions of a given input file.
+    
+    Args:
+        input_file: Path to the original PDF file
+        extractor_id: If provided, only return files for this extractor_id
+        
+    Returns:
+        List of paths to marked versions of the file
+    """
+    base_name = os.path.splitext(input_file)[0]
+    
+    if extractor_id is not None:
+        # Return only files for specific extractor_id
+        pattern = f"{base_name}.marked.{extractor_id}.pdf"
+        return glob.glob(pattern)
+    else:
+        # Return all marked files for this document
+        pattern = f"{base_name}.marked.*.pdf"
+        return glob.glob(pattern)

@@ -471,12 +471,13 @@ class TestPDFMarkup(unittest.TestCase):
         
         # Test with common words likely to be found
         search_strings = ["specification", "Boeing", "supplier"]
+        extractor_id = 1
         
-        result_file = highlight_pdf(input_file, search_strings)
+        result_file = highlight_pdf(input_file, search_strings, extractor_id)
         
         # Check that output file was created
         self.assertTrue(os.path.exists(result_file))
-        self.assertTrue(result_file.endswith(".marked.pdf"))
+        self.assertTrue(result_file.endswith(f".marked.{extractor_id}.pdf"))
         
         # Check that the output file is different from input
         self.assertNotEqual(input_file, result_file)
@@ -499,11 +500,12 @@ class TestPDFMarkup(unittest.TestCase):
                 if not os.path.exists(input_file):
                     continue
                 
-                result_file = highlight_pdf(input_file, search_terms)
+                extractor_id = 2
+                result_file = highlight_pdf(input_file, search_terms, extractor_id)
                 
                 # Verify file creation and naming
                 self.assertTrue(os.path.exists(result_file))
-                expected_name = pdf_name.replace(".pdf", ".marked.pdf")
+                expected_name = pdf_name.replace(".pdf", f".marked.{extractor_id}.pdf")
                 self.assertTrue(result_file.endswith(expected_name))
                 
                 # Clean up
@@ -516,7 +518,8 @@ class TestPDFMarkup(unittest.TestCase):
         if not os.path.exists(input_file):
             self.skipTest(f"Sample PDF {input_file} not found")
         
-        result_file = highlight_pdf(input_file, [])
+        extractor_id = 3
+        result_file = highlight_pdf(input_file, [], extractor_id)
         
         # Should still create output file even with no search terms
         self.assertTrue(os.path.exists(result_file))
@@ -533,8 +536,9 @@ class TestPDFMarkup(unittest.TestCase):
         
         # Test with different case variations
         search_strings = ["boeing", "BOEING", "Boeing", "specification", "SPECIFICATION"]
+        extractor_id = 4
         
-        result_file = highlight_pdf(input_file, search_strings)
+        result_file = highlight_pdf(input_file, search_strings, extractor_id)
         
         self.assertTrue(os.path.exists(result_file))
         
@@ -550,8 +554,9 @@ class TestPDFMarkup(unittest.TestCase):
         
         # Test with terms that might contain numbers, dates, or special chars
         search_strings = ["test", "certificate", "material", "2024", "2023"]
+        extractor_id = 5
         
-        result_file = highlight_pdf(input_file, search_strings)
+        result_file = highlight_pdf(input_file, search_strings, extractor_id)
         
         self.assertTrue(os.path.exists(result_file))
         
@@ -565,7 +570,7 @@ class TestPDFMarkup(unittest.TestCase):
         search_strings = ["test"]
         
         with self.assertRaises(Exception):
-            highlight_pdf(nonexistent_file, search_strings)
+            highlight_pdf(nonexistent_file, search_strings, extractor_id=6)
 
     def test_highlight_pdf_output_filename_generation(self):
         """Test that output filenames are generated correctly"""
@@ -573,10 +578,11 @@ class TestPDFMarkup(unittest.TestCase):
         if not os.path.exists(input_file):
             self.skipTest(f"Sample PDF {input_file} not found")
         
-        result_file = highlight_pdf(input_file, ["test"])
+        extractor_id = 7
+        result_file = highlight_pdf(input_file, ["test"], extractor_id)
         
         # Check filename pattern
-        expected_pattern = input_file.replace(".pdf", ".marked.pdf")
+        expected_pattern = input_file.replace(".pdf", f".marked.{extractor_id}.pdf")
         self.assertEqual(result_file, expected_pattern)
         
         # Clean up
@@ -681,7 +687,8 @@ class TestPDFMarkup(unittest.TestCase):
                     continue
                 
                 try:
-                    result_file = highlight_pdf(input_file, search_terms)
+                    extractor_id = 8
+                    result_file = highlight_pdf(input_file, search_terms, extractor_id)
                     
                     # Verify output file exists and is a valid PDF
                     self.assertTrue(os.path.exists(result_file))
@@ -718,7 +725,8 @@ class TestPDFMarkup(unittest.TestCase):
             original_doc.close()
             
             # Process with highlighting
-            result_file = highlight_pdf(input_file, ["test", "specification"])
+            extractor_id = 9
+            result_file = highlight_pdf(input_file, ["test", "specification"], extractor_id)
             
             # Check processed document
             processed_doc = fitz.open(result_file)
@@ -734,6 +742,91 @@ class TestPDFMarkup(unittest.TestCase):
         finally:
             if 'result_file' in locals() and os.path.exists(result_file):
                 os.remove(result_file)
+
+    def test_highlight_pdf_cleanup_functionality(self):
+        """Test that old marked files are cleaned up correctly"""
+        input_file = os.path.join(self.sample_pdfs_dir, "Boeing_Supplier_Specification.pdf")
+        if not os.path.exists(input_file):
+            self.skipTest(f"Sample PDF {input_file} not found")
+        
+        extractor_id = 100
+        search_strings = ["test"]
+        
+        # Create an initial marked file
+        result_file_1 = highlight_pdf(input_file, search_strings, extractor_id)
+        self.assertTrue(os.path.exists(result_file_1))
+        
+        # Create the same marked file again - should clean up the old one
+        result_file_2 = highlight_pdf(input_file, search_strings, extractor_id)
+        self.assertTrue(os.path.exists(result_file_2))
+        self.assertEqual(result_file_1, result_file_2)  # Should be same filename
+        
+        # Clean up
+        if os.path.exists(result_file_2):
+            os.remove(result_file_2)
+
+    def test_highlight_pdf_multiple_extractors(self):
+        """Test that files from different extractors coexist"""
+        input_file = os.path.join(self.sample_pdfs_dir, "Boeing_Supplier_Specification.pdf")
+        if not os.path.exists(input_file):
+            self.skipTest(f"Sample PDF {input_file} not found")
+        
+        search_strings = ["test"]
+        
+        # Create files with different extractor IDs
+        result_file_1 = highlight_pdf(input_file, search_strings, extractor_id=200)
+        result_file_2 = highlight_pdf(input_file, search_strings, extractor_id=201)
+        
+        # Both files should exist
+        self.assertTrue(os.path.exists(result_file_1))
+        self.assertTrue(os.path.exists(result_file_2))
+        self.assertNotEqual(result_file_1, result_file_2)
+        
+        # Verify correct naming
+        self.assertTrue(result_file_1.endswith(".marked.200.pdf"))
+        self.assertTrue(result_file_2.endswith(".marked.201.pdf"))
+        
+        # Clean up
+        for result_file in [result_file_1, result_file_2]:
+            if os.path.exists(result_file):
+                os.remove(result_file)
+
+    def test_get_marked_files_function(self):
+        """Test the get_marked_files helper function"""
+        from api.pdf_markup.highlight_pdf import get_marked_files
+        
+        input_file = os.path.join(self.sample_pdfs_dir, "Boeing_Supplier_Specification.pdf")
+        if not os.path.exists(input_file):
+            self.skipTest(f"Sample PDF {input_file} not found")
+        
+        search_strings = ["test"]
+        
+        # Create files with different extractor IDs
+        result_file_1 = highlight_pdf(input_file, search_strings, extractor_id=300)
+        result_file_2 = highlight_pdf(input_file, search_strings, extractor_id=301)
+        
+        try:
+            # Test getting all marked files
+            all_marked = get_marked_files(input_file)
+            self.assertIn(result_file_1, all_marked)
+            self.assertIn(result_file_2, all_marked)
+            
+            # Test getting marked files for specific extractor
+            specific_marked_300 = get_marked_files(input_file, extractor_id=300)
+            self.assertEqual(specific_marked_300, [result_file_1])
+            
+            specific_marked_301 = get_marked_files(input_file, extractor_id=301)
+            self.assertEqual(specific_marked_301, [result_file_2])
+            
+            # Test non-existent extractor
+            nonexistent_marked = get_marked_files(input_file, extractor_id=999)
+            self.assertEqual(nonexistent_marked, [])
+            
+        finally:
+            # Clean up
+            for result_file in [result_file_1, result_file_2]:
+                if os.path.exists(result_file):
+                    os.remove(result_file)
 
 
 class TestPDFConverter(unittest.TestCase):

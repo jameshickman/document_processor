@@ -367,6 +367,51 @@ export class ExtractorEditor extends BaseComponent {
         .flash-new {
             animation: flashBorder 2s ease-out;
         }
+        
+        .download-pdf-btn {
+            background: #17a2b8;
+            color: white;
+            border: 1px solid #17a2b8;
+            padding: 4px 8px;
+            font-size: 11px;
+            border-radius: 3px;
+            cursor: pointer;
+            margin-top: 8px;
+            margin-right: 8px;
+            display: inline-block;
+            text-decoration: none;
+        }
+        
+        .download-pdf-btn:hover {
+            background: #138496;
+            border-color: #117a8b;
+        }
+        
+        .download-pdf-btn:disabled {
+            background: #6c757d;
+            border-color: #6c757d;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        
+        .file-result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .file-result-title {
+            margin: 0;
+            color: #007bff;
+            font-size: 16px;
+        }
+        
+        .download-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
     `;
 
     #currentRunFiles = new Map(); // Map of file ID -> file info
@@ -637,6 +682,38 @@ export class ExtractorEditor extends BaseComponent {
         this.results_collapsed = !this.results_collapsed;
     }
 
+    #download_marked_pdf_clicked(e) {
+        const fileId = e.target.dataset.fileId;
+        const fileName = e.target.dataset.fileName;
+        
+        if (!fileId || !this.selected_extractor_id) {
+            alert("Unable to download: missing file or extractor information");
+            return;
+        }
+        
+        // Use API.js download method for authenticated download
+        const downloadUrl = `/documents/marked/${this.selected_extractor_id}/${fileId}`;
+        const defaultFilename = `${fileName}_marked_extractor_${this.selected_extractor_id}.pdf`;
+        
+        this.server.download(
+            downloadUrl,
+            null, // no content, using URL
+            defaultFilename,
+            'application/pdf',
+            (filename) => {
+                console.log(`Marked PDF downloaded: ${filename}`);
+            },
+            (error) => {
+                console.error('Download failed:', error);
+                if (error.message && error.message.includes('404')) {
+                    alert('Marked PDF not found. Please run the extraction again to generate a marked version.');
+                } else {
+                    alert('Download failed. Please try again or check that the marked PDF exists.');
+                }
+            }
+        );
+    }
+
     #renderExtractionValue(value) {
         if (value === null || value === undefined) {
             return html`<span class="null-value">null</span>`;
@@ -834,7 +911,30 @@ export class ExtractorEditor extends BaseComponent {
                                         // Multiple file results
                                         this.run_results.files.map((fileResult, index) => html`
                                             <div class="file-result">
-                                                <h4>${fileResult.fileName} Results:</h4>
+                                                <div class="file-result-header">
+                                                    <h4 class="file-result-title">${fileResult.fileName} Results:</h4>
+                                                    <div class="download-actions">
+                                                        ${fileResult.results && fileResult.results.found ? html`
+                                                            <button 
+                                                                class="download-pdf-btn"
+                                                                data-file-id="${fileResult.fileId}"
+                                                                data-file-name="${fileResult.fileName.replace(/\.[^/.]+$/, '')}"
+                                                                @click=${this.#download_marked_pdf_clicked}
+                                                                title="Download marked PDF with highlighted citations"
+                                                            >
+                                                                📄 Download Marked PDF
+                                                            </button>
+                                                        ` : html`
+                                                            <button 
+                                                                class="download-pdf-btn" 
+                                                                disabled
+                                                                title="No data found - marked PDF not available"
+                                                            >
+                                                                📄 No Marked PDF
+                                                            </button>
+                                                        `}
+                                                    </div>
+                                                </div>
                                                 ${fileResult.results ? html`
                                                     <div><strong>Found:</strong> ${fileResult.results.found ? 'Yes' : 'No'}</div>
                                                     <div><strong>Confidence:</strong> ${fileResult.results.confidence}</div>

@@ -62,6 +62,14 @@ def run_extractor(
 
     result = fact_extractor.extract_facts(document_text, extraction_query)
 
+    """
+    TODO:
+    Implement creation of a marked-up PDF based on the citations for each field of extracted data.
+    See the updated prompt in lib/fact_extractor/fact_extractor.py to get a list of citations for the
+    extracted fields. If the origin file is not a PDF, use the api/to_pdf/converter.py function to generate
+    the PDF to mark-up.
+    """
+
     payload = ExtractionPayload(
         result=result.model_dump(),
         file_name=file_name,
