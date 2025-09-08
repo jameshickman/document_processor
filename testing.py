@@ -15,6 +15,7 @@ from lib.fact_extractor.fact_extractor import FactExtractor
 from lib.fact_extractor.models import LLMConfig, ExtractionQuery, ExtractionResult
 
 from api.pdf_markup.highlight_pdf import highlight_pdf, extract_info, search_for_text, highlight_matching_data
+from api.to_pdf.converter import to_pdf, get_supported_formats, get_conversion_info, ConversionError
 
 
 class TestClassifier(unittest.TestCase):
@@ -733,6 +734,336 @@ class TestPDFMarkup(unittest.TestCase):
         finally:
             if 'result_file' in locals() and os.path.exists(result_file):
                 os.remove(result_file)
+
+
+class TestPDFConverter(unittest.TestCase):
+
+    def setUp(self):
+        self.sample_files_dir = "testing/sample_files"
+        self.test_output_dir = "testing/output"
+        os.makedirs(self.sample_files_dir, exist_ok=True)
+        os.makedirs(self.test_output_dir, exist_ok=True)
+        
+        # Sample files for testing
+        self.sample_files = {
+            'text': 'sample.txt',
+            'html': 'sample.html', 
+            'markdown': 'sample.md',
+            'image': 'sample.png'
+        }
+
+    def tearDown(self):
+        # Clean up generated PDF files
+        import glob
+        for file in glob.glob(os.path.join(self.sample_files_dir, "*.pdf")):
+            try:
+                os.remove(file)
+            except OSError:
+                pass
+        for file in glob.glob(os.path.join(self.test_output_dir, "*.pdf")):
+            try:
+                os.remove(file)
+            except OSError:
+                pass
+
+    def test_get_supported_formats(self):
+        """Test getting supported format information"""
+        formats = get_supported_formats()
+        
+        self.assertIsInstance(formats, dict)
+        self.assertIn('text', formats)
+        self.assertIn('markup', formats)
+        self.assertIn('office', formats)
+        self.assertIn('images', formats)
+        
+        # Check specific extensions
+        self.assertIn('.txt', formats['text'])
+        self.assertIn('.html', formats['markup'])
+        self.assertIn('.md', formats['markup'])
+        self.assertIn('.png', formats['images'])
+
+    def test_get_conversion_info(self):
+        """Test getting conversion tool and library information"""
+        info = get_conversion_info()
+        
+        self.assertIsInstance(info, dict)
+        self.assertIn('libraries', info)
+        self.assertIn('tools', info)
+        self.assertIn('supported_formats', info)
+        
+        # Check library availability flags
+        self.assertIn('reportlab', info['libraries'])
+        self.assertIn('pillow', info['libraries'])
+        self.assertIn('pymupdf', info['libraries'])
+        
+        # Check tool availability flags
+        self.assertIn('pandoc', info['tools'])
+        self.assertIn('libreoffice', info['tools'])
+
+    def test_to_pdf_text_conversion(self):
+        """Test converting text file to PDF"""
+        input_file = os.path.join(self.sample_files_dir, self.sample_files['text'])
+        if not os.path.exists(input_file):
+            self.skipTest(f"Sample text file not found: {input_file}")
+        
+        result_pdf = to_pdf(input_file)
+        
+        # Check that PDF was created
+        self.assertTrue(os.path.exists(result_pdf))
+        self.assertTrue(result_pdf.endswith('.pdf'))
+        
+        # Check that it's a valid PDF
+        with open(result_pdf, 'rb') as f:
+            header = f.read(4)
+            self.assertEqual(header, b'%PDF')
+        
+        # Check file size is reasonable
+        file_size = os.path.getsize(result_pdf)
+        self.assertGreater(file_size, 100)  # At least 100 bytes
+        
+        # Clean up
+        os.remove(result_pdf)
+
+    def test_to_pdf_html_conversion(self):
+        """Test converting HTML file to PDF"""
+        input_file = os.path.join(self.sample_files_dir, self.sample_files['html'])
+        if not os.path.exists(input_file):
+            self.skipTest(f"Sample HTML file not found: {input_file}")
+        
+        try:
+            result_pdf = to_pdf(input_file)
+            
+            # Check that PDF was created
+            self.assertTrue(os.path.exists(result_pdf))
+            self.assertTrue(result_pdf.endswith('.pdf'))
+            
+            # Check file size
+            file_size = os.path.getsize(result_pdf)
+            self.assertGreater(file_size, 100)
+            
+            # Clean up
+            os.remove(result_pdf)
+            
+        except ConversionError as e:
+            # If no HTML conversion tools available, skip test
+            if "not available" in str(e):
+                self.skipTest(f"HTML conversion tools not available: {e}")
+            else:
+                raise
+
+    def test_to_pdf_markdown_conversion(self):
+        """Test converting Markdown file to PDF"""
+        input_file = os.path.join(self.sample_files_dir, self.sample_files['markdown'])
+        if not os.path.exists(input_file):
+            self.skipTest(f"Sample Markdown file not found: {input_file}")
+        
+        try:
+            result_pdf = to_pdf(input_file)
+            
+            # Check that PDF was created
+            self.assertTrue(os.path.exists(result_pdf))
+            self.assertTrue(result_pdf.endswith('.pdf'))
+            
+            # Check file size
+            file_size = os.path.getsize(result_pdf)
+            self.assertGreater(file_size, 100)
+            
+            # Clean up
+            os.remove(result_pdf)
+            
+        except ConversionError as e:
+            # If no Markdown conversion tools available, skip test
+            if "not available" in str(e):
+                self.skipTest(f"Markdown conversion tools not available: {e}")
+            else:
+                raise
+
+    def test_to_pdf_image_conversion(self):
+        """Test converting image file to PDF"""
+        input_file = os.path.join(self.sample_files_dir, self.sample_files['image'])
+        if not os.path.exists(input_file):
+            self.skipTest(f"Sample image file not found: {input_file}")
+        
+        result_pdf = to_pdf(input_file)
+        
+        # Check that PDF was created
+        self.assertTrue(os.path.exists(result_pdf))
+        self.assertTrue(result_pdf.endswith('.pdf'))
+        
+        # Check that it's a valid PDF
+        with open(result_pdf, 'rb') as f:
+            header = f.read(4)
+            self.assertEqual(header, b'%PDF')
+        
+        # Check file size
+        file_size = os.path.getsize(result_pdf)
+        self.assertGreater(file_size, 1000)  # Images should create larger PDFs
+        
+        # Clean up
+        os.remove(result_pdf)
+
+    def test_to_pdf_nonexistent_file(self):
+        """Test error handling for non-existent input files"""
+        nonexistent_file = "nonexistent_file.txt"
+        
+        with self.assertRaises(FileNotFoundError):
+            to_pdf(nonexistent_file)
+
+    def test_to_pdf_output_filename_generation(self):
+        """Test that output filenames are generated correctly"""
+        input_file = os.path.join(self.sample_files_dir, self.sample_files['text'])
+        if not os.path.exists(input_file):
+            self.skipTest(f"Sample text file not found: {input_file}")
+        
+        result_pdf = to_pdf(input_file)
+        
+        # Check filename pattern
+        expected_pattern = input_file.replace('.txt', '.pdf')
+        self.assertEqual(result_pdf, expected_pattern)
+        
+        # Clean up
+        os.remove(result_pdf)
+
+    def test_to_pdf_unsupported_extension(self):
+        """Test handling of unsupported file extensions"""
+        # Create a temporary file with unsupported extension
+        temp_file = os.path.join(self.sample_files_dir, "test.xyz")
+        with open(temp_file, 'w') as f:
+            f.write("Test content")
+        
+        try:
+            # Should try to use pandoc as fallback
+            result_pdf = to_pdf(temp_file)
+            
+            # If successful, clean up
+            if os.path.exists(result_pdf):
+                os.remove(result_pdf)
+                
+        except ConversionError:
+            # Expected if pandoc is not available
+            pass
+        
+        finally:
+            # Clean up temp file
+            if os.path.exists(temp_file):
+                os.remove(temp_file)
+
+    def test_conversion_with_special_characters(self):
+        """Test conversion of files with special characters in content"""
+        # Create a text file with special characters
+        special_content = """
+        Special Characters Test: áéíóú àèìòù äëïöü ñç
+        Unicode: 🌟 ★ ♦ ♥ ♠ ♣
+        Math: α β γ δ ε π ∞ ∑ ∫
+        Quotes: "Hello" 'World' «Bonjour» »Monde«
+        """
+        
+        special_file = os.path.join(self.sample_files_dir, "special_chars.txt")
+        with open(special_file, 'w', encoding='utf-8') as f:
+            f.write(special_content)
+        
+        try:
+            result_pdf = to_pdf(special_file)
+            
+            # Check that PDF was created
+            self.assertTrue(os.path.exists(result_pdf))
+            
+            # Check file size
+            file_size = os.path.getsize(result_pdf)
+            self.assertGreater(file_size, 100)
+            
+            # Clean up
+            os.remove(result_pdf)
+            
+        finally:
+            # Clean up temp file
+            if os.path.exists(special_file):
+                os.remove(special_file)
+
+    def test_multiple_format_conversions(self):
+        """Test converting multiple file formats in sequence"""
+        test_files = []
+        result_files = []
+        
+        try:
+            # Test all available sample files
+            for format_type, filename in self.sample_files.items():
+                input_file = os.path.join(self.sample_files_dir, filename)
+                if os.path.exists(input_file):
+                    test_files.append((format_type, input_file))
+            
+            # Convert all files
+            for format_type, input_file in test_files:
+                with self.subTest(format=format_type):
+                    try:
+                        result_pdf = to_pdf(input_file)
+                        result_files.append(result_pdf)
+                        
+                        # Check that PDF was created
+                        self.assertTrue(os.path.exists(result_pdf))
+                        self.assertTrue(result_pdf.endswith('.pdf'))
+                        
+                    except ConversionError as e:
+                        if "not available" in str(e):
+                            self.skipTest(f"Conversion tools not available for {format_type}: {e}")
+                        else:
+                            raise
+        
+        finally:
+            # Clean up all generated files
+            for result_file in result_files:
+                if os.path.exists(result_file):
+                    os.remove(result_file)
+
+    def test_conversion_error_handling(self):
+        """Test proper error handling for conversion failures"""
+        # Create a corrupted/empty file
+        corrupted_file = os.path.join(self.sample_files_dir, "corrupted.txt")
+        with open(corrupted_file, 'w') as f:
+            f.write("")  # Empty file
+        
+        try:
+            # Should still work for empty text file
+            result_pdf = to_pdf(corrupted_file)
+            self.assertTrue(os.path.exists(result_pdf))
+            
+            # Clean up
+            os.remove(result_pdf)
+            
+        finally:
+            # Clean up
+            if os.path.exists(corrupted_file):
+                os.remove(corrupted_file)
+
+    def test_pdf_content_validation(self):
+        """Test that generated PDFs contain expected content structure"""
+        input_file = os.path.join(self.sample_files_dir, self.sample_files['text'])
+        if not os.path.exists(input_file):
+            self.skipTest(f"Sample text file not found: {input_file}")
+        
+        try:
+            import fitz  # PyMuPDF for PDF content validation
+            
+            result_pdf = to_pdf(input_file)
+            
+            # Open and validate PDF content
+            doc = fitz.open(result_pdf)
+            
+            # Check that PDF has at least one page
+            self.assertGreater(len(doc), 0)
+            
+            # Check that first page has some text content
+            page = doc[0]
+            text = page.get_text()
+            self.assertGreater(len(text.strip()), 0)
+            
+            doc.close()
+            
+            # Clean up
+            os.remove(result_pdf)
+            
+        except ImportError:
+            self.skipTest("PyMuPDF not available for content validation")
 
 
 if __name__ == '__main__':
