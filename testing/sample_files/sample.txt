@@ -1,0 +1,11 @@
+This is a sample text file for testing PDF conversion.
+
+It contains multiple paragraphs to test proper formatting.
+
+The converter should handle:
+- Plain text content
+- Multiple paragraphs
+- Line breaks and spacing
+- UTF-8 encoding
+
+This file will be used to test the text-to-PDF conversion functionality.
