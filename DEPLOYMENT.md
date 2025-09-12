@@ -61,6 +61,14 @@ Environment=POSTGRES_PORT=5432
 Environment=POSTGRES_DB=your_database
 Environment=ALLOWED_ORIGINS=https://yourdomain.com
 Environment=DEBUG=false
+Environment=OPENAI_BASE_URL=https://api.openai.com/v1
+Environment=OPENAI_API_KEY=sk-your-openai-key-here
+Environment=OPENAI_MODEL_NAME=gpt-4
+Environment=OPENAI_TEMPERATURE=0.05
+Environment=OPENAI_MAX_TOKENS=2048
+Environment=OPENAI_TIMEOUT=360
+Environment=DOCUMENT_STORAGE=/var/lib/classifier-extractor/documents
+Environment=JWT_SECRET=your-super-secure-jwt-secret-key-here
 
 [Install]
 WantedBy=multi-user.target
@@ -229,17 +237,85 @@ Create `/etc/logrotate.d/classifier-extractor`:
 
 ## Environment Variables
 
-Create a `.env` file or set environment variables:
+The application uses the following environment variables. Create a `.env` file or set them in your deployment configuration:
+
+### Database Configuration
+```bash
+export POSTGRES_USER=your_db_user          # PostgreSQL username (default: "user")
+export POSTGRES_PASSWORD=your_db_password  # PostgreSQL password (default: "password")
+export POSTGRES_HOST=localhost              # PostgreSQL host (default: "localhost")
+export POSTGRES_PORT=5432                  # PostgreSQL port (default: 5432)
+export POSTGRES_DB=your_database           # PostgreSQL database name (default: "database")
+```
+
+### Server Configuration
+```bash
+export HOST=0.0.0.0                        # Server host (default: "0.0.0.0")
+export PORT=8000                           # Server port (default: "8000")
+export DEBUG=false                         # Debug mode (default: "false")
+export ALLOWED_ORIGINS=https://yourdomain.com,https://www.yourdomain.com  # CORS origins (default: "*")
+```
+
+### LLM Configuration (from api/util/llm_config.py)
+```bash
+export OPENAI_BASE_URL=http://localhost:11434/v1  # LLM API base URL (default: "http://localhost:11434/v1")
+export OPENAI_API_KEY=your_openai_api_key         # LLM API key (default: "openai_api_key")
+export OPENAI_MODEL_NAME=gpt-4                    # LLM model name (default: "gemma3n")
+export OPENAI_TEMPERATURE=0.05                    # LLM temperature (default: 0.05)
+export OPENAI_MAX_TOKENS=2048                     # LLM max tokens (default: 2048)
+export OPENAI_TIMEOUT=360                         # LLM request timeout in seconds (default: 360)
+```
+
+### File Storage Configuration
+```bash
+export DOCUMENT_STORAGE=/path/to/document/storage  # Document storage path (optional)
+```
+
+### Authentication Configuration
+```bash
+export JWT_SECRET=your_jwt_secret_key              # JWT secret key for authentication (required)
+```
+
+### Complete Environment File Example
+
+Create a `.env` file in your project root:
 
 ```bash
-export POSTGRES_USER=your_db_user
-export POSTGRES_PASSWORD=your_db_password
-export POSTGRES_HOST=localhost
-export POSTGRES_PORT=5432
-export POSTGRES_DB=your_database
-export ALLOWED_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
-export DEBUG=false
+# Database
+POSTGRES_USER=classifier_user
+POSTGRES_PASSWORD=secure_password_here
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_DB=classifier_db
+
+# Server
+HOST=0.0.0.0
+PORT=8000
+DEBUG=false
+ALLOWED_ORIGINS=https://yourdomain.com,https://api.yourdomain.com
+
+# LLM Configuration
+OPENAI_BASE_URL=https://api.openai.com/v1
+OPENAI_API_KEY=sk-your-openai-key-here
+OPENAI_MODEL_NAME=gpt-4
+OPENAI_TEMPERATURE=0.05
+OPENAI_MAX_TOKENS=2048
+OPENAI_TIMEOUT=360
+
+# File Storage
+DOCUMENT_STORAGE=/var/lib/classifier-extractor/documents
+
+# Authentication
+JWT_SECRET=your-super-secure-jwt-secret-key-here
 ```
+
+### Environment Variable Loading
+
+The application loads environment variables in several locations:
+- `api/main.py` - Database and server configuration
+- `api/util/llm_config.py` - LLM/OpenAI configuration  
+- `api/util/upload_document.py` - Document storage configuration
+- `api/rbac.py` - JWT authentication configuration
 
 ## Monitoring and Health Checks
 
