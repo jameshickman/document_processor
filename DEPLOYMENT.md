@@ -201,6 +201,10 @@ sudo mkdir -p /var/log/gunicorn
 sudo mkdir -p /var/log/uwsgi
 sudo chown www-data:www-data /var/log/gunicorn
 sudo chown www-data:www-data /var/log/uwsgi
+
+# Create user log directory for docserver.log
+mkdir -p /home/ubuntu/log
+chown ubuntu:ubuntu /home/ubuntu/log
 ```
 
 ### Log Rotation
@@ -231,6 +235,19 @@ Create `/etc/logrotate.d/classifier-extractor`:
     create 644 www-data www-data
     postrotate
         systemctl reload classifier-extractor-uwsgi
+    endscript
+}
+
+/home/ubuntu/log/docserver.log {
+    daily
+    missingok
+    rotate 52
+    compress
+    delaycompress
+    notifempty
+    create 644 ubuntu ubuntu
+    postrotate
+        systemctl reload classifier-extractor
     endscript
 }
 ```
