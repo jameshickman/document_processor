@@ -92,3 +92,4 @@ websockets==15.0.1
 PyJWT~=2.10.1
 cryptography~=45.0.5
 PyMuPDF~=1.18.9
+uwsgi~=2.0.30
