@@ -1,6 +1,6 @@
 # Deployment Guide
 
-This guide provides instructions for deploying the Classifier and Extractor API to a production server using either Gunicorn (recommended) or uWSGI.
+This guide provides instructions for deploying the Classifier and Extractor API to a production server using Gunicorn with uvicorn workers.
 
 ## Prerequisites
 
@@ -9,7 +9,7 @@ This guide provides instructions for deploying the Classifier and Extractor API 
 - Nginx (for reverse proxy)
 - Virtual environment with project dependencies installed
 
-## Option 1: Gunicorn Deployment (Recommended)
+## Gunicorn Deployment
 
 Gunicorn with uvicorn workers is the recommended approach for FastAPI applications.
 
@@ -83,50 +83,6 @@ sudo systemctl start classifier-extractor
 sudo systemctl status classifier-extractor
 ```
 
-## Option 2: uWSGI Deployment
-
-**Note:** uWSGI requires additional configuration for ASGI applications. The provided configuration uses exec mode as a workaround.
-
-### 1. Install uWSGI
-
-```bash
-pip install uwsgi
-```
-
-### 2. Configuration
-
-Use the provided `example.server.ini` file. Update paths and settings:
-
-```ini
-[uwsgi]
-exec-as-root = uvicorn api.main:app --host 0.0.0.0 --port 8000 --workers 4
-chdir = /home/ubuntu/docserver
-```
-
-### 3. Create Systemd Service
-
-Create `/etc/systemd/system/classifier-extractor-uwsgi.service`:
-
-```ini
-[Unit]
-Description=Classifier Extractor API (uWSGI)
-After=network.target
-
-[Service]
-Type=notify
-User=root
-Group=root
-WorkingDirectory=/home/ubuntu/docserver
-Environment=PATH=/home/ubuntu/docserver/venv/bin
-ExecStart=/home/ubuntu/docserver/venv/bin/uwsgi --ini example.server.ini
-Restart=always
-RestartSec=10
-KillSignal=SIGQUIT
-
-[Install]
-WantedBy=multi-user.target
-```
-
 ## Nginx Configuration
 
 Create an Nginx configuration file `/etc/nginx/sites-available/classifier-extractor`:
@@ -197,12 +153,7 @@ sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE your_database TO your
 ### Create Log Directories
 
 ```bash
-sudo mkdir -p /var/log/gunicorn
-sudo mkdir -p /var/log/uwsgi
-sudo chown www-data:www-data /var/log/gunicorn
-sudo chown www-data:www-data /var/log/uwsgi
-
-# Create user log directory for docserver.log
+# Create user log directory for application logs
 mkdir -p /home/ubuntu/log
 chown ubuntu:ubuntu /home/ubuntu/log
 ```
@@ -212,33 +163,7 @@ chown ubuntu:ubuntu /home/ubuntu/log
 Create `/etc/logrotate.d/classifier-extractor`:
 
 ```
-/var/log/gunicorn/*.log {
-    daily
-    missingok
-    rotate 52
-    compress
-    delaycompress
-    notifempty
-    create 644 www-data www-data
-    postrotate
-        systemctl reload classifier-extractor
-    endscript
-}
-
-/var/log/uwsgi/*.log {
-    daily
-    missingok
-    rotate 52
-    compress
-    delaycompress
-    notifempty
-    create 644 www-data www-data
-    postrotate
-        systemctl reload classifier-extractor-uwsgi
-    endscript
-}
-
-/home/ubuntu/log/docserver.log {
+/home/ubuntu/log/docserver*.log {
     daily
     missingok
     rotate 52
@@ -351,8 +276,6 @@ sudo journalctl -u classifier-extractor -f
 
 # Check process
 ps aux | grep gunicorn
-# or
-ps aux | grep uwsgi
 ```
 
 ### Resource Monitoring
@@ -382,8 +305,9 @@ cd /home/ubuntu/docserver
 source venv/bin/activate
 gunicorn -c example.gunicorn.conf.py api.main:app
 
-# Test uWSGI directly
-uwsgi --ini example.server.ini
+# View application logs
+tail -f /home/ubuntu/log/docserver-error.log
+tail -f /home/ubuntu/log/docserver-access.log
 
 # Check port usage
 sudo netstat -tlnp | grep :8000
