@@ -36,7 +36,7 @@ Example JSON structure to return:
 "confidence": <number>,
 "found": true|false,
 "explanation": "...",
-$field_examples
+"fields": $field_examples
 }
 You must use the same field names as in the example JSON structure.
 

@@ -106,7 +106,9 @@ class FactExtractor:
             # Extract field data
             extracted_data = {}
             for field in fields.keys():
-                if field in parsed_data:
+                if "fields" in parsed_data:
+                    extracted_data[field] = parsed_data.get("fields", {}).get(field)
+                elif field in parsed_data:
                     extracted_data[field] = parsed_data[field]
             
             return ExtractionResult(
