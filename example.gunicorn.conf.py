@@ -31,11 +31,6 @@ access_log_format = '%(h)s %(l)s %(u)s %(t)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s"
 # Process naming
 proc_name = "classifier_extractor"
 
-# Server mechanics
-daemon = False
-pidfile = "/var/run/gunicorn/classifier_extractor.pid"
-tmp_upload_dir = None
-
 # SSL (if needed)
 # keyfile = "/path/to/keyfile"
 # certfile = "/path/to/certfile"
