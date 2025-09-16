@@ -119,12 +119,41 @@ class FactExtractor:
         except json.JSONDecodeError as e:
             error_msg = f"Failed to parse JSON from LLM response: {e}"
             logger.error(error_msg)
-            self._log_to_prompt_file("json_parse_error", f"{error_msg}\nJSON string attempted to parse: {json_str if 'json_str' in locals() else 'N/A'}\nFull response text: {response_text}")
+            
+            # Create detailed error log with exact parsing failure reason
+            detailed_error = f"{error_msg}\n"
+            detailed_error += f"JSON Parse Error Details:\n"
+            detailed_error += f"- Error Type: {type(e).__name__}\n"
+            detailed_error += f"- Error Message: {str(e)}\n"
+            detailed_error += f"- Error Position: {getattr(e, 'pos', 'Unknown')}\n"
+            detailed_error += f"- Error Line Number: {getattr(e, 'lineno', 'Unknown')}\n"
+            detailed_error += f"- Error Column: {getattr(e, 'colno', 'Unknown')}\n"
+            detailed_error += f"JSON string attempted to parse ({len(json_str) if 'json_str' in locals() else 0} characters):\n"
+            detailed_error += f"{'='*40}\n"
+            detailed_error += f"{json_str if 'json_str' in locals() else 'N/A'}\n"
+            detailed_error += f"{'='*40}\n"
+            detailed_error += f"Full response text ({len(response_text)} characters):\n"
+            detailed_error += f"{'='*40}\n"
+            detailed_error += f"{response_text}\n"
+            detailed_error += f"{'='*40}"
+            
+            self._log_to_prompt_file("json_parse_error", detailed_error)
             return None
         except Exception as e:
             error_msg = f"Error parsing LLM response: {e}"
             logger.error(error_msg)
-            self._log_to_prompt_file("json_parse_error", f"{error_msg}\nResponse text: {response_text}")
+            
+            # Create detailed error log for non-JSON parsing errors
+            detailed_error = f"{error_msg}\n"
+            detailed_error += f"General Error Details:\n"
+            detailed_error += f"- Error Type: {type(e).__name__}\n"
+            detailed_error += f"- Error Message: {str(e)}\n"
+            detailed_error += f"Response text ({len(response_text)} characters):\n"
+            detailed_error += f"{'='*40}\n"
+            detailed_error += f"{response_text}\n"
+            detailed_error += f"{'='*40}"
+            
+            self._log_to_prompt_file("json_parse_error", detailed_error)
             return None
     
     def extract_facts(self, document_text: str, extraction_query: ExtractionQuery) -> Optional[ExtractionResult]:
