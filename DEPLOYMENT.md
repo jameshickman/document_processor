@@ -198,14 +198,41 @@ export DEBUG=false                         # Debug mode (default: "false")
 export ALLOWED_ORIGINS=https://yourdomain.com,https://www.yourdomain.com  # CORS origins (default: "*")
 ```
 
-### LLM Configuration (from api/util/llm_config.py)
+### LLM Configuration
+The system supports multiple LLM providers with automatic fallback priority:
+1. **DeepInfra** (if DEEPINFRA_API_TOKEN is set)
+2. **OpenAI** (if OPENAI_API_KEY is set)
+3. **Ollama** (local service fallback)
+
+#### DeepInfra Configuration
 ```bash
-export OPENAI_BASE_URL=http://localhost:11434/v1  # LLM API base URL (default: "http://localhost:11434/v1")
-export OPENAI_API_KEY=your_openai_api_key         # LLM API key (default: "openai_api_key")
-export OPENAI_MODEL_NAME=gpt-4                    # LLM model name (default: "gemma3n")
-export OPENAI_TEMPERATURE=0.05                    # LLM temperature (default: 0.05)
-export OPENAI_MAX_TOKENS=2048                     # LLM max tokens (default: 2048)
-export OPENAI_TIMEOUT=360                         # LLM request timeout in seconds (default: 360)
+export DEEPINFRA_API_TOKEN=your_deepinfra_token           # DeepInfra API token (required for DeepInfra)
+export DEEPINFRA_MODEL_NAME=meta-llama/Llama-2-70b-chat-hf # Model name (default: "meta-llama/Llama-2-70b-chat-hf")
+export DEEPINFRA_TEMPERATURE=0.7                          # Temperature (default: 0.7)
+export DEEPINFRA_REPETITION_PENALTY=1.2                   # Repetition penalty (default: 1.2)
+export DEEPINFRA_MAX_NEW_TOKENS=250                       # Max new tokens (default: 250)
+export DEEPINFRA_TOP_P=0.9                               # Top-p sampling (default: 0.9)
+export DEEPINFRA_TIMEOUT=360                             # Request timeout in seconds (default: 360)
+```
+
+#### OpenAI Configuration
+```bash
+export OPENAI_BASE_URL=https://api.openai.com/v1  # OpenAI API base URL (default: "https://api.openai.com/v1")
+export OPENAI_API_KEY=your_openai_api_key         # OpenAI API key (required for OpenAI)
+export OPENAI_MODEL_NAME=gpt-4                    # Model name (default: "gpt-3.5-turbo")
+export OPENAI_TEMPERATURE=0.05                    # Temperature (default: 0.05)
+export OPENAI_MAX_TOKENS=2048                     # Max tokens (default: 2048)
+export OPENAI_TIMEOUT=360                         # Request timeout in seconds (default: 360)
+```
+
+#### Ollama Configuration (Local Service)
+```bash
+export OLLAMA_BASE_URL=http://localhost:11434/v1  # Ollama API base URL (default: "http://localhost:11434/v1")
+export OLLAMA_API_KEY=openai_api_key              # API key placeholder (default: "openai_api_key")
+export OLLAMA_MODEL_NAME=gemma3n                  # Model name (default: "gemma3n")
+export OLLAMA_TEMPERATURE=0.05                    # Temperature (default: 0.05)
+export OLLAMA_MAX_TOKENS=2048                     # Max tokens (default: 2048)
+export OLLAMA_TIMEOUT=360                         # Request timeout in seconds (default: 360)
 ```
 
 ### File Storage Configuration

@@ -1,8 +1,15 @@
 import json
 import logging
-from typing import Optional
+from typing import Optional, Union
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage
+
+try:
+    from langchain_community.llms import DeepInfra
+    DEEPINFRA_AVAILABLE = True
+except ImportError:
+    DEEPINFRA_AVAILABLE = False
+    DeepInfra = None
 
 from lib.fact_extractor.document_chunker import DocumentChunker,CHUNK_SIZE
 from lib.fact_extractor.models import LLMConfig, ExtractionResult, ExtractionQuery
@@ -20,16 +27,39 @@ class FactExtractor:
         self.prompt_builder = PromptBuilder()
         self.llm = self._initialize_llm()
     
-    def _initialize_llm(self) -> ChatOpenAI:
+    def _initialize_llm(self) -> Union[ChatOpenAI, "DeepInfra"]:
         """Initialize the LangChain LLM with the provided configuration."""
-        return ChatOpenAI(
-            base_url=self.config.base_url,
-            api_key=self.config.api_key,
-            model=self.config.model_name,
-            temperature=self.config.temperature,
-            max_tokens=self.config.max_tokens,
-            timeout=self.config.timeout
-        )
+        if self.config.provider == "deepinfra":
+            if not DEEPINFRA_AVAILABLE:
+                logger.warning("DeepInfra not available, falling back to OpenAI-compatible API")
+                # Fallback to ChatOpenAI with DeepInfra-like configuration
+                return ChatOpenAI(
+                    base_url="https://api.deepinfra.com/v1/openai",
+                    api_key=self.config.api_key,
+                    model=self.config.model_name,
+                    temperature=self.config.temperature,
+                    max_tokens=self.config.max_tokens,
+                    timeout=self.config.timeout
+                )
+            else:
+                logger.info(f"Initializing DeepInfra LLM with model: {self.config.model_name}")
+                llm = DeepInfra(
+                    model_id=self.config.model_name,
+                    deepinfra_api_token=self.config.api_key,
+                )
+                llm.model_kwargs = self.config.model_kwargs or {}
+                return llm
+        else:
+            # Use ChatOpenAI for both OpenAI and Ollama providers
+            logger.info(f"Initializing {self.config.provider} LLM with model: {self.config.model_name}")
+            return ChatOpenAI(
+                base_url=self.config.base_url,
+                api_key=self.config.api_key,
+                model=self.config.model_name,
+                temperature=self.config.temperature,
+                max_tokens=self.config.max_tokens,
+                timeout=self.config.timeout
+            )
     
     def _parse_llm_response(self, response_text: str, fields: dict[str, str]) -> Optional[ExtractionResult]:
         """Parse the LLM response and extract JSON data."""
@@ -107,10 +137,14 @@ class FactExtractor:
             )
 
             try:
-                # Send to LLM
-                message = HumanMessage(content=prompt)
-                response = self.llm.invoke([message])
-                response_text = response.content
+                # Send to LLM - handle different provider response formats
+                if self.config.provider == "deepinfra" and DEEPINFRA_AVAILABLE:
+                    response_text = self.llm.invoke(prompt)
+                else:
+                    # Use ChatOpenAI interface for OpenAI, Ollama, and DeepInfra fallback
+                    message = HumanMessage(content=prompt)
+                    response = self.llm.invoke([message])
+                    response_text = response.content
                 
                 # Step 4: Parse response
                 result = self._parse_llm_response(response_text, extraction_query.fields)

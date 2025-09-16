@@ -34,9 +34,13 @@ class ExtractionResult(BaseModel):
 
 class LLMConfig(BaseModel):
     """Configuration for LLM providers."""
+    provider: str = Field(default="openai", description="LLM provider (deepinfra, openai, ollama)")
     base_url: str = Field(default="https://api.openai.com/v1", description="Base URL for the API")
     api_key: str = Field(..., description="API key for authentication")
     model_name: str = Field(default="gpt-3.5-turbo", description="Model name to use")
     temperature: float = Field(default=0.1, ge=0.0, le=2.0, description="Temperature for generation")
     max_tokens: Optional[int] = Field(default=2000, description="Maximum tokens to generate")
     timeout: int = Field(default=60, description="Request timeout in seconds")
+    
+    # DeepInfra specific parameters
+    model_kwargs: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Additional model parameters")
