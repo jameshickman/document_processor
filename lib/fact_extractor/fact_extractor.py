@@ -1,5 +1,7 @@
 import json
 import logging
+import os
+from datetime import datetime
 from typing import Optional, Union
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage
@@ -26,6 +28,7 @@ class FactExtractor:
         self.chunker = DocumentChunker()
         self.prompt_builder = PromptBuilder()
         self.llm = self._initialize_llm()
+        self.prompt_log_file = os.environ.get('PROMPT_LOG')
     
     def _initialize_llm(self) -> Union[ChatOpenAI, "DeepInfra"]:
         """Initialize the LangChain LLM with the provided configuration."""
@@ -61,6 +64,24 @@ class FactExtractor:
                 timeout=self.config.timeout
             )
     
+    def _log_to_prompt_file(self, log_type: str, content: str, chunk_num: int = None) -> None:
+        """Log prompts, responses, and errors to the PROMPT_LOG file if configured."""
+        if not self.prompt_log_file:
+            return
+        
+        try:
+            timestamp = datetime.now().isoformat()
+            chunk_info = f" (chunk {chunk_num})" if chunk_num is not None else ""
+            log_entry = f"\n{'='*80}\n"
+            log_entry += f"[{timestamp}] {log_type.upper()}{chunk_info}\n"
+            log_entry += f"{'='*80}\n"
+            log_entry += f"{content}\n"
+            
+            with open(self.prompt_log_file, 'a', encoding='utf-8') as f:
+                f.write(log_entry)
+        except Exception as e:
+            logger.error(f"Failed to write to prompt log file {self.prompt_log_file}: {e}")
+    
     def _parse_llm_response(self, response_text: str, fields: dict[str, str]) -> Optional[ExtractionResult]:
         """Parse the LLM response and extract JSON data."""
         try:
@@ -69,7 +90,9 @@ class FactExtractor:
             json_end = response_text.rfind('}') + 1
             
             if json_start == -1 or json_end == 0:
-                logger.error("No JSON found in LLM response")
+                error_msg = "No JSON found in LLM response"
+                logger.error(error_msg)
+                self._log_to_prompt_file("json_parse_error", f"{error_msg}\nResponse text: {response_text}")
                 return None
             
             json_str = response_text[json_start:json_end]
@@ -94,10 +117,14 @@ class FactExtractor:
             )
             
         except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse JSON from LLM response: {e}")
+            error_msg = f"Failed to parse JSON from LLM response: {e}"
+            logger.error(error_msg)
+            self._log_to_prompt_file("json_parse_error", f"{error_msg}\nJSON string attempted to parse: {json_str if 'json_str' in locals() else 'N/A'}\nFull response text: {response_text}")
             return None
         except Exception as e:
-            logger.error(f"Error parsing LLM response: {e}")
+            error_msg = f"Error parsing LLM response: {e}"
+            logger.error(error_msg)
+            self._log_to_prompt_file("json_parse_error", f"{error_msg}\nResponse text: {response_text}")
             return None
     
     def extract_facts(self, document_text: str, extraction_query: ExtractionQuery) -> Optional[ExtractionResult]:
@@ -137,6 +164,9 @@ class FactExtractor:
             )
 
             try:
+                # Log the prompt if PROMPT_LOG is configured
+                self._log_to_prompt_file("prompt", prompt, i)
+                
                 # Send to LLM - handle different provider response formats
                 if self.config.provider == "deepinfra" and DEEPINFRA_AVAILABLE:
                     logger.info(f"Extracting DeepInfra DeepInfra facts: {prompt}")
@@ -147,6 +177,9 @@ class FactExtractor:
                     message = HumanMessage(content=prompt)
                     response = self.llm.invoke([message])
                     response_text = response.content
+                
+                # Log the response if PROMPT_LOG is configured
+                self._log_to_prompt_file("response", response_text, i)
                 
                 # Step 4: Parse response
                 result = self._parse_llm_response(response_text, extraction_query.fields)
