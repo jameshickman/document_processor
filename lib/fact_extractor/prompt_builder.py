@@ -29,7 +29,7 @@ Example JSON structure to return:
 $field_examples
 }
 
-Return ONLY the JSON object, no additional text."""
+Return ONLY the JSON object, no additional text. Return only ONE JSON block, no duplicate JSON blocks."""
     
     def build_prompt(self, document_text: str, query: str, fields: dict[str, str]) -> str:
         """Build the complete prompt for the LLM."""
