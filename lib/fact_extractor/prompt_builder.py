@@ -38,8 +38,13 @@ Example JSON structure to return:
 "explanation": "...",
 $field_examples
 }
+You must use the same field names as in the example JSON structure.
 
-Return ONLY the JSON object, no additional text. Return only ONE JSON block, no duplicate JSON blocks."""
+Return ONLY the JSON object, no additional text.
+Return only ONE JSON block, no duplicate JSON blocks.
+Be very careful with data encoding, make sure no stray double quotes are in strings, and make sure string
+delimiters are one double quote character. 
+"""
     
     def build_prompt(self, document_text: str, query: str, fields: dict[str, str]) -> str:
         """Build the complete prompt for the LLM."""
