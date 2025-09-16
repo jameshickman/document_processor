@@ -62,12 +62,72 @@ def run_extractor(
 
     result = fact_extractor.extract_facts(document_text, extraction_query)
 
+    # Create marked-up PDF if extraction was successful and citations exist
+    marked_pdf_path = None
+    marked_pdf_available = False
+    
+    if result.found and result.extracted_data:
+        try:
+            from api.to_pdf.converter import to_pdf, ConversionError
+            from api.pdf_markup.highlight_pdf import highlight_pdf
+            import os
+            
+            # Collect all citations from all fields
+            all_citations = []
+            for field_name, field_data in result.extracted_data.items():
+                if isinstance(field_data, dict) and 'citation' in field_data:
+                    citations = field_data['citation']
+                    if isinstance(citations, list):
+                        all_citations.extend(citations)
+                    elif isinstance(citations, str):
+                        all_citations.append(citations)
+            
+            # Only proceed if we have citations to highlight
+            if all_citations:
+                # Remove empty citations and duplicates
+                all_citations = list(set([c for c in all_citations if c and c.strip()]))
+                
+                if all_citations:
+                    # Determine source PDF path
+                    source_pdf_path = document.file_name
+                    
+                    # If the original file is not a PDF, convert it first
+                    if not source_pdf_path.lower().endswith('.pdf'):
+                        try:
+                            source_pdf_path = to_pdf(document.file_name)
+                        except ConversionError as e:
+                            logging.warning(f"Could not convert {document.file_name} to PDF: {e}")
+                            source_pdf_path = None
+                    
+                    # Create marked-up PDF with citations highlighted
+                    if source_pdf_path and os.path.exists(source_pdf_path):
+                        try:
+                            marked_pdf_path = highlight_pdf(
+                                input_file=source_pdf_path,
+                                strings=all_citations,
+                                extractor_id=extractor_id
+                            )
+                            marked_pdf_available = True
+                            logging.info(f"Created marked-up PDF: {marked_pdf_path}")
+                        except Exception as e:
+                            logging.error(f"Could not create marked-up PDF: {e}")
+                            marked_pdf_path = None
+        
+        except Exception as e:
+            logging.error(f"Error during PDF markup process: {e}")
+            marked_pdf_path = None
+
     payload = ExtractionPayload(
         result=result.model_dump(),
         file_name=file_name,
         document_id=document_id,
         csrf_token=csf_token
     ).model_dump()
+    
+    # Add marked PDF information to the payload
+    payload['marked_pdf_available'] = marked_pdf_available
+    if marked_pdf_path:
+        payload['marked_pdf_path'] = marked_pdf_path
 
     try:
         r = requests.post(web_hook, json=payload)

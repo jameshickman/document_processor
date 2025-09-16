@@ -64,6 +64,16 @@
                     <li>Verify the token matches before processing webhook data</li>
                 </ul>
 
+                <h5>Marked PDF Generation:</h5>
+                <p>When extraction finds data with citations, the system automatically creates a marked-up PDF:</p>
+                <ul>
+                    <li>Citations from extracted fields are highlighted in yellow</li>
+                    <li>Non-PDF documents are automatically converted to PDF first</li>
+                    <li>Each extractor creates its own marked version</li>
+                    <li>Webhook payload includes <code>marked_pdf_available</code> flag</li>
+                    <li>Use marked PDF endpoints to download highlighted versions</li>
+                </ul>
+
                 <h5>Example Request:</h5>
                 <pre>curl -X POST -u "your-api-key:your-api-secret" \
   -H "Content-Type: application/json" \
@@ -78,28 +88,81 @@
                 <h5>Example Webhook Payload:</h5>
                 <p>Your webhook will receive a POST request similar to:</p>
                 <pre>{
-  "extractor_id": 1,
-  "file_id": 123,
-  "csrf_token": "abc123-secure-token-xyz789",
-  "status": "completed",
   "result": {
     "confidence": 1,
     "found": true,
     "explanation": "Explanation ...",
     "extracted_data": {
-      "field_1": "value 1",
-      "field_2": "value 2",
-      ...
+      "field_1": {
+        "value": "value 1",
+        "citation": ["Quote from document supporting field_1"]
+      },
+      "field_2": {
+        "value": "value 2", 
+        "citation": ["Quote 1", "Quote 2"]
+      }
     }
   },
-  "timestamp": "2025-01-21T10:30:00Z"
+  "file_name": "document.pdf",
+  "document_id": 123,
+  "csrf_token": "abc123-secure-token-xyz789",
+  "marked_pdf_available": true,
+  "marked_pdf_path": "/path/to/document.marked.1.pdf"
 }</pre>
+            </div>
+            
+            <h4>Marked PDF Download</h4>
+            <div class="endpoint">
+                <code>GET /service/marked-pdf/{extractor_id}/{file_id}</code>
+                <p>Download a marked-up PDF with highlighted citations from an extraction. The PDF contains visual highlights showing where extracted information was found in the original document.</p>
+                
+                <h5>Usage:</h5>
+                <ul>
+                    <li>Only available after successful extraction with citations</li>
+                    <li>Automatically converts non-PDF documents to PDF before marking</li>
+                    <li>Returns 404 if no marked version exists</li>
+                    <li>Each extractor creates its own marked version</li>
+                </ul>
+                
+                <h5>Example:</h5>
+                <pre>curl -u "your-api-key:your-api-secret" \
+  --output "marked_document.pdf" \
+  {{request.url_root}}service/marked-pdf/1/123</pre>
+            </div>
+            
+            <h4>Marked PDF Status</h4>
+            <div class="endpoint">
+                <code>GET /service/marked-pdf-status/{file_id}</code>
+                <p>Check which marked PDF versions are available for a document across all your extractors.</p>
+                
+                <h5>Response Format:</h5>
+                <pre>{
+  "file_id": 123,
+  "pdf_available": true,
+  "marked_versions": [
+    {
+      "extractor_id": 1,
+      "extractor_name": "Invoice Extractor",
+      "file_size": 245760
+    },
+    {
+      "extractor_id": 2, 
+      "extractor_name": "Contract Extractor",
+      "file_size": 238950
+    }
+  ],
+  "total_marked_versions": 2
+}</pre>
+                
+                <h5>Example:</h5>
+                <pre>curl -u "your-api-key:your-api-secret" \
+  {{request.url_root}}service/marked-pdf-status/123</pre>
             </div>
             
             <h4>File Cleanup</h4>
             <div class="endpoint">
                 <code>DELETE /service/file/{file_id}</code>
-                <p>Remove an uploaded file from the system.</p>
+                <p>Remove an uploaded file from the system. This also deletes any associated marked PDF versions.</p>
                 <pre>curl -X DELETE -u "your-api-key:your-api-secret" \
   {{request.url_root}}service/file/123</pre>
             </div>

@@ -14,6 +14,9 @@ from lib.classifier import (
 from lib.fact_extractor.fact_extractor import FactExtractor
 from lib.fact_extractor.models import LLMConfig, ExtractionQuery, ExtractionResult
 
+from api.pdf_markup.highlight_pdf import highlight_pdf, extract_info, search_for_text, highlight_matching_data
+from api.to_pdf.converter import to_pdf, get_supported_formats, get_conversion_info, ConversionError
+
 
 class TestClassifier(unittest.TestCase):
 
@@ -427,6 +430,733 @@ class TestFactExtractorModels(unittest.TestCase):
             self.assertEqual(config.max_tokens, 2048)
         if "OPENAI_TIMEOUT" not in os.environ:
             self.assertEqual(config.timeout, 360)
+
+
+class TestPDFMarkup(unittest.TestCase):
+
+    def setUp(self):
+        self.sample_pdfs_dir = "testing/PDF_cases"
+        self.test_output_dir = "testing/output"
+        os.makedirs(self.test_output_dir, exist_ok=True)
+        
+        # Available sample PDFs for testing
+        self.sample_pdfs = [
+            "Boeing_Supplier_Specification.pdf",
+            "Ford_Automotive_Specification.pdf",
+            "Medical_Device_Email_Specification.pdf",
+            "Engineering_Change_Order.pdf",
+            "Engineering_Change_Orders.pdf",
+            "Supplier_Change_Notification.pdf",
+            "Material_Test_Certificate.pdf",
+            "Manufacturing_Purchase_Order.pdf",
+            "Purchase_Orders.pdf",
+            "Final_Product_Inspection_Report.pdf",
+            "Incoming_Material_Inspection_Report.pdf"
+        ]
+
+    def tearDown(self):
+        # Clean up generated test files
+        import glob
+        for file in glob.glob(os.path.join(self.test_output_dir, "*.marked.pdf")):
+            try:
+                os.remove(file)
+            except OSError:
+                pass
+
+    def test_highlight_pdf_basic_functionality(self):
+        """Test basic PDF highlighting functionality"""
+        input_file = os.path.join(self.sample_pdfs_dir, "Boeing_Supplier_Specification.pdf")
+        if not os.path.exists(input_file):
+            self.skipTest(f"Sample PDF {input_file} not found")
+        
+        # Test with common words likely to be found
+        search_strings = ["specification", "Boeing", "supplier"]
+        extractor_id = 1
+        
+        result_file = highlight_pdf(input_file, search_strings, extractor_id)
+        
+        # Check that output file was created
+        self.assertTrue(os.path.exists(result_file))
+        self.assertTrue(result_file.endswith(f".marked.{extractor_id}.pdf"))
+        
+        # Check that the output file is different from input
+        self.assertNotEqual(input_file, result_file)
+        
+        # Clean up
+        if os.path.exists(result_file):
+            os.remove(result_file)
+
+    def test_highlight_pdf_multiple_documents(self):
+        """Test highlighting on multiple different PDF documents"""
+        test_cases = [
+            ("Ford_Automotive_Specification.pdf", ["Ford", "automotive", "specification"]),
+            ("Engineering_Change_Order.pdf", ["engineering", "change", "order"]),
+            ("Purchase_Orders.pdf", ["purchase", "order", "supplier"])
+        ]
+        
+        for pdf_name, search_terms in test_cases:
+            with self.subTest(pdf=pdf_name):
+                input_file = os.path.join(self.sample_pdfs_dir, pdf_name)
+                if not os.path.exists(input_file):
+                    continue
+                
+                extractor_id = 2
+                result_file = highlight_pdf(input_file, search_terms, extractor_id)
+                
+                # Verify file creation and naming
+                self.assertTrue(os.path.exists(result_file))
+                expected_name = pdf_name.replace(".pdf", f".marked.{extractor_id}.pdf")
+                self.assertTrue(result_file.endswith(expected_name))
+                
+                # Clean up
+                if os.path.exists(result_file):
+                    os.remove(result_file)
+
+    def test_highlight_pdf_empty_search_list(self):
+        """Test highlighting with empty search string list"""
+        input_file = os.path.join(self.sample_pdfs_dir, "Boeing_Supplier_Specification.pdf")
+        if not os.path.exists(input_file):
+            self.skipTest(f"Sample PDF {input_file} not found")
+        
+        extractor_id = 3
+        result_file = highlight_pdf(input_file, [], extractor_id)
+        
+        # Should still create output file even with no search terms
+        self.assertTrue(os.path.exists(result_file))
+        
+        # Clean up
+        if os.path.exists(result_file):
+            os.remove(result_file)
+
+    def test_highlight_pdf_case_sensitivity(self):
+        """Test that highlighting is case-insensitive by default"""
+        input_file = os.path.join(self.sample_pdfs_dir, "Boeing_Supplier_Specification.pdf")
+        if not os.path.exists(input_file):
+            self.skipTest(f"Sample PDF {input_file} not found")
+        
+        # Test with different case variations
+        search_strings = ["boeing", "BOEING", "Boeing", "specification", "SPECIFICATION"]
+        extractor_id = 4
+        
+        result_file = highlight_pdf(input_file, search_strings, extractor_id)
+        
+        self.assertTrue(os.path.exists(result_file))
+        
+        # Clean up
+        if os.path.exists(result_file):
+            os.remove(result_file)
+
+    def test_highlight_pdf_special_characters(self):
+        """Test highlighting with special characters and numbers"""
+        input_file = os.path.join(self.sample_pdfs_dir, "Material_Test_Certificate.pdf")
+        if not os.path.exists(input_file):
+            self.skipTest(f"Sample PDF {input_file} not found")
+        
+        # Test with terms that might contain numbers, dates, or special chars
+        search_strings = ["test", "certificate", "material", "2024", "2023"]
+        extractor_id = 5
+        
+        result_file = highlight_pdf(input_file, search_strings, extractor_id)
+        
+        self.assertTrue(os.path.exists(result_file))
+        
+        # Clean up
+        if os.path.exists(result_file):
+            os.remove(result_file)
+
+    def test_highlight_pdf_nonexistent_file(self):
+        """Test error handling for non-existent input files"""
+        nonexistent_file = "nonexistent_file.pdf"
+        search_strings = ["test"]
+        
+        with self.assertRaises(Exception):
+            highlight_pdf(nonexistent_file, search_strings, extractor_id=6)
+
+    def test_highlight_pdf_output_filename_generation(self):
+        """Test that output filenames are generated correctly"""
+        input_file = os.path.join(self.sample_pdfs_dir, "Boeing_Supplier_Specification.pdf")
+        if not os.path.exists(input_file):
+            self.skipTest(f"Sample PDF {input_file} not found")
+        
+        extractor_id = 7
+        result_file = highlight_pdf(input_file, ["test"], extractor_id)
+        
+        # Check filename pattern
+        expected_pattern = input_file.replace(".pdf", f".marked.{extractor_id}.pdf")
+        self.assertEqual(result_file, expected_pattern)
+        
+        # Clean up
+        if os.path.exists(result_file):
+            os.remove(result_file)
+
+    def test_extract_info_basic(self):
+        """Test PDF info extraction functionality"""
+        input_file = os.path.join(self.sample_pdfs_dir, "Boeing_Supplier_Specification.pdf")
+        if not os.path.exists(input_file):
+            self.skipTest(f"Sample PDF {input_file} not found")
+        
+        success, info = extract_info(input_file)
+        
+        self.assertTrue(success)
+        self.assertIsInstance(info, dict)
+        self.assertIn("File", info)
+        self.assertIn("Encrypted", info)
+        self.assertEqual(info["File"], input_file)
+
+    def test_extract_info_multiple_files(self):
+        """Test info extraction on multiple PDF files"""
+        for pdf_name in self.sample_pdfs[:3]:  # Test first 3 PDFs
+            with self.subTest(pdf=pdf_name):
+                input_file = os.path.join(self.sample_pdfs_dir, pdf_name)
+                if not os.path.exists(input_file):
+                    continue
+                
+                success, info = extract_info(input_file)
+                
+                self.assertTrue(success)
+                self.assertIsInstance(info, dict)
+                self.assertEqual(info["File"], input_file)
+
+    def test_search_for_text_basic(self):
+        """Test text search functionality"""
+        test_lines = [
+            "This is a test document with Boeing specifications.",
+            "The supplier must comply with all requirements.",
+            "Engineering Change Order #12345 has been approved."
+        ]
+        
+        # Test basic search
+        results = list(search_for_text(test_lines, "Boeing"))
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0], "Boeing")
+        
+        # Test case-insensitive search
+        results = list(search_for_text(test_lines, "boeing"))
+        self.assertEqual(len(results), 1)
+        
+        # Test pattern not found
+        results = list(search_for_text(test_lines, "nonexistent"))
+        self.assertEqual(len(results), 0)
+
+    def test_search_for_text_multiple_matches(self):
+        """Test text search with multiple matches"""
+        test_lines = [
+            "Test test TEST testing",
+            "Another line with test content",
+            "Final test line"
+        ]
+        
+        results = list(search_for_text(test_lines, "test"))
+        # Should find multiple instances (case-insensitive)
+        self.assertGreater(len(results), 3)
+
+    @patch('api.pdf_markup.highlight_pdf.fitz')
+    def test_highlight_matching_data_highlight_type(self, mock_fitz):
+        """Test different highlight annotation types"""
+        # Mock page object
+        mock_page = Mock()
+        mock_page.searchFor.return_value = [Mock()]  # Mock search result
+        mock_annotation = Mock()
+        mock_page.addHighlightAnnot.return_value = mock_annotation
+        mock_page.addSquigglyAnnot.return_value = mock_annotation
+        mock_page.addUnderlineAnnot.return_value = mock_annotation
+        mock_page.addStrikeoutAnnot.return_value = mock_annotation
+        
+        matched_values = ["test"]
+        
+        # Test different annotation types
+        for annotation_type in ['Highlight', 'Squiggly', 'Underline', 'Strikeout']:
+            with self.subTest(type=annotation_type):
+                matches = highlight_matching_data(mock_page, matched_values, annotation_type)
+                self.assertEqual(matches, 1)
+                mock_annotation.update.assert_called()
+
+    def test_highlight_pdf_integration_with_real_pdfs(self):
+        """Integration test using real PDF files with known content"""
+        # Test with multiple PDFs to ensure robustness
+        test_cases = [
+            ("Boeing_Supplier_Specification.pdf", ["supplier", "specification"]),
+            ("Ford_Automotive_Specification.pdf", ["automotive", "ford"]),
+            ("Engineering_Change_Order.pdf", ["engineering", "change"])
+        ]
+        
+        for pdf_name, search_terms in test_cases:
+            with self.subTest(pdf=pdf_name):
+                input_file = os.path.join(self.sample_pdfs_dir, pdf_name)
+                if not os.path.exists(input_file):
+                    continue
+                
+                try:
+                    extractor_id = 8
+                    result_file = highlight_pdf(input_file, search_terms, extractor_id)
+                    
+                    # Verify output file exists and is a valid PDF
+                    self.assertTrue(os.path.exists(result_file))
+                    
+                    # Verify it's a PDF file by checking header
+                    with open(result_file, 'rb') as f:
+                        header = f.read(4)
+                        self.assertEqual(header, b'%PDF')
+                    
+                    # Verify file size is reasonable (not empty, not too large)
+                    file_size = os.path.getsize(result_file)
+                    self.assertGreater(file_size, 1000)  # At least 1KB
+                    
+                except Exception as e:
+                    self.fail(f"Failed to process {pdf_name}: {str(e)}")
+                
+                finally:
+                    # Clean up
+                    if 'result_file' in locals() and os.path.exists(result_file):
+                        os.remove(result_file)
+
+    def test_highlight_pdf_preserves_content(self):
+        """Test that highlighting preserves original PDF content"""
+        input_file = os.path.join(self.sample_pdfs_dir, "Boeing_Supplier_Specification.pdf")
+        if not os.path.exists(input_file):
+            self.skipTest(f"Sample PDF {input_file} not found")
+        
+        try:
+            import fitz
+            
+            # Get original page count and basic info
+            original_doc = fitz.open(input_file)
+            original_page_count = len(original_doc)
+            original_doc.close()
+            
+            # Process with highlighting
+            extractor_id = 9
+            result_file = highlight_pdf(input_file, ["test", "specification"], extractor_id)
+            
+            # Check processed document
+            processed_doc = fitz.open(result_file)
+            processed_page_count = len(processed_doc)
+            processed_doc.close()
+            
+            # Verify page count is preserved
+            self.assertEqual(original_page_count, processed_page_count)
+            
+        except ImportError:
+            self.skipTest("PyMuPDF not available for content preservation test")
+        
+        finally:
+            if 'result_file' in locals() and os.path.exists(result_file):
+                os.remove(result_file)
+
+    def test_highlight_pdf_cleanup_functionality(self):
+        """Test that old marked files are cleaned up correctly"""
+        input_file = os.path.join(self.sample_pdfs_dir, "Boeing_Supplier_Specification.pdf")
+        if not os.path.exists(input_file):
+            self.skipTest(f"Sample PDF {input_file} not found")
+        
+        extractor_id = 100
+        search_strings = ["test"]
+        
+        # Create an initial marked file
+        result_file_1 = highlight_pdf(input_file, search_strings, extractor_id)
+        self.assertTrue(os.path.exists(result_file_1))
+        
+        # Create the same marked file again - should clean up the old one
+        result_file_2 = highlight_pdf(input_file, search_strings, extractor_id)
+        self.assertTrue(os.path.exists(result_file_2))
+        self.assertEqual(result_file_1, result_file_2)  # Should be same filename
+        
+        # Clean up
+        if os.path.exists(result_file_2):
+            os.remove(result_file_2)
+
+    def test_highlight_pdf_multiple_extractors(self):
+        """Test that files from different extractors coexist"""
+        input_file = os.path.join(self.sample_pdfs_dir, "Boeing_Supplier_Specification.pdf")
+        if not os.path.exists(input_file):
+            self.skipTest(f"Sample PDF {input_file} not found")
+        
+        search_strings = ["test"]
+        
+        # Create files with different extractor IDs
+        result_file_1 = highlight_pdf(input_file, search_strings, extractor_id=200)
+        result_file_2 = highlight_pdf(input_file, search_strings, extractor_id=201)
+        
+        # Both files should exist
+        self.assertTrue(os.path.exists(result_file_1))
+        self.assertTrue(os.path.exists(result_file_2))
+        self.assertNotEqual(result_file_1, result_file_2)
+        
+        # Verify correct naming
+        self.assertTrue(result_file_1.endswith(".marked.200.pdf"))
+        self.assertTrue(result_file_2.endswith(".marked.201.pdf"))
+        
+        # Clean up
+        for result_file in [result_file_1, result_file_2]:
+            if os.path.exists(result_file):
+                os.remove(result_file)
+
+    def test_get_marked_files_function(self):
+        """Test the get_marked_files helper function"""
+        from api.pdf_markup.highlight_pdf import get_marked_files
+        
+        input_file = os.path.join(self.sample_pdfs_dir, "Boeing_Supplier_Specification.pdf")
+        if not os.path.exists(input_file):
+            self.skipTest(f"Sample PDF {input_file} not found")
+        
+        search_strings = ["test"]
+        
+        # Create files with different extractor IDs
+        result_file_1 = highlight_pdf(input_file, search_strings, extractor_id=300)
+        result_file_2 = highlight_pdf(input_file, search_strings, extractor_id=301)
+        
+        try:
+            # Test getting all marked files
+            all_marked = get_marked_files(input_file)
+            self.assertIn(result_file_1, all_marked)
+            self.assertIn(result_file_2, all_marked)
+            
+            # Test getting marked files for specific extractor
+            specific_marked_300 = get_marked_files(input_file, extractor_id=300)
+            self.assertEqual(specific_marked_300, [result_file_1])
+            
+            specific_marked_301 = get_marked_files(input_file, extractor_id=301)
+            self.assertEqual(specific_marked_301, [result_file_2])
+            
+            # Test non-existent extractor
+            nonexistent_marked = get_marked_files(input_file, extractor_id=999)
+            self.assertEqual(nonexistent_marked, [])
+            
+        finally:
+            # Clean up
+            for result_file in [result_file_1, result_file_2]:
+                if os.path.exists(result_file):
+                    os.remove(result_file)
+
+
+class TestPDFConverter(unittest.TestCase):
+
+    def setUp(self):
+        self.sample_files_dir = "testing/sample_files"
+        self.test_output_dir = "testing/output"
+        os.makedirs(self.sample_files_dir, exist_ok=True)
+        os.makedirs(self.test_output_dir, exist_ok=True)
+        
+        # Sample files for testing
+        self.sample_files = {
+            'text': 'sample.txt',
+            'html': 'sample.html', 
+            'markdown': 'sample.md',
+            'image': 'sample.png'
+        }
+
+    def tearDown(self):
+        # Clean up generated PDF files
+        import glob
+        for file in glob.glob(os.path.join(self.sample_files_dir, "*.pdf")):
+            try:
+                os.remove(file)
+            except OSError:
+                pass
+        for file in glob.glob(os.path.join(self.test_output_dir, "*.pdf")):
+            try:
+                os.remove(file)
+            except OSError:
+                pass
+
+    def test_get_supported_formats(self):
+        """Test getting supported format information"""
+        formats = get_supported_formats()
+        
+        self.assertIsInstance(formats, dict)
+        self.assertIn('text', formats)
+        self.assertIn('markup', formats)
+        self.assertIn('office', formats)
+        self.assertIn('images', formats)
+        
+        # Check specific extensions
+        self.assertIn('.txt', formats['text'])
+        self.assertIn('.html', formats['markup'])
+        self.assertIn('.md', formats['markup'])
+        self.assertIn('.png', formats['images'])
+
+    def test_get_conversion_info(self):
+        """Test getting conversion tool and library information"""
+        info = get_conversion_info()
+        
+        self.assertIsInstance(info, dict)
+        self.assertIn('libraries', info)
+        self.assertIn('tools', info)
+        self.assertIn('supported_formats', info)
+        
+        # Check library availability flags
+        self.assertIn('reportlab', info['libraries'])
+        self.assertIn('pillow', info['libraries'])
+        self.assertIn('pymupdf', info['libraries'])
+        
+        # Check tool availability flags
+        self.assertIn('pandoc', info['tools'])
+        self.assertIn('libreoffice', info['tools'])
+
+    def test_to_pdf_text_conversion(self):
+        """Test converting text file to PDF"""
+        input_file = os.path.join(self.sample_files_dir, self.sample_files['text'])
+        if not os.path.exists(input_file):
+            self.skipTest(f"Sample text file not found: {input_file}")
+        
+        result_pdf = to_pdf(input_file)
+        
+        # Check that PDF was created
+        self.assertTrue(os.path.exists(result_pdf))
+        self.assertTrue(result_pdf.endswith('.pdf'))
+        
+        # Check that it's a valid PDF
+        with open(result_pdf, 'rb') as f:
+            header = f.read(4)
+            self.assertEqual(header, b'%PDF')
+        
+        # Check file size is reasonable
+        file_size = os.path.getsize(result_pdf)
+        self.assertGreater(file_size, 100)  # At least 100 bytes
+        
+        # Clean up
+        os.remove(result_pdf)
+
+    def test_to_pdf_html_conversion(self):
+        """Test converting HTML file to PDF"""
+        input_file = os.path.join(self.sample_files_dir, self.sample_files['html'])
+        if not os.path.exists(input_file):
+            self.skipTest(f"Sample HTML file not found: {input_file}")
+        
+        try:
+            result_pdf = to_pdf(input_file)
+            
+            # Check that PDF was created
+            self.assertTrue(os.path.exists(result_pdf))
+            self.assertTrue(result_pdf.endswith('.pdf'))
+            
+            # Check file size
+            file_size = os.path.getsize(result_pdf)
+            self.assertGreater(file_size, 100)
+            
+            # Clean up
+            os.remove(result_pdf)
+            
+        except ConversionError as e:
+            # If no HTML conversion tools available, skip test
+            if "not available" in str(e):
+                self.skipTest(f"HTML conversion tools not available: {e}")
+            else:
+                raise
+
+    def test_to_pdf_markdown_conversion(self):
+        """Test converting Markdown file to PDF"""
+        input_file = os.path.join(self.sample_files_dir, self.sample_files['markdown'])
+        if not os.path.exists(input_file):
+            self.skipTest(f"Sample Markdown file not found: {input_file}")
+        
+        try:
+            result_pdf = to_pdf(input_file)
+            
+            # Check that PDF was created
+            self.assertTrue(os.path.exists(result_pdf))
+            self.assertTrue(result_pdf.endswith('.pdf'))
+            
+            # Check file size
+            file_size = os.path.getsize(result_pdf)
+            self.assertGreater(file_size, 100)
+            
+            # Clean up
+            os.remove(result_pdf)
+            
+        except ConversionError as e:
+            # If no Markdown conversion tools available, skip test
+            if "not available" in str(e):
+                self.skipTest(f"Markdown conversion tools not available: {e}")
+            else:
+                raise
+
+    def test_to_pdf_image_conversion(self):
+        """Test converting image file to PDF"""
+        input_file = os.path.join(self.sample_files_dir, self.sample_files['image'])
+        if not os.path.exists(input_file):
+            self.skipTest(f"Sample image file not found: {input_file}")
+        
+        result_pdf = to_pdf(input_file)
+        
+        # Check that PDF was created
+        self.assertTrue(os.path.exists(result_pdf))
+        self.assertTrue(result_pdf.endswith('.pdf'))
+        
+        # Check that it's a valid PDF
+        with open(result_pdf, 'rb') as f:
+            header = f.read(4)
+            self.assertEqual(header, b'%PDF')
+        
+        # Check file size
+        file_size = os.path.getsize(result_pdf)
+        self.assertGreater(file_size, 1000)  # Images should create larger PDFs
+        
+        # Clean up
+        os.remove(result_pdf)
+
+    def test_to_pdf_nonexistent_file(self):
+        """Test error handling for non-existent input files"""
+        nonexistent_file = "nonexistent_file.txt"
+        
+        with self.assertRaises(FileNotFoundError):
+            to_pdf(nonexistent_file)
+
+    def test_to_pdf_output_filename_generation(self):
+        """Test that output filenames are generated correctly"""
+        input_file = os.path.join(self.sample_files_dir, self.sample_files['text'])
+        if not os.path.exists(input_file):
+            self.skipTest(f"Sample text file not found: {input_file}")
+        
+        result_pdf = to_pdf(input_file)
+        
+        # Check filename pattern
+        expected_pattern = input_file.replace('.txt', '.pdf')
+        self.assertEqual(result_pdf, expected_pattern)
+        
+        # Clean up
+        os.remove(result_pdf)
+
+    def test_to_pdf_unsupported_extension(self):
+        """Test handling of unsupported file extensions"""
+        # Create a temporary file with unsupported extension
+        temp_file = os.path.join(self.sample_files_dir, "test.xyz")
+        with open(temp_file, 'w') as f:
+            f.write("Test content")
+        
+        try:
+            # Should try to use pandoc as fallback
+            result_pdf = to_pdf(temp_file)
+            
+            # If successful, clean up
+            if os.path.exists(result_pdf):
+                os.remove(result_pdf)
+                
+        except ConversionError:
+            # Expected if pandoc is not available
+            pass
+        
+        finally:
+            # Clean up temp file
+            if os.path.exists(temp_file):
+                os.remove(temp_file)
+
+    def test_conversion_with_special_characters(self):
+        """Test conversion of files with special characters in content"""
+        # Create a text file with special characters
+        special_content = """
+        Special Characters Test: áéíóú àèìòù äëïöü ñç
+        Unicode: 🌟 ★ ♦ ♥ ♠ ♣
+        Math: α β γ δ ε π ∞ ∑ ∫
+        Quotes: "Hello" 'World' «Bonjour» »Monde«
+        """
+        
+        special_file = os.path.join(self.sample_files_dir, "special_chars.txt")
+        with open(special_file, 'w', encoding='utf-8') as f:
+            f.write(special_content)
+        
+        try:
+            result_pdf = to_pdf(special_file)
+            
+            # Check that PDF was created
+            self.assertTrue(os.path.exists(result_pdf))
+            
+            # Check file size
+            file_size = os.path.getsize(result_pdf)
+            self.assertGreater(file_size, 100)
+            
+            # Clean up
+            os.remove(result_pdf)
+            
+        finally:
+            # Clean up temp file
+            if os.path.exists(special_file):
+                os.remove(special_file)
+
+    def test_multiple_format_conversions(self):
+        """Test converting multiple file formats in sequence"""
+        test_files = []
+        result_files = []
+        
+        try:
+            # Test all available sample files
+            for format_type, filename in self.sample_files.items():
+                input_file = os.path.join(self.sample_files_dir, filename)
+                if os.path.exists(input_file):
+                    test_files.append((format_type, input_file))
+            
+            # Convert all files
+            for format_type, input_file in test_files:
+                with self.subTest(format=format_type):
+                    try:
+                        result_pdf = to_pdf(input_file)
+                        result_files.append(result_pdf)
+                        
+                        # Check that PDF was created
+                        self.assertTrue(os.path.exists(result_pdf))
+                        self.assertTrue(result_pdf.endswith('.pdf'))
+                        
+                    except ConversionError as e:
+                        if "not available" in str(e):
+                            self.skipTest(f"Conversion tools not available for {format_type}: {e}")
+                        else:
+                            raise
+        
+        finally:
+            # Clean up all generated files
+            for result_file in result_files:
+                if os.path.exists(result_file):
+                    os.remove(result_file)
+
+    def test_conversion_error_handling(self):
+        """Test proper error handling for conversion failures"""
+        # Create a corrupted/empty file
+        corrupted_file = os.path.join(self.sample_files_dir, "corrupted.txt")
+        with open(corrupted_file, 'w') as f:
+            f.write("")  # Empty file
+        
+        try:
+            # Should still work for empty text file
+            result_pdf = to_pdf(corrupted_file)
+            self.assertTrue(os.path.exists(result_pdf))
+            
+            # Clean up
+            os.remove(result_pdf)
+            
+        finally:
+            # Clean up
+            if os.path.exists(corrupted_file):
+                os.remove(corrupted_file)
+
+    def test_pdf_content_validation(self):
+        """Test that generated PDFs contain expected content structure"""
+        input_file = os.path.join(self.sample_files_dir, self.sample_files['text'])
+        if not os.path.exists(input_file):
+            self.skipTest(f"Sample text file not found: {input_file}")
+        
+        try:
+            import fitz  # PyMuPDF for PDF content validation
+            
+            result_pdf = to_pdf(input_file)
+            
+            # Open and validate PDF content
+            doc = fitz.open(result_pdf)
+            
+            # Check that PDF has at least one page
+            self.assertGreater(len(doc), 0)
+            
+            # Check that first page has some text content
+            page = doc[0]
+            text = page.get_text()
+            self.assertGreater(len(text.strip()), 0)
+            
+            doc.close()
+            
+            # Clean up
+            os.remove(result_pdf)
+            
+        except ImportError:
+            self.skipTest("PyMuPDF not available for content validation")
 
 
 if __name__ == '__main__':
