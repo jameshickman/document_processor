@@ -45,7 +45,7 @@ def create_llm_config() -> LLMConfig:
 def _create_deepinfra_config(api_token: str) -> LLMConfig:
     """Create configuration for DeepInfra provider."""
     model_kwargs = {
-        "temperature": float(os.environ.get("DEEPINFRA_TEMPERATURE", "0.7")),
+        "temperature": float(os.environ.get("DEEPINFRA_TEMPERATURE", "0")),
         "repetition_penalty": float(os.environ.get("DEEPINFRA_REPETITION_PENALTY", "1.2")),
         "max_new_tokens": int(os.environ.get("DEEPINFRA_MAX_NEW_TOKENS", "250")),
         "top_p": float(os.environ.get("DEEPINFRA_TOP_P", "0.9")),
