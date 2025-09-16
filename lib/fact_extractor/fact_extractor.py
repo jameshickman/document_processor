@@ -139,7 +139,9 @@ class FactExtractor:
             try:
                 # Send to LLM - handle different provider response formats
                 if self.config.provider == "deepinfra" and DEEPINFRA_AVAILABLE:
+                    logger.info(f"Extracting DeepInfra DeepInfra facts: {prompt}")
                     response_text = self.llm.invoke(prompt)
+                    logger.info(f"DeepInfra DeepInfra facts extracted: {response_text}")
                 else:
                     # Use ChatOpenAI interface for OpenAI, Ollama, and DeepInfra fallback
                     message = HumanMessage(content=prompt)
