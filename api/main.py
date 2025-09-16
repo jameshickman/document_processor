@@ -28,8 +28,8 @@ async def lifespan(_app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 # Static files and templates
-app.mount("/static", StaticFiles(directory="public"), name="static")
-templates = Jinja2Templates(directory="templates")
+app.mount("/static", StaticFiles(directory="api/public"), name="static")
+templates = Jinja2Templates(directory="api/templates")
 
 allowed_origins = os.environ.get("ALLOWED_ORIGINS", "*").split(",")
 app.add_middleware(
