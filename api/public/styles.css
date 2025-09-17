@@ -104,3 +104,161 @@ body {
     font-size: 2rem;
     margin-bottom: 1rem;
 }
+
+/* Force absolute positioning for all navigation views to ensure proper scrolling */
+.navigation-views {
+    position: relative !important;
+}
+
+.navigation-view {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    padding: 0 !important;
+}
+
+.navigation-view[data-name="about"] .about-page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    line-height: 1.6;
+    color: #333;
+    min-height: 100%;
+}
+
+.about-page h1 {
+    color: #007bff;
+    border-bottom: 3px solid #007bff;
+    padding-bottom: 10px;
+    margin-bottom: 30px;
+}
+
+.about-page h2 {
+    color: #007bff;
+    margin-top: 40px;
+    margin-bottom: 20px;
+    font-size: 24px;
+}
+
+.about-page h3 {
+    color: #333;
+    margin-top: 25px;
+    margin-bottom: 10px;
+    font-size: 18px;
+}
+
+.about-page h4 {
+    color: #007bff;
+    margin-top: 20px;
+    margin-bottom: 10px;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.intro-section {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 30px;
+    border-left: 4px solid #007bff;
+}
+
+.intro-section p {
+    margin: 0;
+    font-size: 18px;
+}
+
+.step {
+    margin-bottom: 30px;
+    padding: 20px;
+    background: #ffffff;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+}
+
+.step h3 {
+    margin-top: 0;
+    color: #007bff;
+}
+
+.tips-section, .workflow-section, .help-section {
+    background: #f8f9fa;
+    padding: 25px;
+    border-radius: 8px;
+    margin-bottom: 25px;
+}
+
+.about-page ul, .about-page ol {
+    padding-left: 25px;
+}
+
+.about-page li {
+    margin-bottom: 8px;
+}
+
+strong {
+    color: #007bff;
+    font-weight: 600;
+}
+
+.api-config-section {
+    padding: 20px;
+    max-width: 1000px;
+}
+
+.api-credentials-section,
+.api-reference-section,
+.api-documentation {
+    margin-bottom: 30px;
+    padding: 20px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background-color: #f9f9f9;
+}
+
+.endpoint-docs h4 {
+    color: #333;
+    margin-top: 20px;
+}
+
+.endpoint {
+    margin: 15px 0;
+    padding: 10px;
+    background-color: #fff;
+    border-left: 4px solid #007bff;
+    border-radius: 4px;
+}
+
+.endpoint code {
+    background-color: #e9ecef;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    color: #d63384;
+}
+
+.endpoint pre {
+    background-color: #f8f9fa;
+    padding: 10px;
+    border-radius: 4px;
+    overflow-x: auto;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    margin: 10px 0;
+}
+
+.endpoint ul {
+    padding-left: 25px;
+    margin: 10px 0;
+}
+
+.endpoint li {
+    margin: 5px 0;
+    padding-left: 5px;
+}
+
