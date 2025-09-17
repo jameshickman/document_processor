@@ -70,9 +70,9 @@ def _create_deepinfra_fallback_config(api_token: str) -> LLMConfig:
         base_url="https://api.deepinfra.com/v1/openai",
         api_key=api_token,
         model_name=os.environ.get("DEEPINFRA_MODEL_NAME", "meta-llama/Llama-2-70b-chat-hf"),
-        temperature=float(os.environ.get("DEEPINFRA_TEMPERATURE", "0.7")),
-        max_tokens=int(os.environ.get("DEEPINFRA_MAX_NEW_TOKENS", "250")),
-        timeout=int(os.environ.get("DEEPINFRA_TIMEOUT", "360")),
+        temperature=float(os.environ.get("DEEPINFRA_TEMPERATURE", "0")),
+        max_tokens=int(os.environ.get("DEEPINFRA_MAX_NEW_TOKENS", "4096")),
+        timeout=int(os.environ.get("DEEPINFRA_TIMEOUT", "3600")),
     )
 
 
@@ -83,9 +83,9 @@ def _create_openai_config(api_key: str) -> LLMConfig:
         base_url=os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1"),
         api_key=api_key,
         model_name=os.environ.get("OPENAI_MODEL_NAME", "gpt-3.5-turbo"),
-        temperature=float(os.environ.get("OPENAI_TEMPERATURE", "0.05")),
-        max_tokens=int(os.environ.get("OPENAI_MAX_TOKENS", "2048")),
-        timeout=int(os.environ.get("OPENAI_TIMEOUT", "360")),
+        temperature=float(os.environ.get("OPENAI_TEMPERATURE", "0")),
+        max_tokens=int(os.environ.get("OPENAI_MAX_TOKENS", "4096")),
+        timeout=int(os.environ.get("OPENAI_TIMEOUT", "3600")),
     )
 
 
