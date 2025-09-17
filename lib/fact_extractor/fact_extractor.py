@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import time
 from datetime import datetime
 from typing import Optional, Union
 from langchain_openai import ChatOpenAI
@@ -81,6 +82,116 @@ class FactExtractor:
                 f.write(log_entry)
         except Exception as e:
             logger.error(f"Failed to write to prompt log file {self.prompt_log_file}: {e}")
+    
+    def _is_response_complete(self, response_text: str) -> bool:
+        """Check if the response appears to be complete by looking for JSON closure."""
+        if not response_text.strip():
+            return False
+        
+        # Look for complete JSON structure
+        json_start = response_text.find('{')
+        json_end = response_text.rfind('}')
+        
+        if json_start == -1 or json_end == -1:
+            return False
+        
+        # Check if the JSON looks complete (has closing brace)
+        # and appears to have the expected fields
+        json_part = response_text[json_start:json_end+1]
+        
+        # Basic completeness checks
+        required_indicators = ['confidence', 'found', 'explanation']
+        has_required = all(field in json_part for field in required_indicators)
+        
+        return has_required and json_part.count('{') <= json_part.count('}')
+    
+    def _invoke_deepinfra_with_retry(self, prompt: str, chunk_num: int, max_retries: int = 3) -> str:
+        """
+        Invoke DeepInfra with retry logic for handling partial responses.
+        
+        Args:
+            prompt: The prompt to send
+            chunk_num: Chunk number for logging
+            max_retries: Maximum number of retry attempts
+            
+        Returns:
+            Complete response text
+        """
+        last_response = ""
+        
+        for attempt in range(max_retries):
+            try:
+                logger.debug(f"DeepInfra attempt {attempt + 1}/{max_retries} for chunk {chunk_num}")
+                
+                # Adjust parameters for better completion on retries
+                if attempt > 0:
+                    # Increase max_tokens and reduce temperature for better completion
+                    original_max_tokens = self.llm.model_kwargs.get('max_new_tokens', 250)
+                    original_temp = self.llm.model_kwargs.get('temperature', 0.0)
+                    
+                    # Increase tokens and make more deterministic
+                    self.llm.model_kwargs['max_new_tokens'] = min(original_max_tokens * 2, 4096)
+                    self.llm.model_kwargs['temperature'] = max(original_temp * 0.5, 0.0)
+                    
+                    # Add explicit instruction for completion
+                    enhanced_prompt = f"{prompt}\n\nIMPORTANT: Please provide a complete response with fully closed JSON. Do not truncate the response."
+                    response_text = self.llm.invoke(enhanced_prompt)
+                    
+                    # Restore original parameters
+                    self.llm.model_kwargs['max_new_tokens'] = original_max_tokens
+                    self.llm.model_kwargs['temperature'] = original_temp
+                else:
+                    response_text = self.llm.invoke(prompt)
+                
+                # Log the attempt
+                self._log_to_prompt_file(
+                    "deepinfra_attempt", 
+                    f"Attempt {attempt + 1}/{max_retries}\nResponse length: {len(response_text)}\nResponse: {response_text}",
+                    chunk_num
+                )
+                
+                # Check if response is complete
+                if self._is_response_complete(response_text):
+                    if attempt > 0:
+                        logger.info(f"DeepInfra completed successfully on attempt {attempt + 1} for chunk {chunk_num}")
+                    return response_text
+                
+                # Store the response for potential use if all retries fail
+                if len(response_text) > len(last_response):
+                    last_response = response_text
+                
+                logger.warning(f"DeepInfra response appears incomplete on attempt {attempt + 1} for chunk {chunk_num} (length: {len(response_text)})")
+                
+                # Wait before retry (exponential backoff)
+                if attempt < max_retries - 1:
+                    wait_time = 2 ** attempt
+                    logger.info(f"Waiting {wait_time} seconds before retry...")
+                    time.sleep(wait_time)
+                
+            except Exception as e:
+                error_msg = f"DeepInfra attempt {attempt + 1} failed for chunk {chunk_num}: {e}"
+                logger.error(error_msg)
+                self._log_to_prompt_file("deepinfra_error", f"{error_msg}\nLast response: {last_response}", chunk_num)
+                
+                if attempt == max_retries - 1:
+                    # On final attempt failure, return the best response we have
+                    if last_response:
+                        logger.warning(f"Using partial response from DeepInfra for chunk {chunk_num}")
+                        return last_response
+                    raise e
+                
+                # Wait before retry
+                wait_time = 2 ** attempt
+                logger.info(f"Waiting {wait_time} seconds before retry...")
+                time.sleep(wait_time)
+        
+        # If we get here, all retries failed but we have a partial response
+        if last_response:
+            logger.warning(f"DeepInfra all retries failed for chunk {chunk_num}, using best partial response")
+            return last_response
+        
+        # No response at all
+        raise Exception(f"DeepInfra failed to generate any response after {max_retries} attempts")
     
     def _parse_llm_response(self, response_text: str, fields: dict[str, str]) -> Optional[ExtractionResult]:
         """Parse the LLM response and extract JSON data."""
@@ -200,9 +311,9 @@ class FactExtractor:
                 
                 # Send to LLM - handle different provider response formats
                 if self.config.provider == "deepinfra" and DEEPINFRA_AVAILABLE:
-                    logger.info(f"Extracting DeepInfra DeepInfra facts: {prompt}")
-                    response_text = self.llm.invoke(prompt)
-                    logger.info(f"DeepInfra DeepInfra facts extracted: {response_text}")
+                    logger.info(f"Sending prompt to DeepInfra (chunk {i})")
+                    response_text = self._invoke_deepinfra_with_retry(prompt, i)
+                    logger.info(f"DeepInfra response received ({len(response_text)} characters)")
                 else:
                     # Use ChatOpenAI interface for OpenAI, Ollama, and DeepInfra fallback
                     message = HumanMessage(content=prompt)

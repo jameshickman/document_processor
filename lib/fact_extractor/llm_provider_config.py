@@ -46,9 +46,11 @@ def _create_deepinfra_config(api_token: str) -> LLMConfig:
     """Create configuration for DeepInfra provider."""
     model_kwargs = {
         "temperature": float(os.environ.get("DEEPINFRA_TEMPERATURE", "0")),
-        "repetition_penalty": float(os.environ.get("DEEPINFRA_REPETITION_PENALTY", "1.2")),
-        "max_new_tokens": int(os.environ.get("DEEPINFRA_MAX_NEW_TOKENS", "250")),
+        "repetition_penalty": float(os.environ.get("DEEPINFRA_REPETITION_PENALTY", "1.1")),
+        "max_new_tokens": int(os.environ.get("DEEPINFRA_MAX_NEW_TOKENS", "4096")),  # Increased default
         "top_p": float(os.environ.get("DEEPINFRA_TOP_P", "0.9")),
+        "do_sample": True,  # Enable sampling for better response generation
+        "stop": ["</json>", "\n\n\n"],  # Add stop tokens to prevent runaway generation
     }
     
     return LLMConfig(
@@ -58,7 +60,7 @@ def _create_deepinfra_config(api_token: str) -> LLMConfig:
         model_name=os.environ.get("DEEPINFRA_MODEL_NAME", "meta-llama/Llama-2-70b-chat-hf"),
         temperature=model_kwargs["temperature"],
         max_tokens=model_kwargs["max_new_tokens"],
-        timeout=int(os.environ.get("DEEPINFRA_TIMEOUT", "360")),
+        timeout=int(os.environ.get("DEEPINFRA_TIMEOUT", "600")),  # Increased timeout
         model_kwargs=model_kwargs
     )
 
