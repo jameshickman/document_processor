@@ -102,7 +102,7 @@ async def exchange_code_for_token(code: str) -> dict:
         return response.json()
 
 
-async def authenticate_user_with_google(code: str, db: Session) -> GoogleLoginResponse:
+async def authenticate_user_with_google(code: str, db: Session) -> dict:
     """Authenticate user with Google and return JWT token"""
     # Exchange authorization code for access token
     token_response = await exchange_code_for_token(code)
@@ -138,7 +138,13 @@ async def authenticate_user_with_google(code: str, db: Session) -> GoogleLoginRe
     # Create JWT token
     jwt_token = create_jwt_token(email, name)
     
-    return GoogleLoginResponse(jwt=jwt_token)
+    return {
+        'success': True,
+        'jwt': jwt_token,
+        'username': str(account.name),
+        'email': email,
+        'account_id': account.id
+    }
 
 
 @router.get("/google")
@@ -274,5 +280,6 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
         'success': True,
         'jwt': create_jwt_token(str(user.email), str(user.name)),
         'username': str(user.name),
+        'email': str(user.email),
         'account_id': user.id
     }

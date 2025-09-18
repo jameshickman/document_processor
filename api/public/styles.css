@@ -262,3 +262,12 @@ strong {
     padding-left: 5px;
 }
 
+/* User Menu Positioning */
+user-menu {
+    position: fixed;
+    top: 0;
+    right: 0;
+    z-index: 1000;
+    height: 44px;
+}
+
