@@ -5,7 +5,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.cors import CORSMiddleware
 
 from api.models.database import init_database
-from api.routes import documents, classifiers, extractors, auth, service, api_config
+from api.routes import documents, classifiers, extractors, auth, service, api_config, account
 from contextlib import asynccontextmanager
 import os
 
@@ -41,6 +41,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router, prefix="/auth", tags=["authentication"])
+app.include_router(account.router, prefix="/account", tags=["account"])
 app.include_router(documents.router, prefix="/documents", tags=["documents"])
 app.include_router(classifiers.router, prefix="/classifiers", tags=["classifiers"])
 app.include_router(extractors.router, prefix="/extractors", tags=["extractors"])
