@@ -6,9 +6,8 @@ from api import models
 from api.models.database import get_db
 from pydantic import BaseModel
 from typing import List
-from lib.fact_extractor.fact_extractor import FactExtractor
-from lib.fact_extractor.models import ExtractionQuery
 from api.util.llm_config import llm_config
+from api.util.extraction_core import run_extractor_with_markup
 from api.dependencies import get_current_user_info
 from api.util.import_export import (
     export_extractor_to_yaml, 
@@ -149,10 +148,6 @@ def run_extractor(
     """
     Run an extractor against the contents of a document and create a marked-up PDF with highlighted citations.
     """
-    from api.to_pdf.converter import to_pdf, ConversionError
-    from api.pdf_markup.highlight_pdf import highlight_pdf
-    import os
-    
     db_extractor = db.query(models.Extractor).filter(
         and_(
             models.Extractor.account_id == user.user_id,
@@ -171,77 +166,27 @@ def run_extractor(
     if not document:
         raise HTTPException(status_code=404, detail="Document not found or has no content")
 
-    document_text = document.full_text
-    
-    # Extract facts from the document
-    fact_extractor = FactExtractor(llm_config)
-    extraction_query = ExtractionQuery(
-        query=db_extractor.prompt,
-        fields={field.name: field.description for field in db_extractor.fields},
+    # Run extractor with markup using shared utility
+    execution_result = run_extractor_with_markup(
+        document_text=document.full_text,
+        document_file_path=document.file_name,
+        extractor_prompt=db_extractor.prompt,
+        extractor_fields={field.name: field.description for field in db_extractor.fields},
+        extractor_id=extractor_id,
+        llm_config=llm_config,
+        use_logging=False  # Use print statements in API routes
     )
-    
-    result = fact_extractor.extract_facts(document_text, extraction_query)
-    
-    # Create marked-up PDF if extraction was successful and citations exist
-    marked_pdf_path = None
-    if result.found and result.extracted_data:
-        try:
-            # Collect all citations from all fields
-            all_citations = []
-            for field_name, field_data in result.extracted_data.items():
-                if isinstance(field_data, dict) and 'citation' in field_data:
-                    citations = field_data['citation']
-                    if isinstance(citations, list):
-                        all_citations.extend(citations)
-                    elif isinstance(citations, str):
-                        all_citations.append(citations)
-            
-            # Only proceed if we have citations to highlight
-            if all_citations:
-                # Remove empty citations and duplicates
-                all_citations = list(set([c for c in all_citations if c and c.strip()]))
-                
-                if all_citations:
-                    # Determine source PDF path
-                    source_pdf_path = document.file_name
-                    
-                    # If the original file is not a PDF, convert it first
-                    if not source_pdf_path.lower().endswith('.pdf'):
-                        try:
-                            source_pdf_path = to_pdf(document.file_name)
-                        except ConversionError as e:
-                            # If conversion fails, log the error but continue without markup
-                            print(f"Warning: Could not convert {document.file_name} to PDF: {e}")
-                            source_pdf_path = None
-                    
-                    # Create marked-up PDF with citations highlighted
-                    if source_pdf_path and os.path.exists(source_pdf_path):
-                        try:
-                            marked_pdf_path = highlight_pdf(
-                                input_file=source_pdf_path,
-                                strings=all_citations,
-                                extractor_id=extractor_id
-                            )
-                            print(f"Created marked-up PDF: {marked_pdf_path}")
-                        except Exception as e:
-                            print(f"Warning: Could not create marked-up PDF: {e}")
-                            marked_pdf_path = None
-        
-        except Exception as e:
-            # Log error but don't fail the extraction
-            print(f"Warning: Error during PDF markup process: {e}")
-            marked_pdf_path = None
     
     # Return the extraction result with marked PDF info
     response_data = {
         "id": extractor_id,
         "document_id": document_id,
-        "result": result,
-        "marked_pdf_available": marked_pdf_path is not None
+        "result": execution_result.extraction_result,
+        "marked_pdf_available": execution_result.marked_pdf_available
     }
     
-    if marked_pdf_path:
-        response_data["marked_pdf_path"] = marked_pdf_path
+    if execution_result.marked_pdf_path:
+        response_data["marked_pdf_path"] = execution_result.marked_pdf_path
     
     return response_data
 
