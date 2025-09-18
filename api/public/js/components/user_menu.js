@@ -1,4 +1,5 @@
 import {BaseComponent} from '../lib/component_base.js';
+import {multicall} from '../lib/jsum.js';
 import {css, html} from "lit";
 
 export class UserMenu extends BaseComponent {
@@ -97,6 +98,24 @@ export class UserMenu extends BaseComponent {
             transform: translateY(0);
         }
 
+        .menu-item {
+            display: block;
+            width: 100%;
+            padding: 12px 16px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 14px;
+            color: #495057;
+            text-align: left;
+            transition: background-color 0.15s ease;
+            border-radius: 6px;
+        }
+
+        .menu-item:hover {
+            background: #f8f9fa;
+        }
+
         .logout-item {
             display: block;
             width: 100%;
@@ -109,6 +128,8 @@ export class UserMenu extends BaseComponent {
             text-align: left;
             transition: background-color 0.15s ease;
             border-radius: 6px;
+            border-top: 1px solid #dee2e6;
+            margin-top: 4px;
         }
 
         .logout-item:hover {
@@ -142,6 +163,9 @@ export class UserMenu extends BaseComponent {
                 </button>
                 
                 <div class="dropdown-menu ${this.showDropdown ? 'show' : ''}">
+                    <button class="menu-item" @click="${this.openAccountModal}">
+                        Account Settings
+                    </button>
                     <button class="logout-item" @click="${this.logout}">
                         Log Out
                     </button>
@@ -162,10 +186,22 @@ export class UserMenu extends BaseComponent {
         }
     }
 
+    openAccountModal() {
+        // Close dropdown
+        this.showDropdown = false;
+
+        // Use multicall to send a message to the account modal to show itself
+        multicall({
+            target: 'show_account_modal',
+            query: '[jsum]',
+            params: []
+        });
+    }
+
     logout() {
         // Close dropdown
         this.showDropdown = false;
-        
+
         // Reload the page to reset application state and trigger login modal
         window.location.reload();
     }
@@ -174,13 +210,23 @@ export class UserMenu extends BaseComponent {
         /**
          * Listen for the message from the login-modal
          * See the /auth/login endpoint for the fields returned on log-in
-         * Expected fields: success, jwt, username, account_id
+         * Expected fields: success, jwt, username, email, account_id
          */
         if (user_information && user_information.success) {
             this.userInfo = {
                 name: user_information.username || 'Unknown User',
-                email: user_information.email || user_information.username || ''
+                email: user_information.email || ''
             };
+            this.requestUpdate();
+        }
+    }
+
+    name_updated(response) {
+        /**
+         * Listen for name updates from the account modal
+         */
+        if (response && response.success && this.userInfo) {
+            this.userInfo.name = response.name || this.userInfo.name;
             this.requestUpdate();
         }
     }
