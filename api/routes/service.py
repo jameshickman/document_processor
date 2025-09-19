@@ -264,3 +264,33 @@ async def get_marked_pdf_status(
             "marked_versions": [],
             "error": "Error retrieving marked version information"
         }
+
+@router.get('/classifiers')
+async def get_classifiers(
+    db: Session = Depends(get_db),
+    user = Depends(get_basic_auth)
+):
+    """
+    List all classifier sets belonging to the authenticated user.
+    Returns names and IDs of classifier sets.
+    """
+    classifier_sets = db.query(models.ClassifierSet).filter(
+        models.ClassifierSet.account_id == user.user_id
+    ).all()
+
+    return [{"id": cs.id, "name": cs.name} for cs in classifier_sets]
+
+@router.get('/extractors')
+async def get_extractors(
+    db: Session = Depends(get_db),
+    user = Depends(get_basic_auth)
+):
+    """
+    List all extractors belonging to the authenticated user.
+    Returns names and IDs of extractors.
+    """
+    extractors = db.query(models.Extractor).filter(
+        models.Extractor.account_id == user.user_id
+    ).all()
+
+    return [{"id": e.id, "name": e.name} for e in extractors]
