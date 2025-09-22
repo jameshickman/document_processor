@@ -49,6 +49,70 @@ async def classifier(
 ):
     return run_classifier(user.user_id, file_id, classifier_id, db)
 
+@router.get('/extractor/{extractor_id}/{file_id}')
+async def run_extractor_immediate(
+    extractor_id: int,
+    file_id: int,
+    db: Session = Depends(get_db),
+    user = Depends(get_basic_auth)
+):
+    """
+    Run an extractor against the contents of a document and return results immediately.
+    This endpoint operates like /extractors/run/{extractor_id}/{document_id} but uses Basic Auth.
+    """
+    from api.util.extraction_core import run_extractor_with_markup
+    from api.util.llm_config import llm_config
+    
+    # Verify that the specified extractor exists and belongs to the user
+    db_extractor = db.query(models.Extractor).filter(
+        and_(
+            models.Extractor.id == extractor_id,
+            models.Extractor.account_id == user.user_id
+        )
+    ).first()
+    
+    if not db_extractor:
+        raise HTTPException(status_code=404, detail="Extractor not found")
+    
+    # Verify that the specified file exists and belongs to the user
+    document = db.query(models.Document).filter(
+        and_(
+            models.Document.id == file_id,
+            models.Document.account_id == user.user_id
+        )
+    ).first()
+    
+    if not document:
+        raise HTTPException(status_code=404, detail="File not found")
+    
+    # Verify that the document has content to extract from
+    if not document.full_text:
+        raise HTTPException(status_code=400, detail="Document has no content available for extraction")
+    
+    # Run extractor with markup using shared utility
+    execution_result = run_extractor_with_markup(
+        document_text=document.full_text,
+        document_file_path=document.file_name,
+        extractor_prompt=db_extractor.prompt,
+        extractor_fields={field.name: field.description for field in db_extractor.fields},
+        extractor_id=extractor_id,
+        llm_config=llm_config,
+        use_logging=False  # Use print statements in API routes
+    )
+    
+    # Return the extraction result with marked PDF info
+    response_data = {
+        "id": extractor_id,
+        "document_id": file_id,
+        "result": execution_result.extraction_result,
+        "marked_pdf_available": execution_result.marked_pdf_available
+    }
+    
+    if execution_result.marked_pdf_path:
+        response_data["marked_pdf_path"] = execution_result.marked_pdf_path
+    
+    return response_data
+
 @router.post('/extractor')
 async def extractor(
     request: RunExtractorRequest,
