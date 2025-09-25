@@ -5,6 +5,7 @@ Supports:
     txt
     HTML
     docx
+    md
 
 Test if the extracted text is actual text and not "subsetted fonts" garbage.
 See: https://stackoverflow.com/questions/8039423/pdf-data-extraction-gives-symbols-gibberish
@@ -44,6 +45,8 @@ def extract(user_id: int, file_path_name: str, db: Session) -> models.Document:
         new_file, doc = html_converter(file_path_name)
     elif file_type == ".docx":
         new_file, doc = docx_converter(file_path_name)
+    elif file_type == ".md":
+        new_file, doc = md_loader(file_path_name)
     else:
         raise DocumentUnknownTypeException("Document type not supported")
 
@@ -89,6 +92,13 @@ def pandoc_convert(file_name: str, type_from: str, exception_message: str = "Doc
 
 
 def txt_loader(file_path: str) -> tuple:
+    filename = clean_file_name(file_path)
+    f = open(filename, 'r')
+    content = f.read()
+    return filename, content
+
+
+def md_loader(file_path: str) -> tuple:
     filename = clean_file_name(file_path)
     f = open(filename, 'r')
     content = f.read()
