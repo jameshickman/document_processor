@@ -10,6 +10,7 @@ from api import models
 from api.util.upload_document import upload_document, remove_document
 from api.util.document_classify import run_classifier
 from api.util.extraction_background import run_extractor
+from api.util.document_extract import extract
 
 
 class RunExtractorRequest(BaseModel):
@@ -17,6 +18,10 @@ class RunExtractorRequest(BaseModel):
     file_id: int
     web_hook: str
     csrf_token: str = ''
+
+
+class MarkdownUploadRequest(BaseModel):
+    content: str
 
 
 router = APIRouter()
@@ -39,6 +44,62 @@ async def remove_file(
 ):
     remove_document(user.user_id, file_id, db)
     return {"status": "success"}
+
+
+@router.put('/file/markdown')
+async def upload_markdown(
+    request: MarkdownUploadRequest,
+    db: Session = Depends(get_db),
+    user = Depends(get_basic_auth)
+):
+    """
+    Upload Markdown content as a document.
+    The first line of the content should be used as the filename.
+    """
+    import os
+    import re
+
+    content = request.content.strip()
+    if not content:
+        raise HTTPException(status_code=400, detail="Content cannot be empty")
+
+    lines = content.split('\n')
+    first_line = lines[0].strip()
+
+    # Extract filename from first line, removing markdown formatting if present
+    filename = first_line.lstrip('#').strip()
+
+    # Sanitize filename (remove invalid characters)
+    filename = re.sub(r'[^\w\s-]', '', filename).strip()
+    filename = re.sub(r'[-\s]+', '-', filename)
+
+    if not filename:
+        filename = "untitled"
+
+    # Ensure .md extension
+    if not filename.lower().endswith('.md'):
+        filename += '.md'
+
+    # Create a temporary file in the uploads directory
+    # First, let me check if there's a standard uploads directory
+    uploads_dir = "/tmp/uploads"
+    os.makedirs(uploads_dir, exist_ok=True)
+
+    file_path = os.path.join(uploads_dir, filename)
+
+    # Write content to file
+    with open(file_path, 'w', encoding='utf-8') as f:
+        f.write(content)
+
+    try:
+        # Use the extract function to process the markdown file
+        document = extract(user.user_id, file_path, db)
+        return {"id": document.id, "filename": filename}
+    except Exception as e:
+        # Clean up file if extraction fails
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        raise HTTPException(status_code=500, detail=f"Failed to process markdown file: {str(e)}")
 
 @router.get('/classifier/{classifier_id}/{file_id}')
 async def classifier(
