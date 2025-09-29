@@ -1,6 +1,8 @@
 # Document Extraction: Pluggable Conversion Framework
 
-A robust, extensible document conversion system that automatically converts various file formats to Markdown or plain text. This package replaces the functionality of `api/util/document_extract.py` with a modern, plugin-based architecture.
+A robust, extensible document conversion system that automatically converts various file formats to Markdown or plain text. This package **replaces the deprecated `api/util/document_extract.py`** with a modern, plugin-based architecture.
+
+> **Migration Status**: ✅ **Complete** - The deprecated module now acts as a compatibility wrapper using this new system. See [MIGRATION_GUIDE.md](../../../MIGRATION_GUIDE.md) for details.
 
 ## Overview
 

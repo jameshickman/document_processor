@@ -1,12 +1,52 @@
 import os
 import shutil
 import re
+from pathlib import Path
 
 from fastapi import UploadFile, HTTPException
-from sqlalchemy import and_
+from sqlalchemy import and_, text
 from sqlalchemy.orm import Session
+
+# Option 1: Keep using deprecated wrapper (shows deprecation warnings)
 from api.util.document_extract import extract, DocumentDecodeException, DocumentUnknownTypeException
+
+# Option 2: Use new system directly (recommended for new code)
+# from api.document_extraction.extract import extract as new_extract, DocumentDecodeException, DocumentUnknownTypeException
+
 from api.models import Document
+
+# Migration Guide:
+# To fully migrate from the deprecated api.util.document_extract:
+#
+# 1. Replace the imports above with:
+#    from api.document_extraction.extract import extract as new_extract, DocumentDecodeException, DocumentUnknownTypeException
+#
+# 2. Replace extract() calls with new_extract_with_db():
+#    def new_extract_with_db(user_id: int, file_path_name: str, db: Session) -> Document:
+#        # Clean filename (preserving legacy behavior)
+#        filename = Path(file_path_name).name.replace(" ", "_")
+#        if filename != Path(file_path_name).name:
+#            path = Path(file_path_name).parent
+#            new_file = os.path.join(path, filename)
+#            if os.path.exists(new_file):
+#                os.remove(new_file)
+#            os.rename(file_path_name, new_file)
+#            file_path_name = new_file
+#
+#        # Extract content using new system
+#        doc = new_extract(file_path_name)
+#
+#        # Clean up existing records
+#        q = text("DELETE FROM documents WHERE file_name = :name")
+#        db.execute(q, {"name": file_path_name})
+#        db.commit()
+#
+#        # Create new document record
+#        db_document = Document(file_name=file_path_name, full_text=doc, account_id=user_id)
+#        db.add(db_document)
+#        db.commit()
+#        db.refresh(db_document)
+#        return db_document
 
 
 def upload_document(

@@ -1,4 +1,7 @@
 """
+DEPRECATED: This module is deprecated and will be removed in a future version.
+Please use api.document_extraction.extract instead.
+
 Extract text from a document.
 Supports:
     PDF
@@ -15,40 +18,45 @@ TODO: Find an LLM tuned to understand tables and check-marks
 """
 
 import os
-import subprocess
+import warnings
 from pathlib import Path
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
-from sympy.physics.units import common_year
 
 from api import models
 
-class DocumentDecodeException(Exception):
-    pass
+# Import from new document extraction package
+from api.document_extraction.extract import (
+    extract as new_extract,
+    DocumentDecodeException,
+    DocumentUnknownTypeException
+)
 
-
-class DocumentUnknownTypeException(Exception):
-    pass
+# Issue deprecation warning
+warnings.warn(
+    "api.util.document_extract is deprecated. Use api.document_extraction.extract instead.",
+    DeprecationWarning,
+    stacklevel=2
+)
 
 
 def extract(user_id: int, file_path_name: str, db: Session) -> models.Document:
     """
+    DEPRECATED: Use api.document_extraction.extract instead.
+
     Extracts text from a document, saves it to the database, and returns the document.
+    This is a compatibility wrapper that uses the new document_extraction package.
     """
-    file_type = Path(file_path_name).suffix.lower()
-    if file_type == ".pdf":
-        new_file, doc = pdf_convert(file_path_name)
-    elif file_type == ".txt":
-        new_file, doc = txt_loader(file_path_name)
-    elif file_type == ".html" or file_type == ".htm":
-        new_file, doc = html_converter(file_path_name)
-    elif file_type == ".docx":
-        new_file, doc = docx_converter(file_path_name)
-    elif file_type == ".md":
-        new_file, doc = md_loader(file_path_name)
-    else:
-        raise DocumentUnknownTypeException("Document type not supported")
+    # Clean the file name as the old system did
+    new_file = clean_file_name(file_path_name)
+
+    try:
+        # Use the new document extraction system
+        doc = new_extract(new_file)
+    except (DocumentDecodeException, DocumentUnknownTypeException):
+        # Re-raise the same exceptions for backward compatibility
+        raise
 
     db_wipe(db, new_file)
 
@@ -60,49 +68,54 @@ def extract(user_id: int, file_path_name: str, db: Session) -> models.Document:
 
     return db_document
 
+# Legacy conversion functions - DEPRECATED
+# These functions are kept for potential compatibility but are no longer used
+# The new document_extraction package handles all conversion logic
+
 def pdf_convert(pdf_file: str) -> tuple:
+    """DEPRECATED: Use api.document_extraction.extract instead"""
+    warnings.warn("pdf_convert is deprecated", DeprecationWarning, stacklevel=2)
     new_pdf_file = clean_file_name(pdf_file)
-    command = [find_exe("pdftotext"), new_pdf_file, "-"]
-    result = subprocess.run(command, capture_output=True)
-    content = str(result.stdout.decode("utf-8").replace("\n", " "))
-    if content == '' or (not is_real_words(content)):
-        raise DocumentDecodeException("PDF file cannot be decoded into text")
+    content = new_extract(new_pdf_file)
     return new_pdf_file, content
 
 
 def html_converter(file_name) -> tuple[str, str]:
+    """DEPRECATED: Use api.document_extraction.extract instead"""
+    warnings.warn("html_converter is deprecated", DeprecationWarning, stacklevel=2)
     filename = clean_file_name(file_name)
-    content = pandoc_convert(filename, "html", "No text could be extracted from HTML file")
+    content = new_extract(filename)
     return filename, content
 
 
 def docx_converter(file_name) -> tuple[str, str]:
+    """DEPRECATED: Use api.document_extraction.extract instead"""
+    warnings.warn("docx_converter is deprecated", DeprecationWarning, stacklevel=2)
     filename = clean_file_name(file_name)
-    content = pandoc_convert(filename, "docx", "No text could be extracted from DOCX file")
+    content = new_extract(filename)
     return filename, content
 
 
-def pandoc_convert(file_name: str, type_from: str, exception_message: str = "Document extraction failed") -> str:
-    command = [find_exe("pandoc"), file_name, "-f", type_from, "-t", "markdown"]
-    result = subprocess.run(command, capture_output=True)
-    content = str(result.stdout.decode("utf-8").replace("\n", " "))
-    if content == '' or (not is_real_words(content)):
-        raise DocumentDecodeException(exception_message)
-    return content
-
-
 def txt_loader(file_path: str) -> tuple:
+    """DEPRECATED: Use api.document_extraction.extract instead"""
+    warnings.warn("txt_loader is deprecated", DeprecationWarning, stacklevel=2)
     filename = clean_file_name(file_path)
-    f = open(filename, 'r')
-    content = f.read()
+    content = new_extract(filename)
     return filename, content
 
 
 def md_loader(file_path: str) -> tuple:
+    """DEPRECATED: Use api.document_extraction.extract instead"""
+    warnings.warn("md_loader is deprecated", DeprecationWarning, stacklevel=2)
     filename = clean_file_name(file_path)
-    f = open(filename, 'r')
-    content = f.read()
+    content = new_extract(filename)
     return filename, content
+
+
+def pandoc_convert(file_name: str, type_from: str, exception_message: str = "Document extraction failed") -> str:
+    """DEPRECATED: Use api.document_extraction.extract instead"""
+    warnings.warn("pandoc_convert is deprecated", DeprecationWarning, stacklevel=2)
+    return new_extract(file_name)
 
 
 def clean_file_name(file_name) -> str:
