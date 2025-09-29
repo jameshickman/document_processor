@@ -1,3 +1,4 @@
+from api.document_extraction.extract import DocumentDecodeException
 from api.document_extraction.handler_base import DocumentExtractionBase
 
 
