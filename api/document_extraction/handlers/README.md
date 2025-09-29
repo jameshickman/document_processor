@@ -180,7 +180,10 @@ except FileNotFoundError:
 ### Required System Tools
 - **pandoc** - Universal document converter (most handlers)
 - **pdftotext** - PDF text extraction (poppler-utils package)
-- **soffice** - LibreOffice headless mode (complex office documents)
+- **libreoffice** or **soffice** - LibreOffice headless mode (complex office documents)
+  - Modern installations: `libreoffice` command
+  - Legacy installations: `soffice` command
+  - System automatically detects which is available
 
 ### Installation Examples
 
@@ -245,6 +248,11 @@ Test coverage includes:
 **"pdftotext failed" or "pandoc failed"**
 - Verify tools are installed and in PATH
 - Check file is not corrupted or password-protected
+
+**"LibreOffice/OpenOffice not found: tried 'libreoffice' and 'soffice'"**
+- Install LibreOffice: `sudo apt install libreoffice` (Ubuntu/Debian)
+- Ensure executable is in PATH
+- System automatically tries both modern (`libreoffice`) and legacy (`soffice`) commands
 
 **"Extraction produced garbage text"**
 - File may have embedded fonts or be image-based

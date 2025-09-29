@@ -31,23 +31,52 @@ class OfficeDocumentExtractionHandler(DocumentExtractionBase):
                 # Final fallback: extract as plain text
                 return self._extract_as_text(input_file)
 
+    def _find_libreoffice_executable(self) -> str:
+        """
+        Find LibreOffice executable, checking for both modern and legacy names.
+
+        Returns:
+            str: Path to the LibreOffice executable
+
+        Raises:
+            Exception: If neither 'libreoffice' nor 'soffice' are found
+        """
+        from api.document_extraction.handler_base import find_exe
+
+        # Try modern executable name first (LibreOffice 7.x+)
+        try:
+            return find_exe("libreoffice")
+        except Exception:
+            # Modern executable not found, try legacy name
+            pass
+
+        # Fall back to legacy name (older LibreOffice/OpenOffice)
+        try:
+            return find_exe("soffice")
+        except Exception:
+            # Neither executable found
+            pass
+
+        raise Exception("LibreOffice/OpenOffice not found: tried 'libreoffice' and 'soffice'")
+
     def _openoffice_convert(self, input_file: str) -> str:
         """
-        Use OpenOffice headless, soffice executable, to convert the input_file to a format
+        Use LibreOffice/OpenOffice headless to convert the input_file to a format
         that can be converted into Markdown. This is for the case of more complex documents that
         PanDoc cannot convert directly.
         """
         import subprocess
         import os
         from pathlib import Path
-        from api.document_extraction.handler_base import find_exe
-        from api.document_extraction.extract import DocumentDecodeException
+
+        # Find LibreOffice executable (try both libreoffice and soffice)
+        libreoffice_exe = self._find_libreoffice_executable()
 
         # Convert to ODT using LibreOffice headless
         output_file = os.path.join(self.temp_dir, f"{Path(input_file).stem}.odt")
 
         command = [
-            find_exe("soffice"),
+            libreoffice_exe,
             "--headless",
             "--convert-to", "odt",
             "--outdir", self.temp_dir,
