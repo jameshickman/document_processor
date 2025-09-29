@@ -16,6 +16,7 @@ from lib.fact_extractor.models import LLMConfig, ExtractionQuery, ExtractionResu
 
 from api.pdf_markup.highlight_pdf import highlight_pdf, extract_info, search_for_text, highlight_matching_data
 from api.to_pdf.converter import to_pdf, get_supported_formats, get_conversion_info, ConversionError
+from api.document_extraction.extract import extract, DocumentDecodeException, DocumentUnknownTypeException
 
 
 class TestClassifier(unittest.TestCase):
@@ -827,6 +828,250 @@ class TestPDFMarkup(unittest.TestCase):
             for result_file in [result_file_1, result_file_2]:
                 if os.path.exists(result_file):
                     os.remove(result_file)
+
+
+class TestDocumentExtraction(unittest.TestCase):
+
+    def setUp(self):
+        self.sample_files_dir = "testing/sample_files"
+        self.sample_files = {
+            'text': 'sample.txt',
+            'html': 'sample.html',
+            'markdown': 'sample.md',
+            'docx': 'word.docx'
+        }
+
+    def test_extract_text_file(self):
+        """Test extracting content from text files"""
+        input_file = os.path.join(self.sample_files_dir, self.sample_files['text'])
+        if not os.path.exists(input_file):
+            self.skipTest(f"Sample text file not found: {input_file}")
+
+        result = extract(input_file)
+
+        # Should return content as string
+        self.assertIsInstance(result, str)
+        self.assertGreater(len(result.strip()), 0)
+
+    def test_extract_markdown_file(self):
+        """Test extracting content from Markdown files"""
+        input_file = os.path.join(self.sample_files_dir, self.sample_files['markdown'])
+        if not os.path.exists(input_file):
+            self.skipTest(f"Sample Markdown file not found: {input_file}")
+
+        result = extract(input_file)
+
+        # Should return content as string
+        self.assertIsInstance(result, str)
+        self.assertGreater(len(result.strip()), 0)
+
+    def test_extract_html_file(self):
+        """Test extracting content from HTML files"""
+        input_file = os.path.join(self.sample_files_dir, self.sample_files['html'])
+        if not os.path.exists(input_file):
+            self.skipTest(f"Sample HTML file not found: {input_file}")
+
+        try:
+            result = extract(input_file)
+
+            # Should return converted content as string
+            self.assertIsInstance(result, str)
+            self.assertGreater(len(result.strip()), 0)
+
+        except DocumentDecodeException:
+            # May fail if pandoc is not available
+            self.skipTest("HTML extraction tools not available")
+
+    def test_extract_docx_file(self):
+        """Test extracting content from DOCX files"""
+        input_file = os.path.join(self.sample_files_dir, self.sample_files['docx'])
+        if not os.path.exists(input_file):
+            self.skipTest(f"Sample DOCX file not found: {input_file}")
+
+        try:
+            result = extract(input_file)
+
+            # Should return converted content as string
+            self.assertIsInstance(result, str)
+            self.assertGreater(len(result.strip()), 0)
+
+        except DocumentDecodeException:
+            # May fail if pandoc/LibreOffice is not available
+            self.skipTest("Office document extraction tools not available")
+
+    def test_extract_nonexistent_file(self):
+        """Test error handling for non-existent files"""
+        nonexistent_file = "nonexistent_file.txt"
+
+        with self.assertRaises(FileNotFoundError):
+            extract(nonexistent_file)
+
+    def test_extract_unsupported_extension(self):
+        """Test error handling for unsupported file extensions"""
+        # Create a temporary file with unsupported extension
+        temp_file = os.path.join(self.sample_files_dir, "test.unknown")
+        with open(temp_file, 'w') as f:
+            f.write("Test content")
+
+        try:
+            with self.assertRaises(DocumentUnknownTypeException):
+                extract(temp_file)
+        finally:
+            # Clean up temp file
+            if os.path.exists(temp_file):
+                os.remove(temp_file)
+
+    def test_extract_empty_extension(self):
+        """Test extracting file with no extension (treated as text)"""
+        # Create a temporary file with no extension
+        temp_file = os.path.join(self.sample_files_dir, "no_extension_file")
+        with open(temp_file, 'w') as f:
+            f.write("Test content without extension")
+
+        try:
+            result = extract(temp_file)
+
+            # Should return content as text
+            self.assertIsInstance(result, str)
+            self.assertEqual(result.strip(), "Test content without extension")
+
+        finally:
+            # Clean up temp file
+            if os.path.exists(temp_file):
+                os.remove(temp_file)
+
+    def test_dynamic_handler_discovery(self):
+        """Test that the extract function dynamically discovers available handlers"""
+        # This test verifies that the function can find handlers without hardcoding them
+
+        # Test with a known file type that should have a handler
+        input_file = os.path.join(self.sample_files_dir, self.sample_files['html'])
+        if not os.path.exists(input_file):
+            self.skipTest(f"Sample HTML file not found: {input_file}")
+
+        # Should not raise DocumentUnknownTypeException if handler exists
+        try:
+            result = extract(input_file)
+            self.assertIsInstance(result, str)
+        except DocumentDecodeException:
+            # Conversion failure is acceptable, but should find the handler
+            pass
+
+    def test_extract_multiple_file_types(self):
+        """Test extracting content from multiple different file types"""
+        test_results = {}
+
+        for file_type, filename in self.sample_files.items():
+            input_file = os.path.join(self.sample_files_dir, filename)
+            if os.path.exists(input_file):
+                try:
+                    result = extract(input_file)
+                    test_results[file_type] = {
+                        'success': True,
+                        'content_length': len(result.strip()),
+                        'has_content': len(result.strip()) > 0
+                    }
+                except (DocumentDecodeException, DocumentUnknownTypeException) as e:
+                    test_results[file_type] = {
+                        'success': False,
+                        'error': str(e)
+                    }
+
+        # At least text and markdown should work
+        if 'text' in test_results:
+            self.assertTrue(test_results['text']['success'])
+            self.assertTrue(test_results['text']['has_content'])
+
+        if 'markdown' in test_results:
+            self.assertTrue(test_results['markdown']['success'])
+            self.assertTrue(test_results['markdown']['has_content'])
+
+    def test_extract_with_special_characters(self):
+        """Test extracting files with special characters and unicode"""
+        # Create a text file with special characters
+        special_content = """
+        Special Characters Test: áéíóú àèìòù äëïöü ñç
+        Unicode: 🌟 ★ ♦ ♥ ♠ ♣
+        Math: α β γ δ ε π ∞ ∑ ∫
+        Quotes: "Hello" 'World' «Bonjour» »Monde«
+        """
+
+        special_file = os.path.join(self.sample_files_dir, "special_chars_extract.txt")
+        with open(special_file, 'w', encoding='utf-8') as f:
+            f.write(special_content)
+
+        try:
+            result = extract(special_file)
+
+            # Should preserve special characters
+            self.assertIsInstance(result, str)
+            self.assertIn("áéíóú", result)
+            self.assertIn("🌟", result)
+            self.assertIn("α β γ", result)
+
+        finally:
+            # Clean up temp file
+            if os.path.exists(special_file):
+                os.remove(special_file)
+
+    def test_extract_large_file(self):
+        """Test extracting content from a large text file"""
+        # Create a large text file
+        large_content = "This is line {}\n" * 10000  # 10,000 lines
+        large_content = large_content.format(*range(10000))
+
+        large_file = os.path.join(self.sample_files_dir, "large_file.txt")
+        with open(large_file, 'w') as f:
+            f.write(large_content)
+
+        try:
+            result = extract(large_file)
+
+            # Should handle large files
+            self.assertIsInstance(result, str)
+            self.assertGreater(len(result), 50000)  # Should be substantial content
+            self.assertIn("This is line 0", result)
+            self.assertIn("This is line 9999", result)
+
+        finally:
+            # Clean up temp file
+            if os.path.exists(large_file):
+                os.remove(large_file)
+
+    def test_extract_empty_file(self):
+        """Test extracting content from an empty file"""
+        empty_file = os.path.join(self.sample_files_dir, "empty_file.txt")
+        with open(empty_file, 'w') as f:
+            pass  # Create empty file
+
+        try:
+            result = extract(empty_file)
+
+            # Should return empty string
+            self.assertIsInstance(result, str)
+            self.assertEqual(result, "")
+
+        finally:
+            # Clean up temp file
+            if os.path.exists(empty_file):
+                os.remove(empty_file)
+
+    def test_exception_types(self):
+        """Test that appropriate exception types are raised"""
+        # Test DocumentUnknownTypeException
+        temp_file = os.path.join(self.sample_files_dir, "test.unknownext")
+        with open(temp_file, 'w') as f:
+            f.write("content")
+
+        try:
+            with self.assertRaises(DocumentUnknownTypeException) as cm:
+                extract(temp_file)
+
+            self.assertIn("unknownext", str(cm.exception))
+
+        finally:
+            if os.path.exists(temp_file):
+                os.remove(temp_file)
 
 
 class TestPDFConverter(unittest.TestCase):
