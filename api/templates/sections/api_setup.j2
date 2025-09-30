@@ -24,6 +24,7 @@
             </ul>
             <p><strong>Typical workflow:</strong></p>
             <ol style="margin: 10px 0;">
+                <li>List available extractors/classifiers → get IDs to use</li>
                 <li>Upload a document → get <code>file_id</code></li>
                 <li>Run extraction (sync or async) → get extraction results</li>
                 <li>Download marked PDF (optional) → get highlighted document</li>
@@ -75,10 +76,58 @@
 }</pre>
             </div>
             
+            <h4>List Available Classifiers</h4>
+            <div class="endpoint">
+                <code>GET /service/classifiers</code>
+                <p>Get a list of all classifier sets available to your account. Use the returned IDs with the classification endpoint.</p>
+
+                <h5>Response Format:</h5>
+                <pre>[
+  {
+    "id": 1,
+    "name": "Document Type Classifier"
+  },
+  {
+    "id": 2,
+    "name": "Invoice vs Receipt Classifier"
+  }
+]</pre>
+
+                <h5>Example Request:</h5>
+                <pre>curl -u "your-api-key:your-api-secret" \
+  {{request.url_root}}service/classifiers</pre>
+            </div>
+
+            <h4>List Available Extractors</h4>
+            <div class="endpoint">
+                <code>GET /service/extractors</code>
+                <p>Get a list of all extractors available to your account. Use the returned IDs with the extraction endpoints.</p>
+
+                <h5>Response Format:</h5>
+                <pre>[
+  {
+    "id": 1,
+    "name": "Invoice Data Extractor"
+  },
+  {
+    "id": 2,
+    "name": "Contract Terms Extractor"
+  },
+  {
+    "id": 3,
+    "name": "Contact Information Extractor"
+  }
+]</pre>
+
+                <h5>Example Request:</h5>
+                <pre>curl -u "your-api-key:your-api-secret" \
+  {{request.url_root}}service/extractors</pre>
+            </div>
+
             <h4>Classification</h4>
             <div class="endpoint">
                 <code>GET /service/classifier/{classifier_id}/{file_id}</code>
-                <p>Classify a document using the specified classifier.</p>
+                <p>Classify a document using the specified classifier. Use the classifiers endpoint above to get available classifier IDs.</p>
                 <pre>curl -u "your-api-key:your-api-secret" \
   {{request.url_root}}service/classifier/1/123</pre>
             </div>
@@ -90,7 +139,7 @@
                 
                 <h5>Request Parameters:</h5>
                 <ul>
-                    <li><strong>extractor_id</strong> (required): The ID of the extractor to use</li>
+                    <li><strong>extractor_id</strong> (required): The ID of the extractor to use (get from extractors endpoint above)</li>
                     <li><strong>file_id</strong> (required): The ID of the uploaded document file</li>
                     <li><strong>web_hook</strong> (required): URL where extraction results will be sent via POST</li>
                     <li><strong>csrf_token</strong> (optional): CSRF protection token for webhook validation</li>
@@ -168,7 +217,7 @@
 
                 <h5>Path Parameters:</h5>
                 <ul>
-                    <li><strong>extractor_id</strong> (required): The ID of the extractor to use</li>
+                    <li><strong>extractor_id</strong> (required): The ID of the extractor to use (get from extractors endpoint above)</li>
                     <li><strong>document_id</strong> (required): The ID of the uploaded document file</li>
                 </ul>
 
