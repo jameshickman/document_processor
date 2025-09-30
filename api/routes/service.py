@@ -67,6 +67,113 @@ async def classifier(
 ):
     return run_classifier(user.user_id, file_id, classifier_id, db)
 
+@router.get('/extractor/{extractor_id}/{document_id}')
+async def run_extractor_sync(
+    extractor_id: int,
+    document_id: int,
+    db: Session = Depends(get_db),
+    user = Depends(get_basic_auth)
+):
+    """
+    Run the extraction process synchronously and return the results.
+
+    This endpoint provides the same functionality as the POST /extractor endpoint
+    but runs synchronously and returns results directly instead of using background
+    tasks and webhooks.
+
+    Args:
+        extractor_id: ID of the extractor to run
+        document_id: ID of the document to extract from
+
+    Returns:
+        JSON response with:
+        - extractor_id: The extractor that was run
+        - document_id: The document that was processed
+        - file_name: Name of the processed file
+        - extraction_result: Complete extraction results from the LLM
+        - marked_pdf_available: Whether a marked-up PDF was created
+        - marked_pdf_path: Path to marked PDF (if created)
+        - success: Boolean indicating successful completion
+
+    Raises:
+        404: If extractor or document not found or not owned by user
+        400: If document has no content to extract from
+        500: If extraction process fails
+
+    Security:
+        - Requires Basic Authentication
+        - Users can only access their own extractors and documents
+    """
+    from api.util.llm_config import llm_config
+    from api.util.extraction_core import run_extractor_with_markup
+
+    # Verify that the specified extractor exists and belongs to the user
+    db_extractor = db.query(models.Extractor).filter(
+        and_(
+            models.Extractor.id == extractor_id,
+            models.Extractor.account_id == user.user_id
+        )
+    ).first()
+
+    if not db_extractor:
+        raise HTTPException(status_code=404, detail="Extractor not found")
+
+    # Verify that the specified document exists and belongs to the user
+    document = db.query(models.Document).filter(
+        and_(
+            models.Document.id == document_id,
+            models.Document.account_id == user.user_id
+        )
+    ).first()
+
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    # Verify that the document has content to extract from
+    if not document.full_text:
+        raise HTTPException(status_code=400, detail="Document has no content available for extraction")
+
+    try:
+        document_text = str(document.full_text)
+        file_name = document.file_name.split('/')[-1]
+
+        # Run extractor with markup using shared utility
+        execution_result = run_extractor_with_markup(
+            document_text=document_text,
+            document_file_path=document.file_name,
+            extractor_prompt=str(db_extractor.prompt),
+            extractor_fields={field.name: field.description for field in db_extractor.fields},
+            extractor_id=extractor_id,
+            llm_config=llm_config,
+            use_logging=False  # Use print statements for synchronous API calls
+        )
+
+        # Prepare response data similar to the webhook payload but for direct return
+        response_data = {
+            "extractor_id": extractor_id,
+            "document_id": document_id,
+            "file_name": file_name,
+            "extraction_result": execution_result.extraction_result.model_dump(),
+            "marked_pdf_available": execution_result.marked_pdf_available,
+            "success": True
+        }
+
+        # Add marked PDF path if available
+        if execution_result.marked_pdf_path:
+            response_data["marked_pdf_path"] = execution_result.marked_pdf_path
+
+        return response_data
+
+    except Exception as e:
+        # Log the error and return a structured error response
+        import logging
+        logging.error(f"Error running extractor {extractor_id} on document {document_id}: {str(e)}")
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"Extraction failed: {str(e)}"
+        )
+
 @router.post('/extractor')
 async def extractor(
     request: RunExtractorRequest,

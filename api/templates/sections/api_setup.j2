@@ -14,6 +14,22 @@
     <div class="api-documentation">
         <h3>API Documentation</h3>
         <p>Use the following endpoints with HTTP Basic Authentication using your API key as username and API secret as password:</p>
+
+        <div class="workflow-guidance" style="background-color: #e8f4fd; border: 1px solid #b8daff; border-radius: 4px; padding: 15px; margin: 15px 0;">
+            <h4>📋 Quick Start Workflow</h4>
+            <p><strong>Choose your extraction approach:</strong></p>
+            <ul style="margin: 10px 0;">
+                <li><strong>🔄 Synchronous</strong> (GET endpoint): Best for testing, debugging, or simple integrations where you can wait for results</li>
+                <li><strong>⚡ Asynchronous</strong> (POST endpoint): Best for production systems, batch processing, or when handling multiple documents</li>
+            </ul>
+            <p><strong>Typical workflow:</strong></p>
+            <ol style="margin: 10px 0;">
+                <li>Upload a document → get <code>file_id</code></li>
+                <li>Run extraction (sync or async) → get extraction results</li>
+                <li>Download marked PDF (optional) → get highlighted document</li>
+                <li>Clean up files when done (optional)</li>
+            </ol>
+        </div>
         
         <div class="endpoint-docs">
             <h4>File Upload</h4>
@@ -67,10 +83,10 @@
   {{request.url_root}}service/classifier/1/123</pre>
             </div>
             
-            <h4>Extraction</h4>
+            <h4>Extraction (Asynchronous)</h4>
             <div class="endpoint">
                 <code>POST /service/extractor</code>
-                <p>Extract information from a document using the specified extractor. This operation runs asynchronously in the background.</p>
+                <p>Extract information from a document using the specified extractor. This operation runs asynchronously in the background and returns results via webhook.</p>
                 
                 <h5>Request Parameters:</h5>
                 <ul>
@@ -144,7 +160,96 @@
   "marked_pdf_path": "/path/to/document.marked.1.pdf"
 }</pre>
             </div>
-            
+
+            <h4>Extraction (Synchronous)</h4>
+            <div class="endpoint">
+                <code>GET /service/extractor/{extractor_id}/{document_id}</code>
+                <p>Extract information from a document using the specified extractor. This operation runs synchronously and returns results immediately in the response.</p>
+
+                <h5>Path Parameters:</h5>
+                <ul>
+                    <li><strong>extractor_id</strong> (required): The ID of the extractor to use</li>
+                    <li><strong>document_id</strong> (required): The ID of the uploaded document file</li>
+                </ul>
+
+                <h5>When to Use:</h5>
+                <ul>
+                    <li>Simple integrations that need immediate results</li>
+                    <li>Interactive applications where users wait for results</li>
+                    <li>Testing and debugging extractions</li>
+                    <li>When webhook setup is not feasible</li>
+                </ul>
+
+                <h5>Comparison with Asynchronous Extraction:</h5>
+                <table style="width: 100%; border-collapse: collapse; margin: 10px 0;">
+                    <thead>
+                        <tr style="background-color: #f5f5f5;">
+                            <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Aspect</th>
+                            <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Asynchronous (POST)</th>
+                            <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Synchronous (GET)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td style="border: 1px solid #ddd; padding: 8px;"><strong>Response</strong></td>
+                            <td style="border: 1px solid #ddd; padding: 8px;">{"status": "started"}</td>
+                            <td style="border: 1px solid #ddd; padding: 8px;">Complete results immediately</td>
+                        </tr>
+                        <tr style="background-color: #f9f9f9;">
+                            <td style="border: 1px solid #ddd; padding: 8px;"><strong>Webhook</strong></td>
+                            <td style="border: 1px solid #ddd; padding: 8px;">Required</td>
+                            <td style="border: 1px solid #ddd; padding: 8px;">Not needed</td>
+                        </tr>
+                        <tr>
+                            <td style="border: 1px solid #ddd; padding: 8px;"><strong>Use Case</strong></td>
+                            <td style="border: 1px solid #ddd; padding: 8px;">High volume, fire-and-forget</td>
+                            <td style="border: 1px solid #ddd; padding: 8px;">Interactive, immediate results</td>
+                        </tr>
+                        <tr style="background-color: #f9f9f9;">
+                            <td style="border: 1px solid #ddd; padding: 8px;"><strong>PDF Markup</strong></td>
+                            <td style="border: 1px solid #ddd; padding: 8px;">✅ Generated</td>
+                            <td style="border: 1px solid #ddd; padding: 8px;">✅ Generated</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h5>Example Request:</h5>
+                <pre>curl -u "your-api-key:your-api-secret" \
+  {{request.url_root}}service/extractor/1/123</pre>
+
+                <h5>Example Response:</h5>
+                <pre>{
+  "extractor_id": 1,
+  "document_id": 123,
+  "file_name": "document.pdf",
+  "extraction_result": {
+    "confidence": 1,
+    "found": true,
+    "explanation": "Successfully extracted the following information...",
+    "extracted_data": {
+      "field_1": {
+        "value": "extracted value 1",
+        "citation": ["Quote from document supporting field_1"]
+      },
+      "field_2": {
+        "value": "extracted value 2",
+        "citation": ["Quote 1", "Quote 2"]
+      }
+    }
+  },
+  "marked_pdf_available": true,
+  "marked_pdf_path": "/path/to/document.marked.1.pdf",
+  "success": true
+}</pre>
+
+                <h5>Error Responses:</h5>
+                <ul>
+                    <li><strong>404</strong>: Extractor or document not found</li>
+                    <li><strong>400</strong>: Document has no content available for extraction</li>
+                    <li><strong>500</strong>: Extraction process failed</li>
+                </ul>
+            </div>
+
             <h4>Marked PDF Download</h4>
             <div class="endpoint">
                 <code>GET /service/marked-pdf/{extractor_id}/{file_id}</code>
