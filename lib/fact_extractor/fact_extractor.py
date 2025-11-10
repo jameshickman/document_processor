@@ -61,9 +61,9 @@ class FactExtractor:
         self.embedder = None
         if use_vector_search and EMBEDDER_AVAILABLE and db_session is not None:
             try:
+                # DocumentEmbedder will automatically configure from environment variables
+                # Supports DeepInfra, OpenAI, and Ollama embedding providers
                 self.embedder = DocumentEmbedder(
-                    openai_api_key=os.getenv("OPENAI_API_KEY"),
-                    openai_base_url=os.getenv("OPENAI_BASE_URL"),
                     chunk_size=500,
                     chunk_overlap=50
                 )

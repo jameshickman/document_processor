@@ -1,6 +1,11 @@
 """
 Document embedder for semantic search and retrieval.
 Uses PGVector for storing and querying vector embeddings.
+
+Supports multiple embedding providers:
+- DeepInfra: google/embeddinggemma-300m (768 dimensions)
+- OpenAI: text-embedding-ada-002 (1536 dimensions)
+- Ollama: mxbai-embed-large (1024 dimensions)
 """
 import logging
 from typing import Optional
@@ -9,6 +14,7 @@ from sqlalchemy.orm import Session
 from api.models.embedding import DocumentEmbedding
 from api.models.documents import Document
 from api.util.vector_utils import VectorUtils
+from api.util.embedding_config import EmbeddingConfig, create_embedding_config
 
 logger = logging.getLogger(__name__)
 
@@ -21,29 +27,36 @@ class DocumentEmbedder:
 
     def __init__(
         self,
+        embedding_config: Optional[EmbeddingConfig] = None,
+        chunk_size: int = 500,
+        chunk_overlap: int = 50,
+        # Legacy parameters for backward compatibility
         openai_api_key: Optional[str] = None,
         openai_base_url: Optional[str] = None,
-        embedding_model: str = "text-embedding-ada-002",
-        chunk_size: int = 500,
-        chunk_overlap: int = 50
+        embedding_model: Optional[str] = None
     ):
         """
         Initialize document embedder.
 
         Args:
-            openai_api_key: OpenAI API key
-            openai_base_url: OpenAI API base URL (for compatible APIs)
-            embedding_model: Model to use for embeddings
+            embedding_config: EmbeddingConfig object (if None, creates from environment)
             chunk_size: Maximum words per chunk
             chunk_overlap: Words to overlap between chunks
+            openai_api_key: (Deprecated) OpenAI API key for legacy compatibility
+            openai_base_url: (Deprecated) OpenAI API base URL for legacy compatibility
+            embedding_model: (Deprecated) Model name for legacy compatibility
         """
+        # Initialize vector utilities with embedding config
         self.vector_utils = VectorUtils(
+            embedding_config=embedding_config,
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            # Pass through legacy parameters if provided
             openai_api_key=openai_api_key,
             openai_base_url=openai_base_url,
-            embedding_model=embedding_model,
-            chunk_size=chunk_size,
-            chunk_overlap=chunk_overlap
+            embedding_model=embedding_model
         )
+        logger.info(f"DocumentEmbedder initialized with {self.vector_utils.config.provider} provider")
 
     def embed_document(
         self,

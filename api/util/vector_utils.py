@@ -11,6 +11,7 @@ from openai import OpenAI
 
 from api.models.embedding import DocumentEmbedding
 from api.models.documents import Document
+from api.util.embedding_config import EmbeddingConfig, create_embedding_config
 
 logger = logging.getLogger(__name__)
 
@@ -18,42 +19,57 @@ logger = logging.getLogger(__name__)
 DEFAULT_CHUNK_SIZE = 500
 DEFAULT_CHUNK_OVERLAP = 50
 
-# Default embedding model
-DEFAULT_EMBEDDING_MODEL = "text-embedding-ada-002"
-
 
 class VectorUtils:
     """Utility class for vector embeddings and similarity search."""
 
     def __init__(
         self,
+        embedding_config: Optional[EmbeddingConfig] = None,
+        chunk_size: int = DEFAULT_CHUNK_SIZE,
+        chunk_overlap: int = DEFAULT_CHUNK_OVERLAP,
+        # Legacy parameters for backward compatibility
         openai_api_key: Optional[str] = None,
         openai_base_url: Optional[str] = None,
-        embedding_model: str = DEFAULT_EMBEDDING_MODEL,
-        chunk_size: int = DEFAULT_CHUNK_SIZE,
-        chunk_overlap: int = DEFAULT_CHUNK_OVERLAP
+        embedding_model: Optional[str] = None
     ):
         """
         Initialize vector utilities.
 
         Args:
-            openai_api_key: OpenAI API key (defaults to OPENAI_API_KEY env var)
-            openai_base_url: OpenAI API base URL (defaults to None for official API)
-            embedding_model: Model to use for embeddings
+            embedding_config: EmbeddingConfig object (if None, creates from environment)
             chunk_size: Maximum words per chunk
             chunk_overlap: Number of words to overlap between chunks
+            openai_api_key: (Deprecated) OpenAI API key for legacy compatibility
+            openai_base_url: (Deprecated) OpenAI API base URL for legacy compatibility
+            embedding_model: (Deprecated) Model name for legacy compatibility
         """
-        self.openai_api_key = openai_api_key or os.getenv("OPENAI_API_KEY")
-        self.openai_base_url = openai_base_url or os.getenv("OPENAI_BASE_URL")
-        self.embedding_model = embedding_model
+        # Use provided config or create from environment
+        if embedding_config is None:
+            # Check if legacy parameters were provided
+            if openai_api_key or openai_base_url or embedding_model:
+                logger.warning("Using legacy parameters. Consider migrating to EmbeddingConfig.")
+                # Create a custom config from legacy parameters
+                from api.util.embedding_config import EmbeddingConfig
+                embedding_config = EmbeddingConfig(
+                    provider="openai",
+                    base_url=openai_base_url or os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
+                    api_key=openai_api_key or os.getenv("OPENAI_API_KEY"),
+                    model_name=embedding_model or "text-embedding-ada-002",
+                    dimensions=1536,  # Default for ada-002
+                    timeout=360
+                )
+            else:
+                # Create config from environment variables
+                embedding_config = create_embedding_config()
+
+        self.config = embedding_config
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
 
-        # Initialize OpenAI client
-        if self.openai_base_url:
-            self.client = OpenAI(api_key=self.openai_api_key, base_url=self.openai_base_url)
-        else:
-            self.client = OpenAI(api_key=self.openai_api_key)
+        # Initialize OpenAI-compatible client (works for DeepInfra, OpenAI, and Ollama)
+        self.client = OpenAI(api_key=self.config.api_key, base_url=self.config.base_url)
+        logger.info(f"Initialized {self.config.provider} embeddings with model {self.config.model_name}")
 
     def chunk_text(self, text: str) -> List[str]:
         """
@@ -96,13 +112,22 @@ class VectorUtils:
         try:
             response = self.client.embeddings.create(
                 input=text,
-                model=self.embedding_model
+                model=self.config.model_name
             )
             embedding = response.data[0].embedding
-            logger.debug(f"Generated embedding of dimension {len(embedding)}")
+            expected_dim = self.config.dimensions
+            actual_dim = len(embedding)
+
+            if actual_dim != expected_dim:
+                logger.warning(
+                    f"Embedding dimension mismatch: expected {expected_dim}, got {actual_dim}. "
+                    f"Database schema may need updating."
+                )
+
+            logger.debug(f"Generated {actual_dim}-dimensional embedding using {self.config.provider}")
             return embedding
         except Exception as e:
-            logger.error(f"Failed to generate embedding: {e}")
+            logger.error(f"Failed to generate embedding with {self.config.provider}: {e}")
             raise
 
     def embed_document(

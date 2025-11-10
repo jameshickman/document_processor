@@ -33,19 +33,49 @@ pip install -r requirements.txt
 
 The key new dependency is `pgvector~=0.3.6`.
 
-### 3. OpenAI API Key (or Compatible API)
+### 3. Embedding Provider Configuration
 
-The system uses OpenAI's embedding API by default. Set your API key:
+The system supports multiple embedding providers with automatic fallback:
 
-```bash
-export OPENAI_API_KEY="your-api-key-here"
-```
-
-For OpenAI-compatible APIs (like Ollama), you can also set:
+#### Option 1: DeepInfra (Recommended for Cost)
+- Model: `google/embeddinggemma-300m` (768 dimensions)
+- Fast and cost-effective
 
 ```bash
-export OPENAI_BASE_URL="http://localhost:11434/v1"
+export DEEPINFRA_EMBEDDING_TOKEN="your-deepinfra-token"
+# or reuse your existing DeepInfra token
+export DEEPINFRA_API_TOKEN="your-deepinfra-token"
+
+# Optional: Specify different model
+export DEEPINFRA_EMBEDDING_MODEL="google/embeddinggemma-300m"
+export DEEPINFRA_EMBEDDING_DIMENSIONS="768"
 ```
+
+#### Option 2: OpenAI
+- Model: `text-embedding-ada-002` (1536 dimensions)
+- Highest quality embeddings
+
+```bash
+export OPENAI_API_KEY="your-openai-key"
+
+# Optional: Specify different model
+export OPENAI_EMBEDDING_MODEL="text-embedding-ada-002"
+export OPENAI_EMBEDDING_DIMENSIONS="1536"
+```
+
+#### Option 3: Ollama (Local)
+- Model: `mxbai-embed-large` (1024 dimensions)
+- Free, runs locally
+
+```bash
+export OLLAMA_BASE_URL="http://localhost:11434/v1"
+
+# Optional: Specify different model
+export OLLAMA_EMBEDDING_MODEL="mxbai-embed-large"
+export OLLAMA_EMBEDDING_DIMENSIONS="1024"
+```
+
+**Provider Priority**: The system will use DeepInfra → OpenAI → Ollama (first available)
 
 ## Database Setup
 
@@ -72,15 +102,28 @@ psql -U your_user -d your_database -f migrations/001_add_pgvector_support.sql
 
 ```python
 from api.util.embedder import DocumentEmbedder
+from api.util.embedding_config import create_embedding_config
 from api.models import get_db
 
-# Initialize embedder
+# Option 1: Use automatic configuration from environment variables
 embedder = DocumentEmbedder(
-    openai_api_key="your-key",  # Optional, uses env var if not provided
-    embedding_model="text-embedding-ada-002",  # Default
     chunk_size=500,  # Words per chunk
     chunk_overlap=50  # Overlap between chunks
 )
+# Will automatically use DeepInfra, OpenAI, or Ollama based on available env vars
+
+# Option 2: Explicitly specify configuration
+from api.util.embedding_config import EmbeddingConfig
+
+config = EmbeddingConfig(
+    provider="deepinfra",
+    base_url="https://api.deepinfra.com/v1/openai",
+    api_key="your-token",
+    model_name="google/embeddinggemma-300m",
+    dimensions=768,
+    timeout=360
+)
+embedder = DocumentEmbedder(embedding_config=config)
 
 # Get relevant context from a document
 db = next(get_db())
@@ -93,7 +136,7 @@ relevant_text = embedder.get_relevant_context(
 
 # The embedder will automatically:
 # 1. Check if document has embeddings
-# 2. Generate them if needed
+# 2. Generate them if needed (using configured provider)
 # 3. Perform similarity search
 # 4. Return most relevant chunks
 ```
@@ -132,20 +175,55 @@ for embedding, score in results:
 
 ### Environment Variables
 
-- `OPENAI_API_KEY`: Your OpenAI API key (required)
-- `OPENAI_BASE_URL`: Base URL for OpenAI-compatible APIs (optional)
+#### Database Configuration
 - `POSTGRES_USER`: Database user
 - `POSTGRES_PASSWORD`: Database password
 - `POSTGRES_HOST`: Database host
 - `POSTGRES_PORT`: Database port
 - `POSTGRES_DB`: Database name
 
-### Embedding Model
+#### Embedding Provider Configuration
 
-The default embedding model is `text-embedding-ada-002` which produces 1536-dimensional vectors. If you use a different model with different dimensions, you'll need to update the vector dimension in:
+**DeepInfra (Priority 1)**
+- `DEEPINFRA_EMBEDDING_TOKEN` or `DEEPINFRA_API_TOKEN`: DeepInfra API token
+- `DEEPINFRA_EMBEDDING_MODEL`: Model name (default: `google/embeddinggemma-300m`)
+- `DEEPINFRA_EMBEDDING_DIMENSIONS`: Vector dimensions (default: `768`)
+- `DEEPINFRA_EMBEDDING_BASE_URL`: Base URL (default: `https://api.deepinfra.com/v1/openai`)
+- `DEEPINFRA_EMBEDDING_TIMEOUT`: Request timeout in seconds (default: `360`)
 
-- `api/models/embedding.py` (line 23): Change `Vector(1536)` to your model's dimension
-- `migrations/001_add_pgvector_support.sql` (line 12): Change `vector(1536)` to your model's dimension
+**OpenAI (Priority 2)**
+- `OPENAI_API_KEY`: OpenAI API key
+- `OPENAI_EMBEDDING_MODEL`: Model name (default: `text-embedding-ada-002`)
+- `OPENAI_EMBEDDING_DIMENSIONS`: Vector dimensions (default: `1536`)
+- `OPENAI_EMBEDDING_BASE_URL` or `OPENAI_BASE_URL`: Base URL (default: `https://api.openai.com/v1`)
+- `OPENAI_EMBEDDING_TIMEOUT`: Request timeout in seconds (default: `360`)
+
+**Ollama (Priority 3 - Fallback)**
+- `OLLAMA_EMBEDDING_MODEL` or `OLLAMA_BASE_URL`: Model name (default: `mxbai-embed-large`)
+- `OLLAMA_EMBEDDING_DIMENSIONS`: Vector dimensions (default: `1024`)
+- `OLLAMA_EMBEDDING_BASE_URL` or `OLLAMA_BASE_URL`: Base URL (default: `http://localhost:11434/v1`)
+- `OLLAMA_EMBEDDING_TIMEOUT`: Request timeout in seconds (default: `360`)
+
+### Embedding Models and Dimensions
+
+Different providers use different embedding dimensions:
+
+| Provider | Model | Dimensions | Notes |
+|----------|-------|------------|-------|
+| DeepInfra | `google/embeddinggemma-300m` | 768 | Cost-effective, fast |
+| OpenAI | `text-embedding-ada-002` | 1536 | High quality |
+| OpenAI | `text-embedding-3-small` | 1536 | Newer model |
+| OpenAI | `text-embedding-3-large` | 3072 | Highest quality |
+| Ollama | `mxbai-embed-large` | 1024 | Free, local |
+| Ollama | `nomic-embed-text` | 768 | Alternative |
+| Ollama | `all-minilm` | 384 | Smaller, faster |
+
+**Important**: The database schema is configured for 1536 dimensions by default (OpenAI). If using a different provider/model, you may need to update:
+
+- `api/models/embedding.py`: Change `Vector(1536)` to match your model's dimensions
+- `migrations/001_add_pgvector_support.sql`: Change `vector(1536)` to match
+
+However, PGVector supports variable dimensions per row, so mixing models is technically possible (though not recommended for consistency)
 
 ### Chunk Size and Overlap
 
@@ -253,9 +331,14 @@ DocumentChunker (in vector_utils.py)
     ↓
 Multiple Text Chunks
     ↓
-Embedding Generator (OpenAI API)
+Embedding Configuration (embedding_config.py)
+    ├─→ DeepInfra (google/embeddinggemma-300m - 768 dims)
+    ├─→ OpenAI (text-embedding-ada-002 - 1536 dims)
+    └─→ Ollama (mxbai-embed-large - 1024 dims)
     ↓
-Vector Embeddings (1536 dimensions)
+Embedding Generator (via OpenAI-compatible API)
+    ↓
+Vector Embeddings (variable dimensions)
     ↓
 PostgreSQL with PGVector
     ↓
@@ -267,8 +350,9 @@ Relevant Context for LLM
 ## Future Enhancements
 
 Potential improvements:
-1. Support for different embedding models (sentence-transformers, etc.)
+1. ✅ ~~Support for different embedding models~~ (Implemented: DeepInfra, OpenAI, Ollama)
 2. Hybrid search (keyword + semantic)
 3. Re-ranking of results
 4. Automatic embedding regeneration on document updates
 5. Caching of frequently-searched queries
+6. Support for additional embedding providers (sentence-transformers, Cohere, etc.)
