@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Optional, Union
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage
+from sqlalchemy.orm import Session
 
 try:
     from langchain_community.llms import DeepInfra
@@ -14,22 +15,64 @@ except ImportError:
     DEEPINFRA_AVAILABLE = False
     DeepInfra = None
 
-from lib.fact_extractor.document_chunker import DocumentChunker,CHUNK_SIZE
+from lib.fact_extractor.document_chunker import DocumentChunker, CHUNK_SIZE
 from lib.fact_extractor.models import LLMConfig, ExtractionResult, ExtractionQuery
 from lib.fact_extractor.prompt_builder import PromptBuilder
+
+# Import vector utilities for semantic search
+try:
+    from api.util.embedder import DocumentEmbedder
+    EMBEDDER_AVAILABLE = True
+except ImportError:
+    EMBEDDER_AVAILABLE = False
+    DocumentEmbedder = None
+    logger = logging.getLogger(__name__)
+    logger.debug("DocumentEmbedder not available, will use chunking fallback")
 
 logger = logging.getLogger(__name__)
 
 
 class FactExtractor:
     """Main class for extracting facts from documents using LLM services."""
-    
-    def __init__(self, config: LLMConfig):
+
+    def __init__(
+        self,
+        config: LLMConfig,
+        db_session: Optional[Session] = None,
+        use_vector_search: bool = True
+    ):
+        """
+        Initialize FactExtractor.
+
+        Args:
+            config: LLM configuration
+            db_session: Optional database session for vector search
+            use_vector_search: Whether to use vector search when available (default True)
+        """
         self.config = config
+        self.db_session = db_session
+        self.use_vector_search = use_vector_search
         self.chunker = DocumentChunker()
         self.prompt_builder = PromptBuilder()
         self.llm = self._initialize_llm()
         self.prompt_log_file = os.environ.get('PROMPT_LOG')
+
+        # Initialize vector embedder if available and requested
+        self.embedder = None
+        if use_vector_search and EMBEDDER_AVAILABLE and db_session is not None:
+            try:
+                self.embedder = DocumentEmbedder(
+                    openai_api_key=os.getenv("OPENAI_API_KEY"),
+                    openai_base_url=os.getenv("OPENAI_BASE_URL"),
+                    chunk_size=500,
+                    chunk_overlap=50
+                )
+                logger.info("Vector search enabled for fact extraction")
+            except Exception as e:
+                logger.warning(f"Failed to initialize vector embedder: {e}. Falling back to chunking.")
+                self.embedder = None
+        elif use_vector_search and not EMBEDDER_AVAILABLE:
+            logger.info("Vector search requested but embedder not available. Using chunking fallback.")
     
     def _initialize_llm(self) -> Union[ChatOpenAI, "DeepInfra"]:
         """Initialize the LangChain LLM with the provided configuration."""
@@ -65,19 +108,19 @@ class FactExtractor:
                 timeout=self.config.timeout
             )
     
-    def _log_to_prompt_file(self, log_type: str, content: str, chunk_num: int = None) -> None:
+    def _log_to_prompt_file(self, log_type: str, content: str, chunk_num: Union[int, str, None] = None) -> None:
         """Log prompts, responses, and errors to the PROMPT_LOG file if configured."""
         if not self.prompt_log_file:
             return
-        
+
         try:
             timestamp = datetime.now().isoformat()
-            chunk_info = f" (chunk {chunk_num})" if chunk_num is not None else ""
+            chunk_info = f" ({chunk_num})" if chunk_num is not None else ""
             log_entry = f"\n{'='*80}\n"
             log_entry += f"[{timestamp}] {log_type.upper()}{chunk_info}\n"
             log_entry += f"{'='*80}\n"
             log_entry += f"{content}\n"
-            
+
             with open(self.prompt_log_file, 'a', encoding='utf-8') as f:
                 f.write(log_entry)
         except Exception as e:
@@ -105,15 +148,15 @@ class FactExtractor:
         
         return has_required and json_part.count('{') <= json_part.count('}')
     
-    def _invoke_deepinfra_with_retry(self, prompt: str, chunk_num: int, max_retries: int = 3) -> str:
+    def _invoke_deepinfra_with_retry(self, prompt: str, chunk_num: Union[int, str], max_retries: int = 3) -> str:
         """
         Invoke DeepInfra with retry logic for handling partial responses.
-        
+
         Args:
             prompt: The prompt to send
-            chunk_num: Chunk number for logging
+            chunk_num: Chunk identifier for logging (int or string)
             max_retries: Maximum number of retry attempts
-            
+
         Returns:
             Complete response text
         """
@@ -269,23 +312,139 @@ class FactExtractor:
             self._log_to_prompt_file("json_parse_error", detailed_error)
             return None
     
-    def extract_facts(self, document_text: str, extraction_query: ExtractionQuery) -> Optional[ExtractionResult]:
+    def extract_facts(
+        self,
+        document_text: str,
+        extraction_query: ExtractionQuery,
+        document_id: Optional[int] = None
+    ) -> Optional[ExtractionResult]:
         """
         Main method to extract facts from a document.
-        
+
+        Uses vector search when available for more efficient context retrieval,
+        falls back to chunking approach if vector search is unavailable.
+
         Args:
             document_text: The text content to analyze
             extraction_query: The query containing question and fields to extract
-            
+            document_id: Optional document ID for vector search
+
         Returns:
             ExtractionResult if successful, None if extraction fails
         """
         logger.info(f"Starting fact extraction with query: {extraction_query.query}")
-        
+
+        # Try vector search approach first if available
+        if self.embedder and self.db_session and document_id:
+            try:
+                logger.info("Using vector search for context retrieval")
+                relevant_context = self.embedder.get_relevant_context(
+                    db=self.db_session,
+                    query=extraction_query.query,
+                    document_id=document_id,
+                    max_tokens=2048
+                )
+
+                if relevant_context and relevant_context.strip():
+                    logger.info(f"Retrieved relevant context ({len(relevant_context.split())} words)")
+                    # Process the relevant context as a single chunk
+                    result = self._process_text_chunk(
+                        text=relevant_context,
+                        extraction_query=extraction_query,
+                        chunk_label="vector_search"
+                    )
+                    if result:
+                        return result
+                else:
+                    logger.warning("Vector search returned empty context, falling back to chunking")
+            except Exception as e:
+                logger.warning(f"Vector search failed: {e}. Falling back to chunking approach.")
+
+        # Fallback to traditional chunking approach
+        logger.info("Using traditional chunking approach")
+        return self._extract_with_chunking(document_text, extraction_query)
+
+    def _process_text_chunk(
+        self,
+        text: str,
+        extraction_query: ExtractionQuery,
+        chunk_label: str = "chunk"
+    ) -> Optional[ExtractionResult]:
+        """
+        Process a single text chunk with the LLM.
+
+        Args:
+            text: Text to process
+            extraction_query: Extraction query
+            chunk_label: Label for logging (e.g., "chunk_1", "vector_search")
+
+        Returns:
+            ExtractionResult if successful and found, None otherwise
+        """
+        # Build prompt
+        prompt = self.prompt_builder.build_prompt(
+            text,
+            extraction_query.query,
+            extraction_query.fields
+        )
+
+        try:
+            # Log the prompt if PROMPT_LOG is configured
+            self._log_to_prompt_file("prompt", prompt, chunk_label)
+
+            # Send to LLM - handle different provider response formats
+            if self.config.provider == "deepinfra" and DEEPINFRA_AVAILABLE:
+                logger.info(f"Sending prompt to DeepInfra ({chunk_label})")
+                response_text = self._invoke_deepinfra_with_retry(prompt, chunk_label)
+                logger.info(f"DeepInfra response received ({len(response_text)} characters)")
+            else:
+                # Use ChatOpenAI interface for OpenAI, Ollama, and DeepInfra fallback
+                message = HumanMessage(content=prompt)
+                response = self.llm.invoke([message])
+                response_text = response.content
+
+            # Log the response if PROMPT_LOG is configured
+            self._log_to_prompt_file("response", response_text, chunk_label)
+
+            # Parse response
+            result = self._parse_llm_response(response_text, extraction_query.fields)
+
+            if result is None:
+                logger.warning(f"Failed to parse response for {chunk_label}")
+                return None
+
+            # Return result if information was found
+            if result.found:
+                logger.info(f"Information found in {chunk_label}")
+                return result
+            else:
+                logger.info(f"Information not found in {chunk_label}")
+                return None
+
+        except Exception as e:
+            logger.error(f"Error processing {chunk_label}: {e}")
+            return None
+
+    def _extract_with_chunking(
+        self,
+        document_text: str,
+        extraction_query: ExtractionQuery
+    ) -> ExtractionResult:
+        """
+        Traditional chunking-based extraction approach.
+        Used as fallback when vector search is unavailable.
+
+        Args:
+            document_text: Full document text
+            extraction_query: Extraction query
+
+        Returns:
+            ExtractionResult
+        """
         # Step 1: Get word count and determine if chunking is needed
         word_count = self.chunker.count_words(document_text)
         logger.info(f"Document word count: {word_count}")
-        
+
         # Step 2: Split document if necessary
         if word_count > CHUNK_SIZE:
             chunks = self.chunker.chunk_document(document_text)
@@ -293,54 +452,20 @@ class FactExtractor:
         else:
             chunks = [document_text]
             logger.info("Document processed as single chunk")
-        
+
         # Step 3: Process each chunk
         for i, chunk in enumerate(chunks, 1):
             logger.info(f"Processing chunk {i}/{len(chunks)}")
 
-            # Build prompt
-            prompt = self.prompt_builder.build_prompt(
-                chunk,
-                extraction_query.query,
-                extraction_query.fields
+            result = self._process_text_chunk(
+                text=chunk,
+                extraction_query=extraction_query,
+                chunk_label=f"chunk_{i}"
             )
 
-            try:
-                # Log the prompt if PROMPT_LOG is configured
-                self._log_to_prompt_file("prompt", prompt, i)
-                
-                # Send to LLM - handle different provider response formats
-                if self.config.provider == "deepinfra" and DEEPINFRA_AVAILABLE:
-                    logger.info(f"Sending prompt to DeepInfra (chunk {i})")
-                    response_text = self._invoke_deepinfra_with_retry(prompt, i)
-                    logger.info(f"DeepInfra response received ({len(response_text)} characters)")
-                else:
-                    # Use ChatOpenAI interface for OpenAI, Ollama, and DeepInfra fallback
-                    message = HumanMessage(content=prompt)
-                    response = self.llm.invoke([message])
-                    response_text = response.content
-                
-                # Log the response if PROMPT_LOG is configured
-                self._log_to_prompt_file("response", response_text, i)
-                
-                # Step 4: Parse response
-                result = self._parse_llm_response(response_text, extraction_query.fields)
-                
-                if result is None:
-                    logger.warning(f"Failed to parse response for chunk {i}")
-                    continue
-                
-                # Step 5: Check if information was found
-                if result.found:
-                    logger.info(f"Information found in chunk {i}")
-                    return result
-                else:
-                    logger.info(f"Information not found in chunk {i}, continuing to next chunk")
-            
-            except Exception as e:
-                logger.error(f"Error processing chunk {i}: {e}")
-                continue
-        
+            if result and result.found:
+                return result
+
         # If no chunks yielded results, return a default "not found" result
         logger.info("Information not found in any chunk")
         return ExtractionResult(

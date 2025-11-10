@@ -6,6 +6,7 @@ import os
 import logging
 from typing import Optional, List, Dict, Any, Tuple
 from dataclasses import dataclass
+from sqlalchemy.orm import Session
 
 from lib.fact_extractor.fact_extractor import FactExtractor
 from lib.fact_extractor.models import ExtractionQuery, ExtractionResult
@@ -23,15 +24,40 @@ def execute_extractor(
     document_text: str,
     extractor_prompt: str,
     extractor_fields: Dict[str, str],
-    llm_config: Any
+    llm_config: Any,
+    db: Optional[Session] = None,
+    document_id: Optional[int] = None,
+    use_vector_search: bool = True
 ) -> ExtractionResult:
-    """Execute the fact extractor with given parameters."""
-    fact_extractor = FactExtractor(llm_config)
+    """
+    Execute the fact extractor with given parameters.
+
+    Args:
+        document_text: The text content to extract from
+        extractor_prompt: The extraction prompt/query
+        extractor_fields: Dictionary of field names to descriptions
+        llm_config: LLM configuration object
+        db: Optional database session for vector search
+        document_id: Optional document ID for vector search
+        use_vector_search: Whether to use vector search (default True)
+
+    Returns:
+        ExtractionResult containing extracted information
+    """
+    fact_extractor = FactExtractor(
+        config=llm_config,
+        db_session=db,
+        use_vector_search=use_vector_search
+    )
     extraction_query = ExtractionQuery(
         query=extractor_prompt,
         fields=extractor_fields,
     )
-    return fact_extractor.extract_facts(document_text, extraction_query)
+    return fact_extractor.extract_facts(
+        document_text,
+        extraction_query,
+        document_id=document_id
+    )
 
 
 def collect_citations_from_result(extraction_result: ExtractionResult) -> List[str]:
@@ -121,11 +147,14 @@ def run_extractor_with_markup(
     extractor_fields: Dict[str, str],
     extractor_id: int,
     llm_config: Any,
-    use_logging: bool = True
+    use_logging: bool = True,
+    db: Optional[Session] = None,
+    document_id: Optional[int] = None,
+    use_vector_search: bool = True
 ) -> ExtractorExecutionResult:
     """
     Run extractor and create marked-up PDF if citations are found.
-    
+
     Args:
         document_text: The text content to extract from
         document_file_path: Path to the original document file
@@ -134,7 +163,10 @@ def run_extractor_with_markup(
         extractor_id: ID of the extractor for file naming
         llm_config: LLM configuration object
         use_logging: Whether to use logging module (True) or print statements (False)
-        
+        db: Optional database session for vector search
+        document_id: Optional document ID for vector search
+        use_vector_search: Whether to use vector search (default True)
+
     Returns:
         ExtractorExecutionResult containing extraction result and PDF markup info
     """
@@ -143,7 +175,10 @@ def run_extractor_with_markup(
         document_text=document_text,
         extractor_prompt=extractor_prompt,
         extractor_fields=extractor_fields,
-        llm_config=llm_config
+        llm_config=llm_config,
+        db=db,
+        document_id=document_id,
+        use_vector_search=use_vector_search
     )
     
     # Initialize result

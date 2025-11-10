@@ -15,4 +15,5 @@ class Document(Base):
     account_id = Column(Integer, ForeignKey("accounts.id"))
 
     account = relationship("Account", back_populates="documents")
+    embeddings = relationship("DocumentEmbedding", back_populates="document", cascade="all, delete-orphan")
 

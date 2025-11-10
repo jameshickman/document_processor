@@ -59,7 +59,10 @@ def run_extractor(
         extractor_fields={field.name: field.description for field in db_extractor.fields},
         extractor_id=extractor_id,
         llm_config=llm_config,
-        use_logging=True  # Use logging module in background processes
+        use_logging=True,  # Use logging module in background processes
+        db=db,
+        document_id=document_id,
+        use_vector_search=True
     )
 
     payload = ExtractionPayload(

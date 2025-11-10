@@ -145,7 +145,10 @@ async def run_extractor_sync(
             extractor_fields={field.name: field.description for field in db_extractor.fields},
             extractor_id=extractor_id,
             llm_config=llm_config,
-            use_logging=False  # Use print statements for synchronous API calls
+            use_logging=False,  # Use print statements for synchronous API calls
+            db=db,
+            document_id=document_id,
+            use_vector_search=True
         )
 
         # Prepare response data similar to the webhook payload but for direct return

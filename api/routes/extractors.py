@@ -174,7 +174,10 @@ def run_extractor(
         extractor_fields={field.name: field.description for field in db_extractor.fields},
         extractor_id=extractor_id,
         llm_config=llm_config,
-        use_logging=False  # Use print statements in API routes
+        use_logging=False,  # Use print statements in API routes
+        db=db,
+        document_id=document_id,
+        use_vector_search=True
     )
     
     # Return the extraction result with marked PDF info
