@@ -38,10 +38,20 @@ proc_name = "classifier_extractor"
 # Environment variables
 raw_env = [
     "POSTGRES_USER=user",
-    "POSTGRES_PASSWORD=password", 
+    "POSTGRES_PASSWORD=password",
     "POSTGRES_HOST=localhost",
     "POSTGRES_PORT=5432",
     "POSTGRES_DB=database",
     "ALLOWED_ORIGINS=*",
-    "DEBUG=false"
+    "DEBUG=false",
+    # Storage configuration
+    "STORAGE_BACKEND=local",  # Options: "local" or "s3"
+    "DOCUMENT_STORAGE=/var/lib/documents",  # For local storage only
+    # S3/MinIO configuration (only needed if STORAGE_BACKEND=s3)
+    # "S3_ENDPOINT=https://s3.amazonaws.com",  # Or MinIO URL like http://minio:9000
+    # "S3_BUCKET=documents",
+    # "S3_ACCESS_KEY=access_key",
+    # "S3_SECRET_KEY=secret_key",
+    # "S3_REGION=us-east-1",  # Optional
+    # "S3_PREFIX=",  # Optional base prefix within bucket
 ]

@@ -6,6 +6,7 @@ from starlette.middleware.cors import CORSMiddleware
 
 from api.models.database import init_database
 from api.routes import documents, classifiers, extractors, auth, service, api_config, account
+from api.util.files_abstraction import init_filesystem_from_env
 from contextlib import asynccontextmanager
 import os
 
@@ -22,6 +23,8 @@ async def lifespan(_app: FastAPI):
         db_port=int(os.environ.get("POSTGRES_PORT", 5432)),
         db_name=os.environ.get("POSTGRES_DB", "database"),
     )
+    # Initialize filesystem backend
+    init_filesystem_from_env()
     yield
     # Shutdown: Cleanup code can go here if needed
 
