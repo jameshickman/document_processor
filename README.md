@@ -219,11 +219,33 @@ TEMP_DIR=/tmp/document_cache               # Optional, local cache directory
 ```
 
 **S3 Storage Features:**
+- **Multi-tenancy isolation**: Every file is automatically stored under the user's account ID prefix (e.g., `123/document.pdf` or `production/123/document.pdf` with base prefix)
 - **Automatic temp directory management**: Files are automatically downloaded to local temp storage when external commands (PDF processing, format conversion) need filesystem access
 - **Seamless sync**: Modified files are automatically uploaded back to S3
 - **Compatible with**: AWS S3, MinIO, DigitalOcean Spaces, Backblaze B2, Wasabi, and any S3-compatible service
 - **Cost-effective**: Pay only for storage used, no local disk requirements
 - **Scalable**: Multiple application servers can share the same storage backend
+
+**S3 File Organization:**
+```
+bucket-name/
+├── production/          # Optional base prefix (environment separation)
+│   ├── 1/              # User/Account ID 1
+│   │   ├── file1.pdf
+│   │   └── file2.docx
+│   ├── 2/              # User/Account ID 2
+│   │   └── report.pdf
+```
+
+Without `S3_PREFIX`, files are stored directly under account ID:
+```
+bucket-name/
+├── 1/                  # User/Account ID 1
+│   ├── file1.pdf
+│   └── file2.docx
+├── 2/                  # User/Account ID 2
+│   └── report.pdf
+```
 
 **MinIO Setup** (Self-hosted S3-compatible storage):
 ```bash
