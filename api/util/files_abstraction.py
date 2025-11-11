@@ -453,12 +453,9 @@ class S3FileSystem(FileSystemBackend):
 
                 # Match against pattern
                 if fnmatch.fnmatch(relative_path, pattern.replace('\\', '/')):
-                    # Reconstruct full path similar to local filesystem
-                    if self.base_prefix:
-                        full_path = os.path.join(self.base_prefix, relative_path)
-                    else:
-                        full_path = relative_path
-                    matching_files.append(full_path)
+                    # Return the relative path (without base_prefix)
+                    # This is consistent with other methods which add base_prefix via _get_s3_key()
+                    matching_files.append(relative_path)
 
         return matching_files
 

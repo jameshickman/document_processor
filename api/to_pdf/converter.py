@@ -42,49 +42,76 @@ def to_pdf(source_file: str) -> str:
     """
     Convert the input file to a PDF using the most appropriate method.
     Use the same filename, replace the extension with pdf.
-    Write the converted file to the same location as the source.
+    Write the converted file to the same location as the source (local or S3).
 
     Supports: DOCX, TXT, HTML, MD, RTF, images (JPEG, PNG, TIFF, BMP, GIF)
-    
+
+    For S3 storage, automatically downloads the source file, performs conversion
+    locally, and uploads the result back to S3.
+
     Args:
-        source_file: Path to the source file to convert
-        
+        source_file: Path to the source file to convert (storage path, not local path)
+
     Returns:
-        str: Path to the generated PDF file
-        
+        str: Path to the generated PDF file (storage path, not local path)
+
     Raises:
         ConversionError: If conversion fails
         FileNotFoundError: If source file doesn't exist
     """
-    if not os.path.exists(source_file):
+    from api.util.files_abstraction import get_filesystem
+
+    fs = get_filesystem()
+
+    # Check if source file exists in storage
+    if not fs.exists(source_file):
         raise FileNotFoundError(f"Source file not found: {source_file}")
-    
+
+    # Get local path (downloads from S3 if needed)
+    local_source_file = fs.get_local_path(source_file)
+
+    # Determine output filename (storage path)
     source_path = Path(source_file)
     output_file = str(source_path.with_suffix('.pdf'))
-    
+
+    # Create local output path
+    local_output_file = str(Path(local_source_file).with_suffix('.pdf'))
+
     # Get file extension
     extension = source_path.suffix.lower()
-    
+
     # Choose conversion method based on file type
     if extension in ['.txt', '.text']:
-        _convert_text_to_pdf(source_file, output_file)
+        _convert_text_to_pdf(local_source_file, local_output_file)
     elif extension in ['.html', '.htm']:
-        _convert_html_to_pdf(source_file, output_file)
+        _convert_html_to_pdf(local_source_file, local_output_file)
     elif extension in ['.md', '.markdown']:
-        _convert_markdown_to_pdf(source_file, output_file)
+        _convert_markdown_to_pdf(local_source_file, local_output_file)
     elif extension in ['.docx', '.doc']:
-        _convert_office_to_pdf(source_file, output_file)
+        _convert_office_to_pdf(local_source_file, local_output_file)
     elif extension in ['.rtf']:
-        _convert_rtf_to_pdf(source_file, output_file)
+        _convert_rtf_to_pdf(local_source_file, local_output_file)
     elif extension in ['.jpg', '.jpeg', '.png', '.tiff', '.tif', '.bmp', '.gif']:
-        _convert_image_to_pdf(source_file, output_file)
+        _convert_image_to_pdf(local_source_file, local_output_file)
     else:
         # Try pandoc as fallback
-        _convert_with_pandoc(source_file, output_file)
-    
-    if not os.path.exists(output_file):
-        raise ConversionError(f"Failed to create PDF: {output_file}")
-    
+        _convert_with_pandoc(local_source_file, local_output_file)
+
+    # Check if local conversion succeeded
+    if not os.path.exists(local_output_file):
+        raise ConversionError(f"Failed to create PDF: {local_output_file}")
+
+    # Upload the converted PDF to storage
+    with open(local_output_file, 'rb') as f:
+        fs.write_file(output_file, f, content_type='application/pdf')
+
+    # Clean up local output file if it's in a temp directory
+    try:
+        if local_output_file != output_file:
+            os.remove(local_output_file)
+    except OSError:
+        pass  # Ignore cleanup errors
+
     return output_file
 
 

@@ -15,6 +15,71 @@ from api.util.document_extract import extract, DocumentDecodeException, Document
 from api.models import Document
 from api.util.files_abstraction import get_filesystem
 
+
+def _extract_and_sync(
+    account_id: int,
+    full_path_name: str,
+    document_storage_dir: str,
+    db: Session
+) -> Document:
+    """
+    Helper function to extract document content and sync renamed files back to storage.
+
+    Handles the flow:
+    1. Get local path (downloads from S3 if needed)
+    2. Extract document content using local path
+    3. If file was renamed, sync back to storage
+    4. Always update database with storage path (not local path)
+
+    Args:
+        account_id: User/account ID
+        full_path_name: Original storage path (e.g., "1/document.pdf" or "/var/docs/1/document.pdf")
+        document_storage_dir: Storage directory for the account (e.g., "1" or "/var/docs/1")
+        db: Database session
+
+    Returns:
+        Document object with extracted content and correct storage path
+    """
+    fs = get_filesystem()
+
+    # Get the original filename from the storage path
+    original_filename = Path(full_path_name).name
+
+    # Get a local path for extraction (downloads from S3 if needed)
+    local_path = fs.get_local_path(full_path_name)
+
+    # Extract using the local path (NOTE: this stores local path in DB temporarily)
+    db_document = extract(account_id, local_path, db)
+
+    # Check if the file was renamed during extraction (spaces replaced with underscores)
+    # We compare just the filename part (not the full path) to detect renaming
+    local_filename = Path(db_document.file_name).name
+    renamed_filename = original_filename.replace(" ", "_")
+
+    if local_filename != original_filename:
+        # File was renamed (spaces replaced with underscores)
+        # Build the new storage path with the renamed filename
+        new_storage_path = fs.get_file_path(document_storage_dir, renamed_filename)
+
+        # Upload the renamed local file to storage
+        fs.sync_to_storage(db_document.file_name, new_storage_path)
+
+        # Delete the original file from storage since it was renamed
+        if fs.exists(full_path_name):
+            fs.delete_file(full_path_name)
+
+        # Update the database record with the storage path (not local path)
+        db_document.file_name = new_storage_path
+        db.commit()
+    else:
+        # File was not renamed, but we still need to fix the database path
+        # (extract() stored the local path, we need the storage path)
+        db_document.file_name = full_path_name
+        db.commit()
+
+    return db_document
+
+
 # Migration Guide:
 # To fully migrate from the deprecated api.util.document_extract:
 #
@@ -64,7 +129,7 @@ def upload_document(
     fs.write_file(full_path_name, file_upload.file)
 
     try:
-        db_document = extract(account_id, full_path_name, db)
+        db_document = _extract_and_sync(account_id, full_path_name, document_storage_dir, db)
     except DocumentDecodeException:
         raise HTTPException(status_code=415, detail="Text cannot be extracted from Document.")
     except DocumentUnknownTypeException:
@@ -116,7 +181,7 @@ def upload_markdown_content(
     fs.write_file(full_path_name, content.encode('utf-8'))
 
     try:
-        db_document = extract(account_id, full_path_name, db)
+        db_document = _extract_and_sync(account_id, full_path_name, document_storage_dir, db)
         return {"document": db_document, "filename": filename}
     except DocumentDecodeException:
         # Clean up file if extraction fails
@@ -160,9 +225,25 @@ def remove_document(
 
 
 def load_storage_location(account_id:int):
+    """
+    Get the storage location for a specific account.
+
+    For local storage: Returns base_path/account_id (e.g., "/var/documents/123")
+    For S3 storage: Returns account_id (e.g., "123"), which will be prefixed by S3's base_prefix
+
+    Args:
+        account_id: The account ID
+
+    Returns:
+        Storage path for the account's documents
+    """
     fs = get_filesystem()
     base_path = fs.get_base_path()
-    if not base_path:
-        raise HTTPException(status_code=500, detail="Storage backend not properly configured.")
 
-    return fs.get_file_path(base_path, str(account_id))
+    # For S3, base_path is empty string (valid) - files stored as: account_id/file
+    # For Local, base_path is the filesystem directory - files stored as: base_path/account_id/file
+    if base_path:
+        return fs.get_file_path(base_path, str(account_id))
+    else:
+        # S3 mode: return just the account_id
+        return str(account_id)

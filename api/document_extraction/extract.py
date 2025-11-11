@@ -16,6 +16,10 @@ def extract(input_file: str) -> str:
 
     Then instantiate and run the appropriate handler for the type of the input file.
 
+    IMPORTANT: This function expects a LOCAL filesystem path, not a storage path.
+    When using S3 storage, the caller must use fs.get_local_path() to download
+    the file before calling this function.
+
     Return the extracted content.
     """
     import os
@@ -24,16 +28,14 @@ def extract(input_file: str) -> str:
     import tempfile
     from pathlib import Path
     from api.document_extraction.handler_base import DocumentExtractionBase
-    from api.util.files_abstraction import get_filesystem
 
     # Get file extension
     file_extension = Path(input_file).suffix.lower().lstrip('.')
 
     # Handle Markdown and text files directly
     if file_extension in ['md', 'txt', '']:
-        fs = get_filesystem()
-        content = fs.read_file(input_file)
-        return content.decode('utf-8')
+        with open(input_file, 'r', encoding='utf-8') as f:
+            return f.read()
 
     # Discover all handler classes dynamically
     handlers_dir = Path(__file__).parent / 'handlers'

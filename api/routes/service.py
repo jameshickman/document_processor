@@ -231,11 +231,16 @@ async def download_marked_pdf(
     """
     Download the marked-up PDF version of a document created during extraction.
     The PDF will have citations highlighted based on the extraction results.
+
+    Works with both local and S3 storage backends.
     """
     from fastapi.responses import FileResponse
     from api.pdf_markup.highlight_pdf import get_marked_files
+    from api.util.files_abstraction import get_filesystem
     import os
-    
+
+    fs = get_filesystem()
+
     # Verify user has access to both the extractor and document
     db_extractor = db.query(models.Extractor).filter(
         and_(
@@ -257,50 +262,58 @@ async def download_marked_pdf(
 
     # Determine the source PDF path (may be original or converted)
     source_file = document.file_name
-    
+
     # If the original file is not a PDF, check if a converted version exists
     if not source_file.lower().endswith('.pdf'):
         potential_pdf = os.path.splitext(source_file)[0] + '.pdf'
-        if os.path.exists(potential_pdf):
+        if fs.exists(potential_pdf):
             source_file = potential_pdf
         else:
             raise HTTPException(
-                status_code=404, 
+                status_code=404,
                 detail="No PDF version available for this document. Run extraction first to generate marked version."
             )
-    
+
     # Get marked files for this specific extractor and document
     try:
         marked_files = get_marked_files(source_file, extractor_id=extractor_id)
-        
+
         if not marked_files:
             raise HTTPException(
-                status_code=404, 
+                status_code=404,
                 detail="No marked-up version found. Run extraction first to generate marked version."
             )
-        
+
         # Use the first (and should be only) marked file for this extractor
-        marked_file_path = marked_files[0]
-        
-        if not os.path.exists(marked_file_path):
+        marked_file_storage_path = marked_files[0]
+
+        if not fs.exists(marked_file_storage_path):
             raise HTTPException(
-                status_code=404, 
-                detail="Marked-up file was found in index but file no longer exists on disk."
+                status_code=404,
+                detail="Marked-up file was found in index but file no longer exists in storage."
             )
-        
+
+        # Get local path (downloads from S3 if needed)
+        marked_file_local_path = fs.get_local_path(marked_file_storage_path)
+
         # Generate a user-friendly filename for download
         base_name = os.path.splitext(os.path.basename(source_file))[0]
         download_filename = f"{base_name}_marked_extractor_{extractor_id}.pdf"
-        
+
         return FileResponse(
-            path=marked_file_path,
+            path=marked_file_local_path,
             filename=download_filename,
             media_type="application/pdf"
         )
-        
+
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
     except Exception as e:
+        import logging
+        logging.error(f"Error retrieving marked PDF: {str(e)}")
         raise HTTPException(
-            status_code=500, 
+            status_code=500,
             detail="Error retrieving marked-up document. Please try running extraction again."
         )
 
@@ -313,10 +326,15 @@ async def get_marked_pdf_status(
     """
     Get the status of available marked-up versions for a document across all user's extractors.
     Returns information about which extractors have created marked versions.
+
+    Works with both local and S3 storage backends.
     """
     from api.pdf_markup.highlight_pdf import get_marked_files
+    from api.util.files_abstraction import get_filesystem
     import os
-    
+
+    fs = get_filesystem()
+
     document = db.query(models.Document).filter(
         and_(
             models.Document.account_id == user.user_id,
@@ -328,11 +346,11 @@ async def get_marked_pdf_status(
 
     # Determine the source PDF path
     source_file = document.file_name
-    
+
     # If the original file is not a PDF, check if a converted version exists
     if not source_file.lower().endswith('.pdf'):
         potential_pdf = os.path.splitext(source_file)[0] + '.pdf'
-        if os.path.exists(potential_pdf):
+        if fs.exists(potential_pdf):
             source_file = potential_pdf
         else:
             return {
@@ -341,20 +359,20 @@ async def get_marked_pdf_status(
                 "marked_versions": [],
                 "message": "Document needs to be converted to PDF first"
             }
-    
+
     # Get all marked files for this document
     try:
         all_marked_files = get_marked_files(source_file)
-        
+
         # Parse extractor IDs from filenames and filter by user's extractors
         marked_versions = []
         user_extractors = db.query(models.Extractor).filter(
             models.Extractor.account_id == user.user_id
         ).all()
         user_extractor_ids = {e.id for e in user_extractors}
-        
+
         for marked_file in all_marked_files:
-            if os.path.exists(marked_file):
+            if fs.exists(marked_file):
                 # Extract extractor_id from filename pattern: name.marked.{extractor_id}.pdf
                 filename = os.path.basename(marked_file)
                 if '.marked.' in filename:
@@ -363,29 +381,38 @@ async def get_marked_pdf_status(
                         if len(parts) >= 2:
                             extractor_id_part = parts[1].split('.pdf')[0]
                             extractor_id = int(extractor_id_part)
-                            
+
                             # Only include if this extractor belongs to the user
                             if extractor_id in user_extractor_ids:
                                 # Get extractor name
                                 extractor = next((e for e in user_extractors if e.id == extractor_id), None)
-                                
+
+                                # Get file size (download from S3 if needed)
+                                try:
+                                    local_path = fs.get_local_path(marked_file)
+                                    file_size = os.path.getsize(local_path)
+                                except:
+                                    file_size = 0
+
                                 marked_versions.append({
                                     "extractor_id": extractor_id,
                                     "extractor_name": extractor.name if extractor else f"Unknown (ID: {extractor_id})",
-                                    "file_size": os.path.getsize(marked_file)
+                                    "file_size": file_size
                                 })
                     except (ValueError, IndexError):
                         # Skip files that don't match expected pattern
                         continue
-        
+
         return {
             "file_id": file_id,
             "pdf_available": True,
             "marked_versions": marked_versions,
             "total_marked_versions": len(marked_versions)
         }
-        
+
     except Exception as e:
+        import logging
+        logging.error(f"Error in get_marked_pdf_status: {str(e)}")
         return {
             "file_id": file_id,
             "pdf_available": True,
