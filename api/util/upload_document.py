@@ -1,5 +1,4 @@
 import os
-import shutil
 import re
 from pathlib import Path
 
@@ -14,6 +13,7 @@ from api.util.document_extract import extract, DocumentDecodeException, Document
 # from api.document_extraction.extract import extract as new_extract, DocumentDecodeException, DocumentUnknownTypeException
 
 from api.models import Document
+from api.util.files_abstraction import get_filesystem
 
 # Migration Guide:
 # To fully migrate from the deprecated api.util.document_extract:
@@ -54,14 +54,14 @@ def upload_document(
         db: Session,
         file_upload: UploadFile,
 ):
+    fs = get_filesystem()
     document_storage_dir = load_storage_location(account_id)
 
-    if not os.path.exists(document_storage_dir):
-        os.makedirs(document_storage_dir)
+    # Ensure directory exists
+    fs.makedirs(document_storage_dir)
 
-    full_path_name = os.path.join(document_storage_dir, file_upload.filename)
-    with open(full_path_name, "wb") as buffer:
-        shutil.copyfileobj(file_upload.file, buffer)
+    full_path_name = fs.get_file_path(document_storage_dir, file_upload.filename)
+    fs.write_file(full_path_name, file_upload.file)
 
     try:
         db_document = extract(account_id, full_path_name, db)
@@ -82,6 +82,7 @@ def upload_markdown_content(
     Upload markdown content as a document.
     The first line of the content is used as the filename.
     """
+    fs = get_filesystem()
     content = content.strip()
     if not content:
         raise HTTPException(status_code=400, detail="Content cannot be empty")
@@ -106,32 +107,31 @@ def upload_markdown_content(
     # Use the same storage location as regular uploads
     document_storage_dir = load_storage_location(account_id)
 
-    if not os.path.exists(document_storage_dir):
-        os.makedirs(document_storage_dir)
+    # Ensure directory exists
+    fs.makedirs(document_storage_dir)
 
-    full_path_name = os.path.join(document_storage_dir, filename)
+    full_path_name = fs.get_file_path(document_storage_dir, filename)
 
     # Write content to file
-    with open(full_path_name, 'w', encoding='utf-8') as f:
-        f.write(content)
+    fs.write_file(full_path_name, content.encode('utf-8'))
 
     try:
         db_document = extract(account_id, full_path_name, db)
         return {"document": db_document, "filename": filename}
     except DocumentDecodeException:
         # Clean up file if extraction fails
-        if os.path.exists(full_path_name):
-            os.remove(full_path_name)
+        if fs.exists(full_path_name):
+            fs.delete_file(full_path_name)
         raise HTTPException(status_code=415, detail="Text cannot be extracted from Document.")
     except DocumentUnknownTypeException:
         # Clean up file if extraction fails
-        if os.path.exists(full_path_name):
-            os.remove(full_path_name)
+        if fs.exists(full_path_name):
+            fs.delete_file(full_path_name)
         raise HTTPException(status_code=415, detail="Document type not supported.")
     except Exception as e:
         # Clean up file if extraction fails
-        if os.path.exists(full_path_name):
-            os.remove(full_path_name)
+        if fs.exists(full_path_name):
+            fs.delete_file(full_path_name)
         raise HTTPException(status_code=500, detail=f"Failed to process markdown file: {str(e)}")
 
 
@@ -140,6 +140,7 @@ def remove_document(
     document_id,
     db: Session
 ):
+    fs = get_filesystem()
     document = db.query(Document).filter(
         and_(
             Document.id == document_id,
@@ -150,7 +151,7 @@ def remove_document(
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    os.remove(str(document.file_name))
+    fs.delete_file(str(document.file_name))
 
     db.delete(document)
     db.commit()
@@ -159,8 +160,9 @@ def remove_document(
 
 
 def load_storage_location(account_id:int):
-    document_store = os.environ.get("DOCUMENT_STORAGE")
-    if not document_store:
-        raise HTTPException(status_code=500, detail="DOCUMENT_STORAGE environment variable not set.")
+    fs = get_filesystem()
+    base_path = fs.get_base_path()
+    if not base_path:
+        raise HTTPException(status_code=500, detail="Storage backend not properly configured.")
 
-    return os.path.join(document_store, str(account_id))
+    return fs.get_file_path(base_path, str(account_id))

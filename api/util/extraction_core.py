@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from lib.fact_extractor.fact_extractor import FactExtractor
 from lib.fact_extractor.models import ExtractionQuery, ExtractionResult
+from api.util.files_abstraction import get_filesystem
 
 
 @dataclass
@@ -113,7 +114,8 @@ def create_marked_pdf(
                 return None
         
         # Create marked-up PDF with citations highlighted
-        if source_pdf_path and os.path.exists(source_pdf_path):
+        fs = get_filesystem()
+        if source_pdf_path and fs.exists(source_pdf_path):
             try:
                 marked_pdf_path = highlight_pdf(
                     input_file=source_pdf_path,

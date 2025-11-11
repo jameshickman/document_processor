@@ -53,21 +53,42 @@ A FastAPI-based document processing system that provides intelligent document cl
 
 ## Requirements
 
-- Python 3.8+
-- PostgreSQL database with PGVector extension (for vector search)
-- LibreOffice (for document format conversion)
-- OpenAI API key (for vector embeddings)
-- Optional: Ollama (for local LLM service)
+### Core Requirements
+- **Python 3.8+**
+- **PostgreSQL 12+** with PGVector extension (for vector search)
+- **LibreOffice** (for document format conversion)
+- **Pandoc** (for HTML to Markdown conversion)
+- **poppler-utils** (pdftotext for PDF extraction)
 
-## Installation
+### LLM Provider (choose one)
+- **DeepInfra API key** (recommended - cloud-hosted LLMs)
+- **OpenAI API key** (for GPT models)
+- **Ollama** (for local/self-hosted LLMs)
 
-1. Clone the repository:
+### Storage Backend (choose one)
+- **Local filesystem** - Built-in, no additional setup
+- **S3-compatible storage** - Requires boto3 library (included in requirements.txt)
+  - AWS S3
+  - MinIO (self-hosted)
+  - DigitalOcean Spaces
+  - Backblaze B2
+  - Any S3-compatible service
+
+### Optional
+- **Nginx** - Recommended for production deployments
+- **MinIO** - Self-hosted S3-compatible storage
+
+## Quick Start
+
+### Development Setup
+
+1. **Clone the repository:**
 ```bash
 git clone <repository-url>
 cd classifier_and_extractor
 ```
 
-2. Create and activate a virtual environment:
+2. **Create and activate a virtual environment:**
 ```bash
 python -m venv venv
 source venv/bin/activate  # On Linux/Mac
@@ -75,21 +96,72 @@ source venv/bin/activate  # On Linux/Mac
 venv\Scripts\activate  # On Windows
 ```
 
-3. Install dependencies:
+3. **Install dependencies:**
 ```bash
 pip install -r requirements.txt
 ```
 
-4. Set up environment variables (see [Configuration](#configuration))
-
-5. Initialize the database:
+4. **Install system dependencies:**
 ```bash
-# The database will be automatically initialized on first run
+# Ubuntu/Debian
+sudo apt-get update
+sudo apt-get install libreoffice pandoc poppler-utils postgresql-<version>-pgvector
+
+# macOS
+brew install libreoffice pandoc poppler pgvector
 ```
+
+5. **Set up PostgreSQL database:**
+```bash
+# Create database
+createdb classifier_extractor
+
+# Enable PGVector extension (run in psql)
+psql -d classifier_extractor -c "CREATE EXTENSION IF NOT EXISTS vector;"
+```
+
+6. **Configure environment variables:**
+```bash
+cp .env.example .env
+# Edit .env with your settings (see Configuration section below)
+```
+
+7. **Run the development server:**
+```bash
+python -m uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+8. **Access the application:**
+- Workbench UI: http://localhost:8000/
+- API Documentation: http://localhost:8000/docs
+
+### Production Setup
+
+For production deployment with Gunicorn, Nginx, and proper security:
+
+1. Follow steps 1-6 from Development Setup
+
+2. **Configure production storage backend** (see [Storage Configuration](#storage-configuration))
+
+3. **Set up Gunicorn:**
+```bash
+# Copy and configure the Gunicorn config
+cp example.gunicorn.conf.py gunicorn.conf.py
+# Edit gunicorn.conf.py with your production settings
+
+# Run with Gunicorn
+gunicorn -c gunicorn.conf.py api.main:app
+```
+
+4. **Set up Nginx** as reverse proxy (see [DEPLOYMENT.md](DEPLOYMENT.md))
+
+5. **Configure systemd service** for auto-start (see [DEPLOYMENT.md](DEPLOYMENT.md))
+
+For detailed production deployment instructions, see [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## Configuration
 
-Create a `.env` file in the project root or set environment variables:
+Create a `.env` file in the project root with the following settings:
 
 ### Database Configuration
 ```bash
@@ -97,15 +169,80 @@ POSTGRES_USER=your_db_user
 POSTGRES_PASSWORD=your_db_password
 POSTGRES_HOST=localhost
 POSTGRES_PORT=5432
-POSTGRES_DB=your_database
+POSTGRES_DB=classifier_extractor
 ```
 
 ### Server Configuration
 ```bash
 HOST=0.0.0.0
 PORT=8000
-DEBUG=false
+DEBUG=false  # Set to true for development
 ALLOWED_ORIGINS=https://yourdomain.com,https://api.yourdomain.com
+```
+
+### Storage Configuration
+
+The application supports two storage backends: local filesystem and S3-compatible storage (AWS S3, MinIO, etc.).
+
+#### Local Storage (Development/Small Deployments)
+
+Use local filesystem storage for development or single-server deployments:
+
+```bash
+STORAGE_BACKEND=local
+DOCUMENT_STORAGE=/path/to/document/storage
+```
+
+The system will store all uploaded files in the specified directory, organized by user ID:
+```
+/path/to/document/storage/
+├── 1/           # User ID 1's documents
+│   ├── file1.pdf
+│   └── file2.docx
+├── 2/           # User ID 2's documents
+│   └── report.pdf
+```
+
+#### S3-Compatible Storage (Production/Scalable Deployments)
+
+Use S3-compatible storage for production deployments with multiple servers or cloud infrastructure:
+
+```bash
+STORAGE_BACKEND=s3
+S3_ENDPOINT=https://s3.amazonaws.com       # Or MinIO URL: http://minio:9000
+S3_BUCKET=documents
+S3_ACCESS_KEY=your_access_key
+S3_SECRET_KEY=your_secret_key
+S3_REGION=us-east-1                        # Optional, AWS region
+S3_PREFIX=production                       # Optional, base prefix within bucket
+TEMP_DIR=/tmp/document_cache               # Optional, local cache directory
+```
+
+**S3 Storage Features:**
+- **Automatic temp directory management**: Files are automatically downloaded to local temp storage when external commands (PDF processing, format conversion) need filesystem access
+- **Seamless sync**: Modified files are automatically uploaded back to S3
+- **Compatible with**: AWS S3, MinIO, DigitalOcean Spaces, Backblaze B2, Wasabi, and any S3-compatible service
+- **Cost-effective**: Pay only for storage used, no local disk requirements
+- **Scalable**: Multiple application servers can share the same storage backend
+
+**MinIO Setup** (Self-hosted S3-compatible storage):
+```bash
+# Install MinIO (Linux)
+wget https://dl.min.io/server/minio/release/linux-amd64/minio
+chmod +x minio
+./minio server /path/to/data --console-address ":9001"
+
+# Configure application for MinIO
+STORAGE_BACKEND=s3
+S3_ENDPOINT=http://localhost:9000
+S3_BUCKET=documents
+S3_ACCESS_KEY=minioadmin
+S3_SECRET_KEY=minioadmin
+```
+
+### Authentication & Security
+```bash
+JWT_SECRET=your-super-secure-jwt-secret-key-minimum-32-characters
 ```
 
 ### LLM Configuration
@@ -142,9 +279,59 @@ OLLAMA_TIMEOUT=360
 
 ### Additional Configuration
 ```bash
-DOCUMENT_STORAGE=/path/to/document/storage
-JWT_SECRET=your-super-secure-jwt-secret-key-here
 PROMPT_LOG=/path/to/prompt/log/file  # Optional: Log prompts for debugging
+```
+
+### Complete Configuration Example
+
+Here's a complete `.env` file example for development:
+
+```bash
+# Database
+POSTGRES_USER=devuser
+POSTGRES_PASSWORD=devpass
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_DB=classifier_extractor
+
+# Server
+HOST=0.0.0.0
+PORT=8000
+DEBUG=true
+ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8000
+
+# Storage (Local for development)
+STORAGE_BACKEND=local
+DOCUMENT_STORAGE=/home/user/documents
+
+# LLM Provider (DeepInfra)
+DEEPINFRA_API_TOKEN=your_token_here
+DEEPINFRA_MODEL_NAME=meta-llama/Llama-3.1-70B-Instruct
+DEEPINFRA_EMBEDDING_MODEL=google/embeddinggemma-300m
+DEEPINFRA_EMBEDDING_DIMENSIONS=768
+
+# Authentication
+JWT_SECRET=development-secret-key-change-in-production
+GOOGLE_OAUTH_CLIENT_ID=your_google_oauth_client_id
+GOOGLE_OAUTH_CLIENT_SECRET=your_google_oauth_secret
+```
+
+For production, use S3 storage and properly secured credentials:
+
+```bash
+# Production Storage (S3)
+STORAGE_BACKEND=s3
+S3_ENDPOINT=https://s3.amazonaws.com
+S3_BUCKET=mycompany-documents
+S3_ACCESS_KEY=AKIAIOSFODNN7EXAMPLE
+S3_SECRET_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+S3_REGION=us-east-1
+S3_PREFIX=production
+
+# Production settings
+DEBUG=false
+ALLOWED_ORIGINS=https://app.mycompany.com,https://api.mycompany.com
+JWT_SECRET=production-secret-minimum-32-chars-long-random-string
 ```
 
 See [LLMCONFIG.md](LLMCONFIG.md) for detailed LLM configuration options.
@@ -311,7 +498,39 @@ The Workbench is built with:
 
 ### Production Deployment
 
-For production deployment using Gunicorn and Nginx, see [DEPLOYMENT.md](DEPLOYMENT.md).
+#### Storage Backend Considerations
+
+**When to use Local Storage:**
+- Single-server deployments
+- Development environments
+- Small-scale deployments (<1000 documents)
+- Low budget constraints
+
+**When to use S3 Storage:**
+- Multi-server deployments (load balancing)
+- Cloud-native deployments
+- Large-scale deployments (>1000 documents)
+- Disaster recovery requirements
+- Automatic backups and versioning needed
+- Cost-effective long-term storage
+
+#### Production Checklist
+
+- [ ] Set `DEBUG=false` in environment
+- [ ] Use strong `JWT_SECRET` (minimum 32 characters)
+- [ ] Configure S3 storage for multi-server deployments
+- [ ] Set up PostgreSQL with proper user permissions
+- [ ] Enable PGVector extension for vector search
+- [ ] Configure allowed origins for CORS
+- [ ] Set up Nginx as reverse proxy
+- [ ] Configure SSL/TLS certificates
+- [ ] Set up systemd service for auto-start
+- [ ] Configure log rotation
+- [ ] Set up monitoring and alerts
+- [ ] Regular database backups
+- [ ] Configure S3 bucket lifecycle policies (if using S3)
+
+For detailed production deployment instructions, see [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## API Endpoints
 
@@ -457,9 +676,15 @@ classifier_and_extractor/
 │   │       ├── pdf.py       # PDF handler
 │   │       └── README.md    # Handler documentation
 │   ├── util/                # Utility functions
+│   │   ├── files_abstraction.py  # Storage backend abstraction (Local/S3)
+│   │   ├── upload_document.py    # Document upload handling
 │   │   ├── embedder.py      # High-level document embedding interface
 │   │   ├── vector_utils.py  # Vector search and embedding utilities
 │   │   └── extraction_core.py  # Extraction with vector search support
+│   ├── pdf_markup/          # PDF highlighting functionality
+│   │   └── highlight_pdf.py # PDF annotation with citations
+│   ├── to_pdf/              # Document conversion
+│   │   └── converter.py     # Format to PDF conversion
 │   ├── public/              # Static files
 │   └── templates/           # HTML templates
 ├── lib/                      # Core libraries
@@ -475,7 +700,9 @@ classifier_and_extractor/
 ├── docs/                     # Documentation
 │   └── PGVECTOR_SETUP.md    # PGVector setup guide
 ├── testing/                  # Test files and sample documents
-├── requirements.txt          # Python dependencies
+├── requirements.txt          # Python dependencies (includes boto3 for S3)
+├── example.gunicorn.conf.py # Gunicorn configuration template
+├── .env.example             # Environment variables template
 ├── DEPLOYMENT.md            # Production deployment guide
 ├── LLMCONFIG.md             # LLM configuration guide
 ├── MIGRATION_GUIDE.md       # Migration guide for updates

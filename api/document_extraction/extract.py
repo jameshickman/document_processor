@@ -24,14 +24,16 @@ def extract(input_file: str) -> str:
     import tempfile
     from pathlib import Path
     from api.document_extraction.handler_base import DocumentExtractionBase
+    from api.util.files_abstraction import get_filesystem
 
     # Get file extension
     file_extension = Path(input_file).suffix.lower().lstrip('.')
 
     # Handle Markdown and text files directly
     if file_extension in ['md', 'txt', '']:
-        with open(input_file, 'r', encoding='utf-8') as f:
-            return f.read()
+        fs = get_filesystem()
+        content = fs.read_file(input_file)
+        return content.decode('utf-8')
 
     # Discover all handler classes dynamically
     handlers_dir = Path(__file__).parent / 'handlers'
