@@ -153,21 +153,43 @@ class VectorUtils:
             raise ValueError(f"Document {document_id} not found")
 
         # Check if embeddings already exist
-        existing_count = db.query(DocumentEmbedding).filter(
+        existing_embedding = db.query(DocumentEmbedding).filter(
             DocumentEmbedding.document_id == document_id
-        ).count()
+        ).first()
 
-        if existing_count > 0:
+        if existing_embedding:
+            # Check if provider/model has changed
+            provider_changed = (
+                existing_embedding.provider != self.config.provider or
+                existing_embedding.model_name != self.config.model_name or
+                existing_embedding.dimensions != self.config.dimensions
+            )
+
+            if provider_changed and not force_regenerate:
+                logger.warning(
+                    f"Document {document_id} has embeddings from different provider "
+                    f"({existing_embedding.provider}/{existing_embedding.model_name}/{existing_embedding.dimensions}D) "
+                    f"but current config is ({self.config.provider}/{self.config.model_name}/{self.config.dimensions}D). "
+                    f"Automatically regenerating embeddings..."
+                )
+                force_regenerate = True
+
             if not force_regenerate:
-                logger.info(f"Document {document_id} already has {existing_count} embeddings")
+                existing_count = db.query(DocumentEmbedding).filter(
+                    DocumentEmbedding.document_id == document_id
+                ).count()
+                logger.info(
+                    f"Document {document_id} already has {existing_count} embeddings "
+                    f"from {existing_embedding.provider}/{existing_embedding.model_name}"
+                )
                 return existing_count
             else:
                 # Delete existing embeddings
-                db.query(DocumentEmbedding).filter(
+                deleted_count = db.query(DocumentEmbedding).filter(
                     DocumentEmbedding.document_id == document_id
                 ).delete()
                 db.commit()
-                logger.info(f"Deleted {existing_count} existing embeddings for document {document_id}")
+                logger.info(f"Deleted {deleted_count} existing embeddings for document {document_id}")
 
         # Chunk the document
         chunks = self.chunk_text(document.full_text)
@@ -179,12 +201,15 @@ class VectorUtils:
             try:
                 embedding_vector = self.generate_embedding(chunk)
 
-                # Store in database
+                # Store in database with provider metadata
                 doc_embedding = DocumentEmbedding(
                     document_id=document_id,
                     chunk_index=idx,
                     chunk_text=chunk,
-                    embedding=embedding_vector
+                    embedding=embedding_vector,
+                    provider=self.config.provider,
+                    model_name=self.config.model_name,
+                    dimensions=len(embedding_vector)
                 )
                 db.add(doc_embedding)
                 embeddings_created += 1

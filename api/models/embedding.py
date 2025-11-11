@@ -20,7 +20,12 @@ class DocumentEmbedding(Base):
     document_id = Column(Integer, ForeignKey("documents.id", ondelete="CASCADE"), nullable=False)
     chunk_index = Column(Integer, nullable=False)  # Position of chunk in document
     chunk_text = Column(Text, nullable=False)  # The actual text chunk
-    embedding = Column(Vector(1536), nullable=False)  # Vector embedding (default OpenAI ada-002 dimension)
+    embedding = Column(Vector(), nullable=False)  # Vector embedding (variable dimensions based on provider)
+
+    # Track embedding provider metadata for rebuilding when provider changes
+    provider = Column(String(50), nullable=False, default="openai")  # deepinfra, openai, ollama
+    model_name = Column(String(100), nullable=False, default="text-embedding-ada-002")  # Model used
+    dimensions = Column(Integer, nullable=False, default=1536)  # Embedding dimensions
 
     # Relationship back to document
     document = relationship("Document", back_populates="embeddings")
