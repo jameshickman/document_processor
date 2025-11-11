@@ -468,9 +468,17 @@ class S3FileSystem(FileSystemBackend):
         return os.path.join(*parts)
 
     def get_base_path(self) -> str:
-        """Get the base storage path."""
-        if self.base_prefix:
-            return self.base_prefix
+        """
+        Get the base storage path.
+
+        For S3, this returns empty string because account_id should be the first
+        component of all paths (after the optional base_prefix which is handled
+        internally by _get_s3_key).
+
+        This ensures proper multi-tenancy isolation where all files are stored as:
+        - base_prefix/account_id/path/to/file (if base_prefix is set)
+        - account_id/path/to/file (if no base_prefix)
+        """
         return ""
 
     def rename(self, src: str, dst: str) -> None:

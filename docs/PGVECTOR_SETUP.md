@@ -79,22 +79,30 @@ export OLLAMA_EMBEDDING_DIMENSIONS="1024"
 
 ## Database Setup
 
-### Automatic Setup (Recommended)
+### Important: Migration Required
 
-When the application starts, it will automatically:
-1. Enable the pgvector extension
-2. Create the `document_embeddings` table
-3. Create necessary indexes for vector similarity search
-
-No manual intervention is required.
-
-### Manual Migration
-
-If you need to manually set up the database, run the migration script:
+Due to pgvector's limitations with variable-dimension vector indexes, you **must** run the migration script manually:
 
 ```bash
 psql -U your_user -d your_database -f migrations/001_add_pgvector_support.sql
 ```
+
+This migration will:
+1. Enable the pgvector extension
+2. Create the `document_embeddings` table with variable-dimension support
+3. Create the IVFFlat vector index for similarity search
+4. Create supporting indexes for efficient queries
+
+**Why manual migration is needed**: The vector similarity index (IVFFlat) requires either fixed dimensions or existing data. Since we support multiple embedding providers with different dimensions (OpenAI: 1536, sentence-transformers: 384, etc.), the index must be created via SQL rather than SQLAlchemy's ORM.
+
+### What happens on startup
+
+The application will automatically:
+1. Enable the pgvector extension (if not already enabled)
+2. Create basic tables if they don't exist
+3. **Skip** the vector index creation (must be done via migration)
+
+If you see the error `column does not have dimensions`, it means you need to run the migration script above.
 
 ## Usage
 
@@ -218,12 +226,14 @@ Different providers use different embedding dimensions:
 | Ollama | `nomic-embed-text` | 768 | Alternative |
 | Ollama | `all-minilm` | 384 | Smaller, faster |
 
-**Important**: The database schema is configured for 1536 dimensions by default (OpenAI). If using a different provider/model, you may need to update:
+**Important**: The database schema now supports **variable dimensions** - you can use any embedding provider without schema changes. The system:
 
-- `api/models/embedding.py`: Change `Vector(1536)` to match your model's dimensions
-- `migrations/001_add_pgvector_support.sql`: Change `vector(1536)` to match
+- Stores each embedding's dimensions in the `dimensions` column
+- Automatically detects provider/model changes
+- Regenerates embeddings when switching providers
+- Allows mixing different embedding models (though not recommended for consistency)
 
-However, PGVector supports variable dimensions per row, so mixing models is technically possible (though not recommended for consistency)
+No manual schema updates are needed when changing embedding providers.
 
 ### Chunk Size and Overlap
 
@@ -289,6 +299,26 @@ embedder = DocumentEmbedder()
 ```
 
 ## Troubleshooting
+
+### "column does not have dimensions" Error
+
+If you see this error during application startup:
+```
+sqlalchemy.exc.InternalError: (psycopg2.errors.InternalError_) column does not have dimensions
+[SQL: CREATE INDEX ix_document_embeddings_embedding ON document_embeddings USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100)]
+```
+
+**Solution**: Run the migration script manually:
+```bash
+psql -U your_user -d your_database -f migrations/001_add_pgvector_support.sql
+```
+
+This error occurs because:
+- The vector column is defined without fixed dimensions (to support multiple embedding providers)
+- PostgreSQL's IVFFlat index requires either fixed dimensions or existing data
+- The migration SQL creates the index separately, after the table exists
+
+After running the migration, the application will start successfully.
 
 ### "pgvector extension not available"
 

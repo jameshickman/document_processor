@@ -30,15 +30,13 @@ class DocumentEmbedding(Base):
     # Relationship back to document
     document = relationship("Document", back_populates="embeddings")
 
-    # Create an index for vector similarity search using cosine distance
+    # Note: The IVFFlat vector index is NOT created here because pgvector requires
+    # either fixed dimensions or existing data. Instead, run the migration:
+    #   psql -U <user> -d <database> -f migrations/001_add_pgvector_support.sql
+    # This will create the vector similarity index manually via SQL.
     __table_args__ = (
-        Index(
-            'ix_document_embeddings_embedding',
-            'embedding',
-            postgresql_using='ivfflat',
-            postgresql_with={'lists': 100},
-            postgresql_ops={'embedding': 'vector_cosine_ops'}
-        ),
         # Index for efficient filtering by document
         Index('ix_document_embeddings_document_id', 'document_id'),
+        # Index on provider for checking provider mismatches
+        Index('ix_document_embeddings_provider', 'provider', 'model_name'),
     )
