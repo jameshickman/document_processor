@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 import time
 from datetime import datetime
 from typing import Optional, Union
@@ -237,26 +238,76 @@ class FactExtractor:
         raise Exception(f"DeepInfra failed to generate any response after {max_retries} attempts")
     
     def _parse_llm_response(self, response_text: str, fields: dict[str, str]) -> Optional[ExtractionResult]:
-        """Parse the LLM response and extract JSON data."""
+        """
+        Parse the LLM response and extract JSON data.
+
+        Handles thinking model responses by removing <thinking></thinking> tags.
+        When multiple JSON payloads are present, extracts the last valid one.
+        """
         try:
-            # Try to find JSON in the response
-            json_start = response_text.find('{')
-            json_end = response_text.rfind('}') + 1
-            
-            if json_start == -1 or json_end == 0:
+            # Step 1: Remove <thinking></thinking> tags if present
+            # This handles responses from thinking models that include reasoning
+            cleaned_text = re.sub(r'<thinking>.*?</thinking>', '', response_text, flags=re.DOTALL)
+
+            # Step 2: Find all potential JSON objects
+            # We prefer the last valid JSON object in case the model provided multiple versions
+            json_candidates = []
+            i = 0
+            while i < len(cleaned_text):
+                json_start = cleaned_text.find('{', i)
+                if json_start == -1:
+                    break
+
+                # Try to find matching closing brace by counting braces
+                brace_count = 0
+                j = json_start
+                while j < len(cleaned_text):
+                    if cleaned_text[j] == '{':
+                        brace_count += 1
+                    elif cleaned_text[j] == '}':
+                        brace_count -= 1
+                        if brace_count == 0:
+                            # Found a complete JSON object
+                            json_str = cleaned_text[json_start:j+1]
+                            json_candidates.append(json_str)
+                            # Skip past this complete object to avoid finding nested objects
+                            i = j + 1
+                            break
+                    j += 1
+                else:
+                    # No matching closing brace found, move past this opening brace
+                    i = json_start + 1
+
+            if not json_candidates:
                 error_msg = "No JSON found in LLM response"
                 logger.error(error_msg)
                 self._log_to_prompt_file("json_parse_error", f"{error_msg}\nResponse text: {response_text}")
                 return None
-            
-            json_str = response_text[json_start:json_end]
-            parsed_data = json.loads(json_str)
-            
+
+            # Step 3: Try to parse JSON candidates from last to first (prefer last valid JSON)
+            parsed_data = None
+            json_str = None
+            for candidate in reversed(json_candidates):
+                try:
+                    parsed_data = json.loads(candidate)
+                    json_str = candidate
+                    if len(json_candidates) > 1:
+                        logger.info(f"Found {len(json_candidates)} JSON objects, using the last valid one")
+                    break
+                except json.JSONDecodeError:
+                    continue
+
+            if parsed_data is None:
+                error_msg = f"No valid JSON could be parsed from {len(json_candidates)} candidate(s)"
+                logger.error(error_msg)
+                self._log_to_prompt_file("json_parse_error", f"{error_msg}\nResponse text: {response_text}")
+                return None
+
             # Extract required fields
             confidence = parsed_data.get('confidence', 0.0)
             found = parsed_data.get('found', False)
             explanation = parsed_data.get('explanation', '')
-            
+
             # Extract field data
             extracted_data = {}
             for field in fields.keys():
@@ -264,18 +315,18 @@ class FactExtractor:
                     extracted_data[field] = parsed_data.get("fields", {}).get(field)
                 elif field in parsed_data:
                     extracted_data[field] = parsed_data[field]
-            
+
             return ExtractionResult(
                 confidence=confidence,
                 found=found,
                 explanation=explanation,
                 extracted_data=extracted_data
             )
-            
+
         except json.JSONDecodeError as e:
             error_msg = f"Failed to parse JSON from LLM response: {e}"
             logger.error(error_msg)
-            
+
             # Create detailed error log with exact parsing failure reason
             detailed_error = f"{error_msg}\n"
             detailed_error += f"JSON Parse Error Details:\n"
@@ -284,21 +335,21 @@ class FactExtractor:
             detailed_error += f"- Error Position: {getattr(e, 'pos', 'Unknown')}\n"
             detailed_error += f"- Error Line Number: {getattr(e, 'lineno', 'Unknown')}\n"
             detailed_error += f"- Error Column: {getattr(e, 'colno', 'Unknown')}\n"
-            detailed_error += f"JSON string attempted to parse ({len(json_str) if 'json_str' in locals() else 0} characters):\n"
+            detailed_error += f"JSON string attempted to parse ({len(json_str) if json_str else 0} characters):\n"
             detailed_error += f"{'='*40}\n"
-            detailed_error += f"{json_str if 'json_str' in locals() else 'N/A'}\n"
+            detailed_error += f"{json_str if json_str else 'N/A'}\n"
             detailed_error += f"{'='*40}\n"
             detailed_error += f"Full response text ({len(response_text)} characters):\n"
             detailed_error += f"{'='*40}\n"
             detailed_error += f"{response_text}\n"
             detailed_error += f"{'='*40}"
-            
+
             self._log_to_prompt_file("json_parse_error", detailed_error)
             return None
         except Exception as e:
             error_msg = f"Error parsing LLM response: {e}"
             logger.error(error_msg)
-            
+
             # Create detailed error log for non-JSON parsing errors
             detailed_error = f"{error_msg}\n"
             detailed_error += f"General Error Details:\n"
@@ -308,7 +359,7 @@ class FactExtractor:
             detailed_error += f"{'='*40}\n"
             detailed_error += f"{response_text}\n"
             detailed_error += f"{'='*40}"
-            
+
             self._log_to_prompt_file("json_parse_error", detailed_error)
             return None
     
