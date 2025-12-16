@@ -11,7 +11,12 @@ export class ExtractorEditor extends BaseComponent {
         selected_extractor_id: {type: Number, state: true},
         loading: {type: Boolean, state: true},
         run_results: {type: Object, state: true},
-        results_collapsed: {type: Boolean, state: true}
+        results_collapsed: {type: Boolean, state: true},
+        creating_new: {type: Boolean, state: true},
+        new_extractor_name: {type: String, state: true},
+        renaming: {type: Boolean, state: true},
+        rename_temp_name: {type: String, state: true},
+        rename_original_name: {type: String, state: true}
     };
     static styles = css`
         .container {
@@ -412,6 +417,86 @@ export class ExtractorEditor extends BaseComponent {
             gap: 8px;
             align-items: center;
         }
+
+        .inline-edit-item {
+            padding: 8px;
+            margin: 5px 0;
+            background: #fffbcc;
+            border: 2px solid #ffc107;
+            border-radius: 3px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .inline-edit-input {
+            padding: 6px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            font-size: 14px;
+            width: 100%;
+        }
+
+        .inline-edit-buttons {
+            display: flex;
+            gap: 5px;
+        }
+
+        .inline-edit-buttons .btn {
+            flex: 1;
+            padding: 4px 8px;
+            font-size: 12px;
+        }
+
+        .header-with-name {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 5px;
+        }
+
+        .header-with-name h3 {
+            margin: 0;
+            border-bottom: none;
+            padding-bottom: 0;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .extractor-name-display {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin-top: 5px;
+        }
+
+        .extractor-name-edit {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            margin-top: 5px;
+            flex: 1;
+        }
+
+        .extractor-name-input {
+            padding: 6px;
+            border: 2px solid #007bff;
+            border-radius: 3px;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .rename-buttons {
+            display: flex;
+            gap: 5px;
+        }
+
+        .list-item.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
     `;
 
     #currentRunFiles = new Map(); // Map of file ID -> file info
@@ -424,6 +509,11 @@ export class ExtractorEditor extends BaseComponent {
         this.loading = false;
         this.run_results = null;
         this.results_collapsed = false;
+        this.creating_new = false;
+        this.new_extractor_name = '';
+        this.renaming = false;
+        this.rename_temp_name = '';
+        this.rename_original_name = '';
     }
 
     server_interface(api) {
@@ -455,6 +545,14 @@ export class ExtractorEditor extends BaseComponent {
         this.server.define_endpoint(
             "/extractors/{id}",
             (resp) => {
+                // If creating new, auto-select it
+                if (resp && resp.id && !this.selected_extractor_id) {
+                    this.selected_extractor_id = resp.id;
+                    this.#load_extractor(resp.id);
+                } else if (this.selected_extractor_id) {
+                    // Reload current extractor to get updated name
+                    this.#load_extractor(this.selected_extractor_id);
+                }
                 this.#load_extractors();
                 this.requestUpdate();
             },
@@ -536,25 +634,110 @@ export class ExtractorEditor extends BaseComponent {
 
     // UI event handlers
     #create_extractor_clicked(e) {
-        const name = prompt("Enter extractor name:");
-        if (name) {
-            const newExtractor = {
-                name: name,
-                prompt: "",
-                fields: []
-            };
-            this.server.call("/extractors/{id}", HTTP_POST_JSON, newExtractor, null, {id: 0});
+        if (this.creating_new) return;
+        this.creating_new = true;
+        this.new_extractor_name = '';
+        this.requestUpdate();
+
+        this.updateComplete.then(() => {
+            const input = this.shadowRoot.querySelector('.inline-edit-input');
+            if (input) input.focus();
+        });
+    }
+
+    #new_extractor_name_changed(e) {
+        this.new_extractor_name = e.target.value;
+    }
+
+    #save_new_extractor_clicked(e) {
+        const name = this.new_extractor_name.trim();
+        if (!name) {
+            alert("Extractor name cannot be empty");
+            return;
+        }
+
+        this.creating_new = false;
+        this.new_extractor_name = '';
+
+        const newExtractor = {
+            name: name,
+            prompt: "",
+            fields: []
+        };
+        this.server.call("/extractors/{id}", HTTP_POST_JSON, newExtractor, null, {id: 0});
+    }
+
+    #cancel_new_extractor_clicked(e) {
+        this.creating_new = false;
+        this.new_extractor_name = '';
+        this.requestUpdate();
+    }
+
+    #new_extractor_keydown(e) {
+        if (e.key === 'Enter') {
+            this.#save_new_extractor_clicked(e);
+        } else if (e.key === 'Escape') {
+            this.#cancel_new_extractor_clicked(e);
         }
     }
 
     #rename_extractor_clicked(e) {
-        if (this.selected_extractor_id) {
-            const currentName = this.extractors.find(e => e.id === this.selected_extractor_id)?.name || "";
-            const newName = prompt("Enter new extractor name:", currentName);
-            if (newName && newName !== currentName) {
-                const updatedExtractor = {...this.current_extractor, name: newName};
-                this.server.call("/extractors/{id}", HTTP_POST_JSON, updatedExtractor, null, {id: this.selected_extractor_id});
+        if (!this.selected_extractor_id || !this.current_extractor || this.renaming) return;
+
+        this.renaming = true;
+        this.rename_temp_name = this.current_extractor.name;
+        this.rename_original_name = this.current_extractor.name;
+        this.requestUpdate();
+
+        this.updateComplete.then(() => {
+            const input = this.shadowRoot.querySelector('.extractor-name-input');
+            if (input) {
+                input.focus();
+                input.select();
             }
+        });
+    }
+
+    #rename_name_changed(e) {
+        this.rename_temp_name = e.target.value;
+    }
+
+    #save_rename_clicked(e) {
+        const newName = this.rename_temp_name.trim();
+        if (!newName) {
+            alert("Extractor name cannot be empty");
+            return;
+        }
+
+        if (newName === this.rename_original_name) {
+            this.renaming = false;
+            this.rename_temp_name = '';
+            this.rename_original_name = '';
+            this.requestUpdate();
+            return;
+        }
+
+        this.current_extractor.name = newName;
+        this.renaming = false;
+        this.rename_temp_name = '';
+        this.rename_original_name = '';
+
+        const updatedExtractor = {...this.current_extractor, name: newName};
+        this.server.call("/extractors/{id}", HTTP_POST_JSON, updatedExtractor, null, {id: this.selected_extractor_id});
+    }
+
+    #cancel_rename_clicked(e) {
+        this.renaming = false;
+        this.rename_temp_name = '';
+        this.rename_original_name = '';
+        this.requestUpdate();
+    }
+
+    #rename_keydown(e) {
+        if (e.key === 'Enter') {
+            this.#save_rename_clicked(e);
+        } else if (e.key === 'Escape') {
+            this.#cancel_rename_clicked(e);
         }
     }
 
@@ -568,6 +751,7 @@ export class ExtractorEditor extends BaseComponent {
     }
 
     #extractor_clicked(e) {
+        if (this.creating_new || this.renaming) return;
         const id = parseInt(e.target.dataset.extractorId);
         this.#load_extractor(id);
     }
@@ -800,13 +984,30 @@ export class ExtractorEditor extends BaseComponent {
                         <h3>Extractors</h3>
                         
                         ${this.loading ? html`<div class="loading">Loading...</div>` : ''}
-                        
+
                         <div class="extractors-list">
+                            ${this.creating_new ? html`
+                                <div class="inline-edit-item">
+                                    <input
+                                        type="text"
+                                        class="inline-edit-input"
+                                        .value=${this.new_extractor_name}
+                                        @input=${this.#new_extractor_name_changed}
+                                        @keydown=${this.#new_extractor_keydown}
+                                        placeholder="Enter extractor name..."
+                                    />
+                                    <div class="inline-edit-buttons">
+                                        <button class="btn btn-primary" @click=${this.#save_new_extractor_clicked}>Save</button>
+                                        <button class="btn" @click=${this.#cancel_new_extractor_clicked}>Cancel</button>
+                                    </div>
+                                </div>
+                            ` : ''}
+
                             ${this.extractors.map(extractor => html`
-                                <div 
-                                    class="list-item ${this.selected_extractor_id === extractor.id ? 'selected' : ''}"
+                                <div
+                                    class="list-item ${this.selected_extractor_id === extractor.id ? 'selected' : ''} ${this.creating_new || this.renaming ? 'disabled' : ''}"
                                     data-extractor-id=${extractor.id}
-                                    @click=${this.#extractor_clicked}
+                                    @click=${this.creating_new || this.renaming ? null : this.#extractor_clicked}
                                 >
                                     ${extractor.name}
                                 </div>
@@ -814,11 +1015,11 @@ export class ExtractorEditor extends BaseComponent {
                         </div>
                         
                         <div class="action-buttons">
-                            <button class="btn btn-primary" @click=${this.#create_extractor_clicked}>Create New</button>
-                            <button class="btn" @click=${this.#rename_extractor_clicked} ?disabled=${!this.selected_extractor_id}>Rename</button>
-                            <button class="btn btn-danger" @click=${this.#delete_extractor_clicked} ?disabled=${!this.selected_extractor_id}>Delete</button>
-                            <button class="btn" @click=${this.#export_extractor_clicked} ?disabled=${!this.selected_extractor_id}>Export</button>
-                            <button class="btn" @click=${this.#import_extractor_clicked}>Import</button>
+                            <button class="btn btn-primary" @click=${this.#create_extractor_clicked} ?disabled=${this.creating_new || this.renaming}>Create New</button>
+                            <button class="btn" @click=${this.#rename_extractor_clicked} ?disabled=${!this.selected_extractor_id || this.creating_new || this.renaming}>Rename</button>
+                            <button class="btn btn-danger" @click=${this.#delete_extractor_clicked} ?disabled=${!this.selected_extractor_id || this.creating_new || this.renaming}>Delete</button>
+                            <button class="btn" @click=${this.#export_extractor_clicked} ?disabled=${!this.selected_extractor_id || this.creating_new || this.renaming}>Export</button>
+                            <button class="btn" @click=${this.#import_extractor_clicked} ?disabled=${this.creating_new || this.renaming}>Import</button>
                         </div>
                     </div>
                 </div>
@@ -826,13 +1027,35 @@ export class ExtractorEditor extends BaseComponent {
                 <!-- Middle Column: Extractor Editor -->
                 <div class="middle-column">
                     <div class="panel">
-                        <h3>Extractor Editor</h3>
-                        
-                        ${!this.current_extractor ? 
-                            html`<div class="no-selection">Select an extractor to edit</div>` :
-                            html`
-                                <!-- Prompt Editor -->
-                                <div class="prompt-editor">
+                        ${!this.current_extractor ? html`
+                            <h3>Extractor Editor</h3>
+                            <div class="no-selection">Select an extractor to edit</div>
+                        ` : html`
+                            <div class="header-with-name">
+                                <div style="flex: 1;">
+                                    <h3>Extractor Editor</h3>
+                                    ${this.renaming ? html`
+                                        <div class="extractor-name-edit">
+                                            <input
+                                                type="text"
+                                                class="extractor-name-input"
+                                                .value=${this.rename_temp_name}
+                                                @input=${this.#rename_name_changed}
+                                                @keydown=${this.#rename_keydown}
+                                            />
+                                            <div class="rename-buttons">
+                                                <button class="btn btn-primary" @click=${this.#save_rename_clicked}>Save</button>
+                                                <button class="btn" @click=${this.#cancel_rename_clicked}>Cancel</button>
+                                            </div>
+                                        </div>
+                                    ` : html`
+                                        <div class="extractor-name-display">${this.current_extractor.name}</div>
+                                    `}
+                                </div>
+                            </div>
+
+                            <!-- Prompt Editor -->
+                            <div class="prompt-editor">
                                     <div class="field-label">Prompt:</div>
                                     <textarea 
                                         class="prompt-textarea" 
@@ -881,8 +1104,8 @@ export class ExtractorEditor extends BaseComponent {
                                     </div>
                                     
                                     <div class="action-buttons">
-                                        <button class="btn btn-primary" @click=${this.#create_field_clicked}>Add Field</button>
-                                        <button class="btn btn-primary" @click=${this.#save_clicked}>Save Extractor</button>
+                                        <button class="btn btn-primary" @click=${this.#create_field_clicked} ?disabled=${this.renaming}>Add Field</button>
+                                        <button class="btn btn-primary" @click=${this.#save_clicked} ?disabled=${this.renaming}>Save Extractor</button>
                                     </div>
                                 </div>
                             `

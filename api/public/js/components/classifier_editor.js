@@ -12,7 +12,13 @@ export class ClassifierEditor extends BaseComponent {
         selected_classifier_id: {type: Number, state: true},
         loading: {type: Boolean, state: true},
         run_results: {type: Object, state: true},
-        results_collapsed: {type: Boolean, state: true}
+        results_collapsed: {type: Boolean, state: true},
+        renaming_set: {type: Boolean, state: true},
+        rename_set_temp_name: {type: String, state: true},
+        rename_set_original_name: {type: String, state: true},
+        renaming_classifier: {type: Boolean, state: true},
+        rename_classifier_temp_name: {type: String, state: true},
+        rename_classifier_original_name: {type: String, state: true}
     };
 
     #currentRunFiles = new Map(); // Map of file ID -> file info
@@ -28,6 +34,12 @@ export class ClassifierEditor extends BaseComponent {
         this.loading = false;
         this.run_results = null;
         this.results_collapsed = false;
+        this.renaming_set = false;
+        this.rename_set_temp_name = '';
+        this.rename_set_original_name = '';
+        this.renaming_classifier = false;
+        this.rename_classifier_temp_name = '';
+        this.rename_classifier_original_name = '';
     }
 
     static styles = css`
@@ -357,6 +369,56 @@ export class ClassifierEditor extends BaseComponent {
         .flash-new {
             animation: flashBorder 2s ease-out;
         }
+
+        .header-with-name {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 5px;
+        }
+
+        .header-with-name h3 {
+            margin: 0;
+            border-bottom: none;
+            padding-bottom: 0;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .name-display {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin-top: 5px;
+        }
+
+        .name-edit {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            margin-top: 5px;
+            flex: 1;
+        }
+
+        .name-input {
+            padding: 6px;
+            border: 2px solid #007bff;
+            border-radius: 3px;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .rename-buttons {
+            display: flex;
+            gap: 5px;
+        }
+
+        .list-item.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
     `;
 
     server_interface(api) {
@@ -391,8 +453,11 @@ export class ClassifierEditor extends BaseComponent {
                 // If this was a new classifier set creation, automatically select it
                 if (this.#creating_new_set && resp && resp.id) {
                     this.selected_classifier_set_id = resp.id;
-                    this.current_classifier_set = resp;
+                    this.#load_classifier_set(resp.id);
                     this.#creating_new_set = false;
+                } else if (this.selected_classifier_set_id) {
+                    // Reload current classifier set to get updated name
+                    this.#load_classifier_set(this.selected_classifier_set_id);
                 }
                 this.#load_classifier_sets();
                 this.requestUpdate();
@@ -494,13 +559,62 @@ export class ClassifierEditor extends BaseComponent {
     }
 
     #rename_classifier_set_clicked(e) {
-        if (this.selected_classifier_set_id) {
-            const currentName = this.classifier_sets.find(s => s.id === this.selected_classifier_set_id)?.name || "";
-            const newName = prompt("Enter new classifier set name:", currentName);
-            if (newName && newName !== currentName) {
-                const updatedSet = {...this.current_classifier_set, name: newName};
-                this.server.call("/classifiers/{id}", HTTP_POST_JSON, updatedSet, null, {id: this.selected_classifier_set_id});
+        if (!this.selected_classifier_set_id || !this.current_classifier_set || this.renaming_set) return;
+
+        this.renaming_set = true;
+        this.rename_set_temp_name = this.current_classifier_set.name;
+        this.rename_set_original_name = this.current_classifier_set.name;
+        this.requestUpdate();
+
+        this.updateComplete.then(() => {
+            const input = this.shadowRoot.querySelector('.set-name-input');
+            if (input) {
+                input.focus();
+                input.select();
             }
+        });
+    }
+
+    #rename_set_name_changed(e) {
+        this.rename_set_temp_name = e.target.value;
+    }
+
+    #save_set_rename_clicked(e) {
+        const newName = this.rename_set_temp_name.trim();
+        if (!newName) {
+            alert("Classifier set name cannot be empty");
+            return;
+        }
+
+        if (newName === this.rename_set_original_name) {
+            this.renaming_set = false;
+            this.rename_set_temp_name = '';
+            this.rename_set_original_name = '';
+            this.requestUpdate();
+            return;
+        }
+
+        this.current_classifier_set.name = newName;
+        this.renaming_set = false;
+        this.rename_set_temp_name = '';
+        this.rename_set_original_name = '';
+
+        const updatedSet = {...this.current_classifier_set, name: newName};
+        this.server.call("/classifiers/{id}", HTTP_POST_JSON, updatedSet, null, {id: this.selected_classifier_set_id});
+    }
+
+    #cancel_set_rename_clicked(e) {
+        this.renaming_set = false;
+        this.rename_set_temp_name = '';
+        this.rename_set_original_name = '';
+        this.requestUpdate();
+    }
+
+    #rename_set_keydown(e) {
+        if (e.key === 'Enter') {
+            this.#save_set_rename_clicked(e);
+        } else if (e.key === 'Escape') {
+            this.#cancel_set_rename_clicked(e);
         }
     }
 
@@ -514,11 +628,13 @@ export class ClassifierEditor extends BaseComponent {
     }
 
     #classifier_set_clicked(e) {
+        if (this.renaming_set || this.renaming_classifier) return;
         const id = parseInt(e.target.dataset.classifierSetId);
         this.#load_classifier_set(id);
     }
 
     #classifier_clicked(e) {
+        if (this.renaming_set || this.renaming_classifier) return;
         const id = parseInt(e.target.dataset.classifierId);
         this.selected_classifier_id = id;
         this.current_classifier = this.current_classifier_set?.classifiers?.find(c => c.id === id) || null;
@@ -553,12 +669,60 @@ export class ClassifierEditor extends BaseComponent {
     }
 
     #rename_classifier_clicked(e) {
-        if (!this.current_classifier) return;
-        
-        const newName = prompt("Enter new classifier name:", this.current_classifier.name);
-        if (newName && newName !== this.current_classifier.name) {
-            this.current_classifier.name = newName;
+        if (!this.current_classifier || this.renaming_classifier) return;
+
+        this.renaming_classifier = true;
+        this.rename_classifier_temp_name = this.current_classifier.name;
+        this.rename_classifier_original_name = this.current_classifier.name;
+        this.requestUpdate();
+
+        this.updateComplete.then(() => {
+            const input = this.shadowRoot.querySelector('.classifier-name-input');
+            if (input) {
+                input.focus();
+                input.select();
+            }
+        });
+    }
+
+    #rename_classifier_name_changed(e) {
+        this.rename_classifier_temp_name = e.target.value;
+    }
+
+    #save_classifier_rename_clicked(e) {
+        const newName = this.rename_classifier_temp_name.trim();
+        if (!newName) {
+            alert("Classifier name cannot be empty");
+            return;
+        }
+
+        if (newName === this.rename_classifier_original_name) {
+            this.renaming_classifier = false;
+            this.rename_classifier_temp_name = '';
+            this.rename_classifier_original_name = '';
             this.requestUpdate();
+            return;
+        }
+
+        this.current_classifier.name = newName;
+        this.renaming_classifier = false;
+        this.rename_classifier_temp_name = '';
+        this.rename_classifier_original_name = '';
+        this.requestUpdate();
+    }
+
+    #cancel_classifier_rename_clicked(e) {
+        this.renaming_classifier = false;
+        this.rename_classifier_temp_name = '';
+        this.rename_classifier_original_name = '';
+        this.requestUpdate();
+    }
+
+    #rename_classifier_keydown(e) {
+        if (e.key === 'Enter') {
+            this.#save_classifier_rename_clicked(e);
+        } else if (e.key === 'Escape') {
+            this.#cancel_classifier_rename_clicked(e);
         }
     }
 
@@ -759,10 +923,10 @@ export class ClassifierEditor extends BaseComponent {
                         
                         <div class="classifier-sets-list">
                             ${this.classifier_sets.map(set => html`
-                                <div 
-                                    class="list-item ${this.selected_classifier_set_id === set.id ? 'selected' : ''}"
+                                <div
+                                    class="list-item ${this.selected_classifier_set_id === set.id ? 'selected' : ''} ${this.renaming_set || this.renaming_classifier ? 'disabled' : ''}"
                                     data-classifier-set-id=${set.id}
-                                    @click=${this.#classifier_set_clicked}
+                                    @click=${this.renaming_set || this.renaming_classifier ? null : this.#classifier_set_clicked}
                                 >
                                     ${set.name}
                                 </div>
@@ -770,52 +934,95 @@ export class ClassifierEditor extends BaseComponent {
                         </div>
                         
                         <div class="action-buttons">
-                            <button class="btn btn-primary" @click=${this.#create_classifier_set_clicked}>Create new ClassifierSet</button>
-                            <button class="btn" @click=${this.#rename_classifier_set_clicked} ?disabled=${!this.selected_classifier_set_id}>Rename</button>
-                            <button class="btn btn-danger" @click=${this.#delete_classifier_set_clicked} ?disabled=${!this.selected_classifier_set_id}>Delete</button>
-                            <button class="btn" @click=${this.#export_classifier_clicked} ?disabled=${!this.selected_classifier_set_id}>Export</button>
-                            <button class="btn" @click=${this.#import_classifier_clicked}>Import</button>
+                            <button class="btn btn-primary" @click=${this.#create_classifier_set_clicked} ?disabled=${this.renaming_set || this.renaming_classifier}>Create new ClassifierSet</button>
+                            <button class="btn" @click=${this.#rename_classifier_set_clicked} ?disabled=${!this.selected_classifier_set_id || this.renaming_set || this.renaming_classifier}>Rename</button>
+                            <button class="btn btn-danger" @click=${this.#delete_classifier_set_clicked} ?disabled=${!this.selected_classifier_set_id || this.renaming_set || this.renaming_classifier}>Delete</button>
+                            <button class="btn" @click=${this.#export_classifier_clicked} ?disabled=${!this.selected_classifier_set_id || this.renaming_set || this.renaming_classifier}>Export</button>
+                            <button class="btn" @click=${this.#import_classifier_clicked} ?disabled=${this.renaming_set || this.renaming_classifier}>Import</button>
                         </div>
                     </div>
 
                     <!-- Classifiers Panel -->
                     <div class="classifiers-panel">
-                        <h3>Classifiers</h3>
-                        
-                        ${!this.current_classifier_set ? 
-                            html`<div class="no-selection">Select a classifier set to view classifiers</div>` :
-                            html`
-                                <div class="classifiers-list">
-                                    ${this.current_classifier_set.classifiers?.map(classifier => html`
-                                        <div 
-                                            class="list-item ${this.selected_classifier_id === classifier.id ? 'selected' : ''}"
-                                            data-classifier-id=${classifier.id}
-                                            @click=${this.#classifier_clicked}
-                                        >
-                                            ${classifier.name}
+                        ${!this.current_classifier_set ? html`
+                            <h3>Classifiers</h3>
+                            <div class="no-selection">Select a classifier set to view classifiers</div>
+                        ` : html`
+                            <div class="header-with-name">
+                                <div style="flex: 1;">
+                                    <h3>Classifiers</h3>
+                                    ${this.renaming_set ? html`
+                                        <div class="name-edit">
+                                            <input
+                                                type="text"
+                                                class="name-input set-name-input"
+                                                .value=${this.rename_set_temp_name}
+                                                @input=${this.#rename_set_name_changed}
+                                                @keydown=${this.#rename_set_keydown}
+                                            />
+                                            <div class="rename-buttons">
+                                                <button class="btn btn-primary" @click=${this.#save_set_rename_clicked}>Save</button>
+                                                <button class="btn" @click=${this.#cancel_set_rename_clicked}>Cancel</button>
+                                            </div>
                                         </div>
-                                    `) || ''}
+                                    ` : html`
+                                        <div class="name-display">${this.current_classifier_set.name}</div>
+                                    `}
                                 </div>
-                            `
-                        }
+                            </div>
+
+                            <div class="classifiers-list">
+                                ${this.current_classifier_set.classifiers?.map(classifier => html`
+                                    <div
+                                        class="list-item ${this.selected_classifier_id === classifier.id ? 'selected' : ''} ${this.renaming_set || this.renaming_classifier ? 'disabled' : ''}"
+                                        data-classifier-id=${classifier.id}
+                                        @click=${this.renaming_set || this.renaming_classifier ? null : this.#classifier_clicked}
+                                    >
+                                        ${classifier.name}
+                                    </div>
+                                `) || ''}
+                            </div>
+                        `}
                         
                         <div class="action-buttons">
-                            <button class="btn btn-primary" @click=${this.#create_classifier_clicked} ?disabled=${!this.current_classifier_set}>New</button>
-                            <button class="btn" @click=${this.#rename_classifier_clicked} ?disabled=${!this.current_classifier}>Rename</button>
-                            <button class="btn btn-danger" @click=${this.#delete_classifier_clicked} ?disabled=${!this.current_classifier}>Delete</button>
-                            <button class="btn" @click=${this.#save_clicked} ?disabled=${!this.current_classifier_set}>Save</button>
+                            <button class="btn btn-primary" @click=${this.#create_classifier_clicked} ?disabled=${!this.current_classifier_set || this.renaming_set || this.renaming_classifier}>New</button>
+                            <button class="btn" @click=${this.#rename_classifier_clicked} ?disabled=${!this.current_classifier || this.renaming_set || this.renaming_classifier}>Rename</button>
+                            <button class="btn btn-danger" @click=${this.#delete_classifier_clicked} ?disabled=${!this.current_classifier || this.renaming_set || this.renaming_classifier}>Delete</button>
+                            <button class="btn" @click=${this.#save_clicked} ?disabled=${!this.current_classifier_set || this.renaming_set || this.renaming_classifier}>Save</button>
                         </div>
                     </div>
                 </div>
 
                 <!-- Terms Panel -->
                 <div class="terms-panel">
-                    <h3>Terms</h3>
-                    
-                    ${!this.current_classifier ? 
-                        html`<div class="no-selection">Select a classifier to view terms</div>` :
-                        html`
-                            <div class="terms-list">
+                    ${!this.current_classifier ? html`
+                        <h3>Terms</h3>
+                        <div class="no-selection">Select a classifier to view terms</div>
+                    ` : html`
+                        <div class="header-with-name">
+                            <div style="flex: 1;">
+                                <h3>Terms</h3>
+                                ${this.renaming_classifier ? html`
+                                    <div class="name-edit">
+                                        <input
+                                            type="text"
+                                            class="name-input classifier-name-input"
+                                            .value=${this.rename_classifier_temp_name}
+                                            @input=${this.#rename_classifier_name_changed}
+                                            @keydown=${this.#rename_classifier_keydown}
+                                        />
+                                        <div class="rename-buttons">
+                                            <button class="btn btn-primary" @click=${this.#save_classifier_rename_clicked}>Save</button>
+                                            <button class="btn" @click=${this.#cancel_classifier_rename_clicked}>Cancel</button>
+                                        </div>
+                                    </div>
+                                ` : html`
+                                    <div class="name-display">${this.current_classifier.name}</div>
+                                `}
+                            </div>
+                        </div>
+
+                        <div class="terms-list">
                                 ${this.current_classifier.terms?.map((term, index) => html`
                                     <div class="term-row">
                                         <button 
@@ -867,10 +1074,9 @@ export class ClassifierEditor extends BaseComponent {
                             </div>
                             
                             <div class="action-buttons">
-                                <button class="btn btn-primary" @click=${this.#create_term_clicked} ?disabled=${!this.current_classifier}>Create a new Term</button>
+                                <button class="btn btn-primary" @click=${this.#create_term_clicked} ?disabled=${!this.current_classifier || this.renaming_set || this.renaming_classifier}>Create a new Term</button>
                             </div>
-                        `
-                    }
+                        `}
                 </div>
 
                 <!-- Results Panel -->
