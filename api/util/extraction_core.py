@@ -152,7 +152,8 @@ def run_extractor_with_markup(
     use_logging: bool = True,
     db: Optional[Session] = None,
     document_id: Optional[int] = None,
-    use_vector_search: bool = True
+    use_vector_search: bool = True,
+    llm_model_id: Optional[int] = None
 ) -> ExtractorExecutionResult:
     """
     Run extractor and create marked-up PDF if citations are found.
@@ -163,15 +164,41 @@ def run_extractor_with_markup(
         extractor_prompt: The extraction prompt
         extractor_fields: Dictionary of field names to descriptions
         extractor_id: ID of the extractor for file naming
-        llm_config: LLM configuration object
+        llm_config: LLM configuration object (global default)
         use_logging: Whether to use logging module (True) or print statements (False)
         db: Optional database session for vector search
         document_id: Optional document ID for vector search
         use_vector_search: Whether to use vector search (default True)
+        llm_model_id: Optional LLM model ID to override global config
 
     Returns:
         ExtractorExecutionResult containing extraction result and PDF markup info
     """
+    # Override config if model_id provided
+    if llm_model_id and db:
+        from api.models import LLMModel
+        from api.util.llm_config import build_llm_config_from_db_model, get_api_key_for_provider
+
+        db_model = db.query(LLMModel).filter(LLMModel.id == llm_model_id).first()
+        if db_model:
+            api_key = get_api_key_for_provider(db_model.provider)
+            if api_key:
+                llm_config = build_llm_config_from_db_model(db_model, api_key)
+                if use_logging:
+                    logging.info(f"Using custom LLM model: {db_model.name} ({db_model.provider}/{db_model.model_identifier})")
+                else:
+                    print(f"Using custom LLM model: {db_model.name} ({db_model.provider}/{db_model.model_identifier})")
+            else:
+                if use_logging:
+                    logging.warning(f"API key not found for provider {db_model.provider}, falling back to global config")
+                else:
+                    print(f"Warning: API key not found for provider {db_model.provider}, falling back to global config")
+        else:
+            if use_logging:
+                logging.warning(f"LLM model with ID {llm_model_id} not found, falling back to global config")
+            else:
+                print(f"Warning: LLM model with ID {llm_model_id} not found, falling back to global config")
+
     # Execute the extractor
     extraction_result = execute_extractor(
         document_text=document_text,

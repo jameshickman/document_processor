@@ -5,7 +5,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.cors import CORSMiddleware
 
 from api.models.database import init_database
-from api.routes import documents, classifiers, extractors, auth, service, api_config, account
+from api.routes import documents, classifiers, extractors, auth, service, api_config, account, llm_models
 from api.util.files_abstraction import init_filesystem_from_env
 from contextlib import asynccontextmanager
 import os
@@ -48,6 +48,7 @@ app.include_router(account.router, prefix="/account", tags=["account"])
 app.include_router(documents.router, prefix="/documents", tags=["documents"])
 app.include_router(classifiers.router, prefix="/classifiers", tags=["classifiers"])
 app.include_router(extractors.router, prefix="/extractors", tags=["extractors"])
+app.include_router(llm_models.router, prefix="/llm_models", tags=["llm_models"])
 app.include_router(service.router, prefix="/service", tags=["service"])
 app.include_router(api_config.router, prefix="/api_config", tags=["api_config"])
 

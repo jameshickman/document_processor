@@ -62,7 +62,8 @@ def run_extractor(
         use_logging=True,  # Use logging module in background processes
         db=db,
         document_id=document_id,
-        use_vector_search=True
+        use_vector_search=True,
+        llm_model_id=db_extractor.llm_model_id
     )
 
     payload = ExtractionPayload(

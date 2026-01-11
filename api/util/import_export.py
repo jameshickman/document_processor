@@ -85,31 +85,33 @@ def insert_classifier_terms(db: Session, classifier_id: int, terms_data: List[Di
     db.commit()
 
 
-def create_extractor_with_fields(db: Session, name: str, prompt: str, user_id: int, fields_data: List[Dict]) -> int:
+def create_extractor_with_fields(db: Session, name: str, prompt: str, user_id: int, fields_data: List[Dict], llm_model_id: int = None) -> int:
     """
     Create an extractor with its fields.
-    
+
     Args:
         db: Database session
         name: Name of the extractor
         prompt: Extractor prompt
         user_id: ID of the user creating the extractor
         fields_data: List of field dictionaries with name and description
-    
+        llm_model_id: Optional LLM model ID to use for this extractor
+
     Returns:
         ID of the created extractor
     """
     extractor = models.Extractor(
         name=name,
         prompt=prompt,
-        account_id=user_id
+        account_id=user_id,
+        llm_model_id=llm_model_id
     )
     db.add(extractor)
     db.commit()
     db.refresh(extractor)
-    
+
     create_extractor_fields(db, extractor.id, fields_data)
-    
+
     return extractor.id
 
 
@@ -199,15 +201,15 @@ def export_classifier_to_yaml(db: Session, classifier_set_id: int, user_id: int)
 def export_extractor_to_yaml(db: Session, extractor_id: int, user_id: int) -> str:
     """
     Export an extractor to YAML format.
-    
+
     Args:
         db: Database session
         extractor_id: ID of the extractor to export
         user_id: ID of the user requesting the export
-    
+
     Returns:
         YAML string containing the extractor configuration
-    
+
     Raises:
         HTTPException: If extractor is not found or user doesn't have access
     """
@@ -233,6 +235,18 @@ def export_extractor_to_yaml(db: Session, extractor_id: int, user_id: int) -> st
             for field in db_extractor.fields
         ]
     }
+
+    # Include model information if specified
+    if db_extractor.llm_model_id:
+        llm_model = db.query(models.LLMModel).filter(
+            models.LLMModel.id == db_extractor.llm_model_id
+        ).first()
+        if llm_model:
+            export_data['llm_model'] = {
+                'name': llm_model.name,
+                'provider': llm_model.provider,
+                'model_identifier': llm_model.model_identifier
+            }
 
     return yaml.dump(export_data, default_flow_style=False, sort_keys=False)
 
@@ -277,15 +291,15 @@ def import_classifier_from_yaml(db: Session, yaml_content: str, user_id: int) ->
 def import_extractor_from_yaml(db: Session, yaml_content: str, user_id: int) -> int:
     """
     Import an extractor from YAML format.
-    
+
     Args:
         db: Database session
         yaml_content: YAML string containing extractor configuration
         user_id: ID of the user importing the extractor
-    
+
     Returns:
         ID of the created extractor
-    
+
     Raises:
         HTTPException: If YAML is invalid or import fails
     """
@@ -293,19 +307,39 @@ def import_extractor_from_yaml(db: Session, yaml_content: str, user_id: int) -> 
         data = yaml.safe_load(yaml_content)
     except yaml.YAMLError as e:
         raise HTTPException(status_code=400, detail=f"Invalid YAML format: {str(e)}")
-    
+
     if not isinstance(data, dict) or data.get('type') != 'extractor':
         raise HTTPException(status_code=400, detail="Invalid extractor YAML format")
-    
+
     required_fields = ['name', 'prompt', 'fields']
     for field in required_fields:
         if field not in data:
             raise HTTPException(status_code=400, detail=f"Missing required field: {field}")
-    
+
     # Validate field data format
     for field_data in data['fields']:
         if not isinstance(field_data, dict) or 'name' not in field_data:
             raise HTTPException(status_code=400, detail="Invalid field format in YAML")
-    
+
+    # Handle optional LLM model information
+    llm_model_id = None
+    if 'llm_model' in data and isinstance(data['llm_model'], dict):
+        # Try to find a matching model for this user
+        llm_model_info = data['llm_model']
+        if 'provider' in llm_model_info and 'model_identifier' in llm_model_info:
+            # Look for existing model with same provider and identifier
+            existing_model = db.query(models.LLMModel).filter(
+                and_(
+                    models.LLMModel.account_id == user_id,
+                    models.LLMModel.provider == llm_model_info['provider'],
+                    models.LLMModel.model_identifier == llm_model_info['model_identifier']
+                )
+            ).first()
+
+            if existing_model:
+                llm_model_id = existing_model.id
+            # Note: If no matching model found, we'll import without a model (use global default)
+            # This is safer than creating a new model automatically
+
     # Create extractor with fields
-    return create_extractor_with_fields(db, data['name'], data['prompt'], user_id, data['fields'])
+    return create_extractor_with_fields(db, data['name'], data['prompt'], user_id, data['fields'], llm_model_id)

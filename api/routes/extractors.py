@@ -5,7 +5,7 @@ from sqlalchemy import and_
 from api import models
 from api.models.database import get_db
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 from api.util.llm_config import llm_config
 from api.util.extraction_core import run_extractor_with_markup
 from api.dependencies import get_current_user_info
@@ -26,6 +26,7 @@ class Extractor(BaseModel):
     name: str
     prompt: str
     fields: List[ExtractorField]
+    llm_model_id: Optional[int] = None
 
 @router.post("/import")
 async def import_extractor(
@@ -60,7 +61,7 @@ def create_or_update_extractor(
     if extractor_id == 0:
         # Create new extractor
         fields_data = [{'name': f.name, 'description': f.description} for f in extractor.fields]
-        extractor_id = create_extractor_with_fields(db, extractor.name, extractor.prompt, user.user_id, fields_data)
+        extractor_id = create_extractor_with_fields(db, extractor.name, extractor.prompt, user.user_id, fields_data, extractor.llm_model_id)
         return {"id": extractor_id}
     else:
         # Update existing extractor
@@ -74,6 +75,7 @@ def create_or_update_extractor(
             raise HTTPException(status_code=404, detail="Extractor not found")
         db_extractor.name = extractor.name
         db_extractor.prompt = extractor.prompt
+        db_extractor.llm_model_id = extractor.llm_model_id
         # Delete existing fields
         db.query(models.ExtractorField).filter(models.ExtractorField.extractor_id == extractor_id).delete()
         db.commit()
@@ -111,6 +113,7 @@ def get_extractor(
         "name": db_extractor.name,
         "id": db_extractor.id,
         "prompt": db_extractor.prompt,
+        "llm_model_id": db_extractor.llm_model_id,
         "fields": [{"name": field.name, "description": field.description} for field in db_extractor.fields]
     }
 
@@ -177,7 +180,8 @@ def run_extractor(
         use_logging=False,  # Use print statements in API routes
         db=db,
         document_id=document_id,
-        use_vector_search=True
+        use_vector_search=True,
+        llm_model_id=db_extractor.llm_model_id
     )
     
     # Return the extraction result with marked PDF info

@@ -21,3 +21,4 @@ class Account(Base):
     documents = relationship("Document", back_populates="account")
     classifier_sets = relationship("ClassifierSet", back_populates="account")
     extractors = relationship("Extractor", back_populates="account")
+    llm_models = relationship("LLMModel", back_populates="account")

@@ -16,7 +16,8 @@ export class ExtractorEditor extends BaseComponent {
         new_extractor_name: {type: String, state: true},
         renaming: {type: Boolean, state: true},
         rename_temp_name: {type: String, state: true},
-        rename_original_name: {type: String, state: true}
+        rename_original_name: {type: String, state: true},
+        available_models: {type: Array, state: true}
     };
     static styles = css`
         .container {
@@ -217,7 +218,26 @@ export class ExtractorEditor extends BaseComponent {
             font-weight: bold;
             margin-bottom: 4px;
         }
-        
+
+        .model-selector {
+            margin-bottom: 15px;
+        }
+
+        .model-select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            font-family: inherit;
+            font-size: 14px;
+            background: white;
+        }
+
+        .model-select:focus {
+            outline: none;
+            border-color: #007bff;
+        }
+
         .results-display {
             background: #f8f9fa;
             padding: 15px;
@@ -514,6 +534,7 @@ export class ExtractorEditor extends BaseComponent {
         this.renaming = false;
         this.rename_temp_name = '';
         this.rename_original_name = '';
+        this.available_models = [];
     }
 
     server_interface(api) {
@@ -615,10 +636,25 @@ export class ExtractorEditor extends BaseComponent {
             },
             HTTP_POST_FORM
         );
+
+        // Load available models endpoint
+        this.server.define_endpoint(
+            "/llm_models",
+            (resp) => {
+                this.available_models = resp;
+                this.requestUpdate();
+            },
+            HTTP_GET
+        );
     }
 
     login_success() {
         this.#load_extractors();
+        this.#load_available_models();
+    }
+
+    #load_available_models() {
+        this.server.call("/llm_models", HTTP_GET);
     }
 
     #load_extractors() {
@@ -759,6 +795,14 @@ export class ExtractorEditor extends BaseComponent {
     #prompt_changed(e) {
         if (this.current_extractor) {
             this.current_extractor.prompt = e.target.value;
+            this.requestUpdate();
+        }
+    }
+
+    #model_selection_changed(e) {
+        if (this.current_extractor) {
+            const value = e.target.value;
+            this.current_extractor.llm_model_id = value === "" ? null : parseInt(value);
             this.requestUpdate();
         }
     }
@@ -1052,6 +1096,21 @@ export class ExtractorEditor extends BaseComponent {
                                         <div class="extractor-name-display">${this.current_extractor.name}</div>
                                     `}
                                 </div>
+                            </div>
+
+                            <!-- Model Selection -->
+                            <div class="model-selector">
+                                <div class="field-label">LLM Model:</div>
+                                <select
+                                    class="model-select"
+                                    .value=${this.current_extractor.llm_model_id || ""}
+                                    @change=${this.#model_selection_changed}
+                                >
+                                    <option value="">Use Global Default</option>
+                                    ${this.available_models.map(model => html`
+                                        <option value="${model.id}">${model.name}</option>
+                                    `)}
+                                </select>
                             </div>
 
                             <!-- Prompt Editor -->

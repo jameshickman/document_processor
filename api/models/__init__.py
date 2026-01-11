@@ -8,6 +8,7 @@ from .documents import Document
 from .embedding import DocumentEmbedding
 from .extractors import Extractor
 from .extractor_fields import ExtractorField
+from .llm_models import LLMModel
 from .database import init_database, get_db
 
 __all__ = [
@@ -19,6 +20,7 @@ __all__ = [
     "DocumentEmbedding",
     "Extractor",
     "ExtractorField",
+    "LLMModel",
     "init_database",
     "get_db",
 ]
