@@ -31,6 +31,71 @@ psql -U postgres -d classifier_and_extractor_2 -p 5433 -f migrations/001_add_pgv
 |-----------|------|-------------|
 | 001_add_pgvector_support.sql | 2025-11-10 | Initial PGVector setup with variable dimensions |
 | 002_fix_vector_dimensions.sql | 2025-11-10 | Fix existing installations to support multiple providers |
+| add_llm_models.sql | 2026-01-11 | Add support for per-extractor LLM model selection |
+
+## LLM Model Selection Feature (add_llm_models.sql)
+
+This migration adds the ability to configure and select different LLM models per extractor.
+
+### What It Does
+
+- Creates `llm_models` table for storing custom model configurations
+- Adds `llm_model_id` column to `extractors` table (nullable)
+- Sets up foreign key with `ON DELETE SET NULL` (extractors revert to global default if model is deleted)
+- Creates performance indexes
+
+### How to Apply
+
+**Step 1: Check your database credentials** (from `.env` file):
+```bash
+cat .env | grep POSTGRES
+```
+
+**Step 2: Run the migration**:
+```bash
+# Using environment variables
+PGPASSWORD=your_password psql -h hostname -p port -U username -d database_name -f migrations/add_llm_models.sql
+
+# Example with typical values:
+PGPASSWORD=postgres psql -h localhost -p 5432 -U postgres -d classifier_and_extractor -f migrations/add_llm_models.sql
+```
+
+**Step 3: Verify the migration**:
+```bash
+# Check extractors table has new column
+PGPASSWORD=postgres psql -h localhost -p 5432 -U postgres -d classifier_and_extractor -c "\d extractors"
+
+# Check llm_models table was created
+PGPASSWORD=postgres psql -h localhost -p 5432 -U postgres -d classifier_and_extractor -c "\d llm_models"
+```
+
+You should see:
+- `llm_model_id` column in the `extractors` table
+- A new `llm_models` table with columns: id, name, provider, model_identifier, base_url, temperature, max_tokens, timeout, model_kwargs_json, account_id, created_at
+
+**Step 4: Restart your application** to load the new code.
+
+### Using the Feature
+
+After applying the migration and restarting:
+
+1. Navigate to the **Model Manager** tab (new tab in the UI)
+2. Create model configurations (e.g., "GPT-4 Turbo", "Claude Sonnet", etc.)
+3. In the **Extractors** tab, select a model from the dropdown for each extractor
+4. Leave as "Use Global Default" to use the model specified in `.env` file
+
+### Rollback (if needed)
+
+To remove this feature:
+```sql
+-- Remove foreign key column from extractors
+ALTER TABLE extractors DROP COLUMN IF EXISTS llm_model_id;
+
+-- Drop the llm_models table
+DROP TABLE IF EXISTS llm_models CASCADE;
+```
+
+**Warning**: This will delete all stored model configurations.
 
 ## Automatic Provider Change Detection
 
@@ -52,6 +117,20 @@ INFO: Created 15 embeddings for document 123
 ```
 
 ## Troubleshooting
+
+### "column extractors.llm_model_id does not exist" Error
+
+If you see this error after updating the code:
+```
+sqlalchemy.exc.ProgrammingError: (psycopg2.errors.UndefinedColumn) column extractors.llm_model_id does not exist
+```
+
+**Solution**: You need to run the `add_llm_models.sql` migration:
+```bash
+PGPASSWORD=your_password psql -h hostname -p port -U username -d database_name -f migrations/add_llm_models.sql
+```
+
+Then restart your application.
 
 ### Check if migration was successful
 
