@@ -1,5 +1,5 @@
 """
-Securely store passwords in symetric encryption
+Securely store passwords in symmetric encryption
 """
 import base64
 import uuid
