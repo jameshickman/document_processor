@@ -10,7 +10,8 @@ export class ModelManager extends BaseComponent {
         selected_model_id: {type: Number, state: true},
         loading: {type: Boolean, state: true},
         creating_new: {type: Boolean, state: true},
-        new_model_name: {type: String, state: true}
+        new_model_name: {type: String, state: true},
+        configured_providers: {type: Array, state: true}
     };
 
     static styles = css`
@@ -190,10 +191,19 @@ export class ModelManager extends BaseComponent {
         this.loading = false;
         this.creating_new = false;
         this.new_model_name = '';
+        this.configured_providers = [];
     }
 
     server_interface(api) {
         this.init_server(api);
+
+        this.server.define_endpoint("/llm_models/configured_providers",
+            (resp) => {
+                this.configured_providers = resp.providers || [];
+                this.requestUpdate();
+            },
+            HTTP_GET
+        );
 
         this.server.define_endpoint("/llm_models",
             (resp) => {
@@ -238,7 +248,12 @@ export class ModelManager extends BaseComponent {
     }
 
     login_success() {
+        this.#load_configured_providers();
         this.#load_models();
+    }
+
+    #load_configured_providers() {
+        this.server.call("/llm_models/configured_providers", HTTP_GET);
     }
 
     #load_models() {
@@ -287,9 +302,14 @@ export class ModelManager extends BaseComponent {
             return;
         }
 
+        if (this.configured_providers.length === 0) {
+            alert('No providers configured. Please configure at least one provider (OpenAI, DeepInfra, or Ollama) in your environment variables.');
+            return;
+        }
+
         const new_model_data = {
             name: this.new_model_name.trim(),
-            provider: 'openai',
+            provider: this.configured_providers[0],
             model_identifier: 'gpt-3.5-turbo',
             base_url: null,
             temperature: 0.0,
@@ -411,14 +431,15 @@ export class ModelManager extends BaseComponent {
                                 <div class="form-group">
                                     <label class="field-label">Provider:</label>
                                     <select
-                                        .value=${this.current_model.provider || 'openai'}
+                                        .value=${this.current_model.provider || (this.configured_providers.length > 0 ? this.configured_providers[0] : '')}
                                         @change=${(e) => this.#field_changed('provider', e)}
                                     >
-                                        <option value="openai">OpenAI</option>
-                                        <option value="deepinfra">DeepInfra</option>
-                                        <option value="ollama">Ollama</option>
+                                        ${this.configured_providers.map(provider => {
+                                            const displayName = provider.charAt(0).toUpperCase() + provider.slice(1);
+                                            return html`<option value="${provider}">${displayName}</option>`;
+                                        })}
                                     </select>
-                                    <div class="help-text">LLM provider service</div>
+                                    <div class="help-text">LLM provider service (only configured providers shown)</div>
                                 </div>
 
                                 <div class="form-group">

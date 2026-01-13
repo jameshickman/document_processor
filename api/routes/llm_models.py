@@ -6,6 +6,7 @@ from api.models.database import get_db
 from pydantic import BaseModel
 from typing import List, Optional
 from api.dependencies import get_current_user_info
+from api.util.llm_config import get_api_key_for_provider, is_ollama_enabled
 
 router = APIRouter()
 
@@ -34,6 +35,28 @@ class LLMModelResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+@router.get("/configured_providers")
+def get_configured_providers(
+    user = Depends(get_current_user_info)
+):
+    """Get list of providers that have API keys configured."""
+    configured_providers = []
+
+    # Check OpenAI
+    if get_api_key_for_provider("openai"):
+        configured_providers.append("openai")
+
+    # Check DeepInfra
+    if get_api_key_for_provider("deepinfra"):
+        configured_providers.append("deepinfra")
+
+    # Check Ollama (requires explicit enable flag)
+    if is_ollama_enabled():
+        configured_providers.append("ollama")
+
+    return {"providers": configured_providers}
 
 
 @router.get("/", response_model=List[LLMModelResponse])

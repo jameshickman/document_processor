@@ -8,6 +8,11 @@ from lib.fact_extractor.models import LLMConfig
 llm_config = create_llm_config()
 
 
+def is_ollama_enabled() -> bool:
+    """Check if Ollama provider is specifically enabled via environment variable."""
+    return os.environ.get("OLLAMA_ENABLED", "false").lower() in ("true", "1", "yes")
+
+
 def get_api_key_for_provider(provider: str) -> str:
     """Get API key from environment for the given provider."""
     keys = {
