@@ -1,6 +1,8 @@
 # Classifier and Extractor API
 
-A FastAPI-based document processing system that provides intelligent document classification and fact extraction using Large Language Models (LLMs). The system supports fuzzy matching with wildcards for classification and uses advanced LLM providers for accurate information extraction.
+## Executive Summary
+
+The Classifier and Extractor API is a comprehensive document processing platform designed to automate the classification and extraction of information from diverse document formats. Built on FastAPI, this system leverages Large Language Models (LLMs) and vector search technology to transform unstructured document content into structured, actionable data. The platform serves dual purposes: enabling rapid development of document processing workflows through an intuitive web-based workbench, and providing robust API endpoints for seamless integration into existing business systems. With support for multiple document formats, flexible storage backends, and multiple LLM providers, the system offers a scalable solution for organizations looking to automate document-centric processes and extract valuable insights from their document repositories.
 
 ## Features
 
