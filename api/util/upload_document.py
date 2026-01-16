@@ -1,4 +1,5 @@
 import os
+import time
 import re
 from pathlib import Path
 
@@ -14,6 +15,7 @@ from api.util.document_extract import extract, DocumentDecodeException, Document
 
 from api.models import Document
 from api.util.files_abstraction import get_filesystem
+from api.services.usage_tracker import UsageTracker
 
 
 def _extract_and_sync(
@@ -118,86 +120,217 @@ def upload_document(
         account_id: int,
         db: Session,
         file_upload: UploadFile,
+        source_type: str = 'workbench'
 ):
-    fs = get_filesystem()
-    document_storage_dir = load_storage_location(account_id)
-
-    # Ensure directory exists
-    fs.makedirs(document_storage_dir)
-
-    full_path_name = fs.get_file_path(document_storage_dir, file_upload.filename)
-    fs.write_file(full_path_name, file_upload.file)
+    start_time = time.time()
 
     try:
-        db_document = _extract_and_sync(account_id, full_path_name, document_storage_dir, db)
-    except DocumentDecodeException:
-        raise HTTPException(status_code=415, detail="Text cannot be extracted from Document.")
-    except DocumentUnknownTypeException:
-        raise HTTPException(status_code=415, detail="Document type not supported.")
+        fs = get_filesystem()
+        document_storage_dir = load_storage_location(account_id)
 
-    return db_document
+        # Ensure directory exists
+        fs.makedirs(document_storage_dir)
+
+        full_path_name = fs.get_file_path(document_storage_dir, file_upload.filename)
+        fs.write_file(full_path_name, file_upload.file)
+
+        try:
+            db_document = _extract_and_sync(account_id, full_path_name, document_storage_dir, db)
+        except DocumentDecodeException:
+            raise HTTPException(status_code=415, detail="Text cannot be extracted from Document.")
+        except DocumentUnknownTypeException:
+            raise HTTPException(status_code=415, detail="Document type not supported.")
+
+        # Calculate duration and file size
+        duration_ms = int((time.time() - start_time) * 1000)
+        file_size = fs.get_file_size(full_path_name) if hasattr(fs, 'get_file_size') else len(file_upload.file.read())
+
+        # Log successful upload
+        tracker = UsageTracker(db)
+        import asyncio
+        asyncio.create_task(
+            tracker.log_upload(
+                account_id=account_id,
+                document_id=db_document.id,
+                bytes_stored=file_size,
+                duration_ms=duration_ms,
+                status='success',
+                source_type=source_type
+            )
+        )
+
+        return db_document
+    except Exception as e:
+        # Calculate duration for failed upload
+        duration_ms = int((time.time() - start_time) * 1000)
+
+        # Log failed upload
+        tracker = UsageTracker(db)
+        import asyncio
+        asyncio.create_task(
+            tracker.log_upload(
+                account_id=account_id,
+                bytes_stored=getattr(file_upload, 'size', 0) if hasattr(file_upload, 'size') else 0,
+                duration_ms=duration_ms,
+                status='failure',
+                error_message=str(e),
+                source_type=source_type
+            )
+        )
+
+        raise
 
 
 def upload_markdown_content(
     account_id: int,
     db: Session,
     content: str,
+    source_type: str = 'workbench'
 ):
     """
     Upload markdown content as a document.
     The first line of the content is used as the filename.
     """
-    fs = get_filesystem()
-    content = content.strip()
-    if not content:
-        raise HTTPException(status_code=400, detail="Content cannot be empty")
-
-    lines = content.split('\n')
-    first_line = lines[0].strip()
-
-    # Extract filename from first line, removing markdown formatting if present
-    filename = first_line.lstrip('#').strip()
-
-    # Sanitize filename (remove invalid characters)
-    filename = re.sub(r'[^\w\s-]', '', filename).strip()
-    filename = re.sub(r'[-\s]+', '-', filename)
-
-    if not filename:
-        filename = "untitled"
-
-    # Ensure .md extension
-    if not filename.lower().endswith('.md'):
-        filename += '.md'
-
-    # Use the same storage location as regular uploads
-    document_storage_dir = load_storage_location(account_id)
-
-    # Ensure directory exists
-    fs.makedirs(document_storage_dir)
-
-    full_path_name = fs.get_file_path(document_storage_dir, filename)
-
-    # Write content to file
-    fs.write_file(full_path_name, content.encode('utf-8'))
+    start_time = time.time()
 
     try:
-        db_document = _extract_and_sync(account_id, full_path_name, document_storage_dir, db)
-        return {"document": db_document, "filename": filename}
-    except DocumentDecodeException:
-        # Clean up file if extraction fails
-        if fs.exists(full_path_name):
-            fs.delete_file(full_path_name)
-        raise HTTPException(status_code=415, detail="Text cannot be extracted from Document.")
-    except DocumentUnknownTypeException:
-        # Clean up file if extraction fails
-        if fs.exists(full_path_name):
-            fs.delete_file(full_path_name)
-        raise HTTPException(status_code=415, detail="Document type not supported.")
+        fs = get_filesystem()
+        content = content.strip()
+        if not content:
+            raise HTTPException(status_code=400, detail="Content cannot be empty")
+
+        lines = content.split('\n')
+        first_line = lines[0].strip()
+
+        # Extract filename from first line, removing markdown formatting if present
+        filename = first_line.lstrip('#').strip()
+
+        # Sanitize filename (remove invalid characters)
+        filename = re.sub(r'[^\w\s-]', '', filename).strip()
+        filename = re.sub(r'[-\s]+', '-', filename)
+
+        if not filename:
+            filename = "untitled"
+
+        # Ensure .md extension
+        if not filename.lower().endswith('.md'):
+            filename += '.md'
+
+        # Use the same storage location as regular uploads
+        document_storage_dir = load_storage_location(account_id)
+
+        # Ensure directory exists
+        fs.makedirs(document_storage_dir)
+
+        full_path_name = fs.get_file_path(document_storage_dir, filename)
+
+        # Write content to file
+        fs.write_file(full_path_name, content.encode('utf-8'))
+
+        try:
+            db_document = _extract_and_sync(account_id, full_path_name, document_storage_dir, db)
+
+            # Calculate duration and file size
+            duration_ms = int((time.time() - start_time) * 1000)
+            file_size = len(content.encode('utf-8'))
+
+            # Log successful upload
+            tracker = UsageTracker(db)
+            import asyncio
+            asyncio.create_task(
+                tracker.log_upload(
+                    account_id=account_id,
+                    document_id=db_document.id,
+                    bytes_stored=file_size,
+                    duration_ms=duration_ms,
+                    status='success',
+                    source_type=source_type
+                )
+            )
+
+            return {"document": db_document, "filename": filename}
+        except DocumentDecodeException:
+            # Calculate duration for failed upload
+            duration_ms = int((time.time() - start_time) * 1000)
+
+            # Log failed upload
+            tracker = UsageTracker(db)
+            import asyncio
+            asyncio.create_task(
+                tracker.log_upload(
+                    account_id=account_id,
+                    duration_ms=duration_ms,
+                    status='failure',
+                    error_message="Text cannot be extracted from Document.",
+                    source_type=source_type
+                )
+            )
+
+            # Clean up file if extraction fails
+            if fs.exists(full_path_name):
+                fs.delete_file(full_path_name)
+            raise HTTPException(status_code=415, detail="Text cannot be extracted from Document.")
+        except DocumentUnknownTypeException:
+            # Calculate duration for failed upload
+            duration_ms = int((time.time() - start_time) * 1000)
+
+            # Log failed upload
+            tracker = UsageTracker(db)
+            import asyncio
+            asyncio.create_task(
+                tracker.log_upload(
+                    account_id=account_id,
+                    duration_ms=duration_ms,
+                    status='failure',
+                    error_message="Document type not supported.",
+                    source_type=source_type
+                )
+            )
+
+            # Clean up file if extraction fails
+            if fs.exists(full_path_name):
+                fs.delete_file(full_path_name)
+            raise HTTPException(status_code=415, detail="Document type not supported.")
+        except Exception as e:
+            # Calculate duration for failed upload
+            duration_ms = int((time.time() - start_time) * 1000)
+
+            # Log failed upload
+            tracker = UsageTracker(db)
+            import asyncio
+            asyncio.create_task(
+                tracker.log_upload(
+                    account_id=account_id,
+                    duration_ms=duration_ms,
+                    status='failure',
+                    error_message=f"Failed to process markdown file: {str(e)}",
+                    source_type=source_type
+                )
+            )
+
+            # Clean up file if extraction fails
+            if fs.exists(full_path_name):
+                fs.delete_file(full_path_name)
+            raise HTTPException(status_code=500, detail=f"Failed to process markdown file: {str(e)}")
     except Exception as e:
-        # Clean up file if extraction fails
-        if fs.exists(full_path_name):
-            fs.delete_file(full_path_name)
-        raise HTTPException(status_code=500, detail=f"Failed to process markdown file: {str(e)}")
+        # Calculate duration for failed upload
+        duration_ms = int((time.time() - start_time) * 1000)
+
+        # Log failed upload
+        tracker = UsageTracker(db)
+        import asyncio
+        asyncio.create_task(
+            tracker.log_upload(
+                account_id=account_id,
+                bytes_stored=len(content.encode('utf-8')) if content else 0,
+                duration_ms=duration_ms,
+                status='failure',
+                error_message=str(e),
+                source_type=source_type
+            )
+        )
+
+        raise
 
 
 def remove_document(

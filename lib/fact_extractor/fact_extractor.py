@@ -40,7 +40,9 @@ class FactExtractor:
         self,
         config: LLMConfig,
         db_session: Optional[Session] = None,
-        use_vector_search: bool = True
+        use_vector_search: bool = True,
+        account_id: Optional[int] = None,
+        source_type: str = 'workbench'
     ):
         """
         Initialize FactExtractor.
@@ -49,10 +51,14 @@ class FactExtractor:
             config: LLM configuration
             db_session: Optional database session for vector search
             use_vector_search: Whether to use vector search when available (default True)
+            account_id: Account ID for usage tracking (optional)
+            source_type: Source type for usage tracking ('workbench' or 'api')
         """
         self.config = config
         self.db_session = db_session
         self.use_vector_search = use_vector_search
+        self.account_id = account_id
+        self.source_type = source_type
         self.chunker = DocumentChunker()
         self.prompt_builder = PromptBuilder()
         self.llm = self._initialize_llm()
@@ -393,7 +399,9 @@ class FactExtractor:
                     db=self.db_session,
                     query=extraction_query.query,
                     document_id=document_id,
-                    max_tokens=2048
+                    max_tokens=2048,
+                    account_id=self.account_id,
+                    source_type=self.source_type
                 )
 
                 if relevant_context and relevant_context.strip():

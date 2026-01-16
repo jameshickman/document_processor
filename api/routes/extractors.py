@@ -142,8 +142,11 @@ def delete_extractor(
     db.commit()
     return {"success": True}
 
+from fastapi import Request
+
 @router.get("/run/{extractor_id}/{document_id}")
 def run_extractor(
+        request: Request,
         extractor_id: int,
         document_id: int,
         db: Session = Depends(get_db),
@@ -151,6 +154,8 @@ def run_extractor(
     """
     Run an extractor against the contents of a document and create a marked-up PDF with highlighted citations.
     """
+    from api.util.source_detection import detect_source_type
+
     db_extractor = db.query(models.Extractor).filter(
         and_(
             models.Extractor.account_id == user.user_id,
@@ -181,9 +186,13 @@ def run_extractor(
         db=db,
         document_id=document_id,
         use_vector_search=True,
-        llm_model_id=db_extractor.llm_model_id
+        llm_model_id=db_extractor.llm_model_id,
+        account_id=user.user_id,
+        source_type=detect_source_type(request),
+        user_agent=request.headers.get('User-Agent'),
+        ip_address=request.client.host
     )
-    
+
     # Return the extraction result with marked PDF info
     response_data = {
         "id": extractor_id,
@@ -191,10 +200,10 @@ def run_extractor(
         "result": execution_result.extraction_result,
         "marked_pdf_available": execution_result.marked_pdf_available
     }
-    
+
     if execution_result.marked_pdf_path:
         response_data["marked_pdf_path"] = execution_result.marked_pdf_path
-    
+
     return response_data
 
 

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, UploadFile, File, BackgroundTasks, Form, HTTPException
+from fastapi import APIRouter, Depends, UploadFile, File, BackgroundTasks, Form, HTTPException, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
 
@@ -28,11 +28,13 @@ router = APIRouter()
 
 @router.post('/file')
 async def upload_file(
+    request: Request,
     db: Session = Depends(get_db),
     file: UploadFile = File(...),
     user = Depends(get_basic_auth)
 ):
-    document = upload_document(user.user_id, db, file)
+    from api.util.source_detection import detect_source_type
+    document = upload_document(user.user_id, db, file, source_type=detect_source_type(request))
     return {"id": document.id}
 
 @router.delete('/file/{file_id}')
@@ -47,7 +49,8 @@ async def remove_file(
 
 @router.put('/file/markdown')
 async def upload_markdown(
-    request: MarkdownUploadRequest,
+    request: Request,
+    markdown_request: MarkdownUploadRequest,
     db: Session = Depends(get_db),
     user = Depends(get_basic_auth)
 ):
@@ -55,11 +58,13 @@ async def upload_markdown(
     Upload Markdown content as a document.
     The first line of the content should be used as the filename.
     """
-    result = upload_markdown_content(user.user_id, db, request.content)
+    from api.util.source_detection import detect_source_type
+    result = upload_markdown_content(user.user_id, db, markdown_request.content, source_type=detect_source_type(request))
     return {"id": result["document"].id, "filename": result["filename"]}
 
 @router.get('/classifier/{classifier_id}/{file_id}')
 async def classifier(
+    request: Request,
     classifier_id: int,
     file_id: int,
     db: Session = Depends(get_db),

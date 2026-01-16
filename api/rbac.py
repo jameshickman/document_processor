@@ -7,22 +7,30 @@ access control with flexible ANY/ALL validation modes.
 
 Key Features:
 - Role-based access control with ANY or ALL role requirements
-- Claims-based access control with ANY or ALL claim requirements  
+- Claims-based access control with ANY or ALL claim requirements
 - Combined role and claims validation
 - Comprehensive JWT token handling and validation
 - Detailed logging for security auditing
+- Support for reporting role for administrative reporting
 
 Usage:
     from api.rbac import require_roles_dependency
-    
+
     # Basic role check (ANY of the roles)
     @app.get("/admin/users")
     async def get_users(
         _: None = Depends(require_roles_dependency(["admin", "super_admin"]))
     ):
         return {"users": [...]}
-        
-    # Claims-based access  
+
+    # Reporting role access
+    @app.get("/reporting/usage")
+    async def get_usage_report(
+        _: None = Depends(require_roles_dependency(["reporting", "admin"]))
+    ):
+        return {"report": [...]}
+
+    # Claims-based access
     @app.get("/regional/data")
     async def get_regional_data(
         _: None = Depends(require_roles_dependency(
@@ -30,7 +38,7 @@ Usage:
         ))
     ):
         return {"data": [...]}
-        
+
     # Combined validation with ALL requirements
     @app.post("/audit/reports")
     async def create_audit_report(

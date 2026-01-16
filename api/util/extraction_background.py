@@ -1,6 +1,7 @@
 """
 Background-process to run an extractor and call a web-hook on completion
 """
+import time
 from fastapi import HTTPException
 from sqlalchemy import and_
 from sqlalchemy.orm import Session
@@ -10,6 +11,7 @@ from pydantic import BaseModel
 import api.models as models
 from api.util.llm_config import llm_config
 from api.util.extraction_core import run_extractor_with_markup
+from api.services.usage_tracker import UsageTracker
 
 import requests
 import logging
@@ -63,7 +65,9 @@ def run_extractor(
         db=db,
         document_id=document_id,
         use_vector_search=True,
-        llm_model_id=db_extractor.llm_model_id
+        llm_model_id=db_extractor.llm_model_id,
+        account_id=account_id,
+        source_type='api'  # Background processes are considered API usage
     )
 
     payload = ExtractionPayload(
@@ -72,7 +76,7 @@ def run_extractor(
         document_id=document_id,
         csrf_token=csf_token
     ).model_dump()
-    
+
     # Add marked PDF information to the payload
     payload['marked_pdf_available'] = execution_result.marked_pdf_available
     if execution_result.marked_pdf_path:

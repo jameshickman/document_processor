@@ -8,6 +8,7 @@ Supports multiple embedding providers:
 - Ollama: mxbai-embed-large (1024 dimensions)
 """
 import logging
+import time
 from typing import Optional
 from sqlalchemy.orm import Session
 
@@ -15,6 +16,7 @@ from api.models.embedding import DocumentEmbedding
 from api.models.documents import Document
 from api.util.vector_utils import VectorUtils
 from api.util.embedding_config import EmbeddingConfig, create_embedding_config
+from api.services.usage_tracker import UsageTracker
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +64,9 @@ class DocumentEmbedder:
         self,
         db: Session,
         document_id: int,
-        force_regenerate: bool = False
+        force_regenerate: bool = False,
+        account_id: Optional[int] = None,
+        source_type: str = 'workbench'
     ) -> int:
         """
         Generate and store embeddings for a document.
@@ -71,23 +75,89 @@ class DocumentEmbedder:
             db: Database session
             document_id: ID of document to embed
             force_regenerate: If True, regenerate even if embeddings exist
+            account_id: Account ID for usage tracking (optional)
+            source_type: Source type for usage tracking ('workbench' or 'api')
 
         Returns:
             Number of embeddings created
         """
-        return self.vector_utils.embed_document(
-            db=db,
-            document_id=document_id,
-            force_regenerate=force_regenerate
-        )
+        start_time = time.time()
 
-    def ensure_document_embedded(self, db: Session, document_id: int) -> bool:
+        try:
+            result = self.vector_utils.embed_document(
+                db=db,
+                document_id=document_id,
+                force_regenerate=force_regenerate
+            )
+
+            # Calculate duration
+            duration_ms = int((time.time() - start_time) * 1000)
+
+            # Log successful embedding if account_id is provided
+            if account_id:
+                tracker = UsageTracker(db)
+                import asyncio
+                asyncio.create_task(
+                    tracker.log_embedding(
+                        account_id=account_id,
+                        document_id=document_id,
+                        provider=self.vector_utils.config.provider,
+                        model_name=self.vector_utils.config.model_name,
+                        input_tokens=self._estimate_tokens_for_document(db, document_id),
+                        duration_ms=duration_ms,
+                        status='success',
+                        source_type=source_type
+                    )
+                )
+
+            return result
+        except Exception as e:
+            # Calculate duration for failed embedding
+            duration_ms = int((time.time() - start_time) * 1000)
+
+            # Log failed embedding if account_id is provided
+            if account_id:
+                tracker = UsageTracker(db)
+                import asyncio
+                asyncio.create_task(
+                    tracker.log_embedding(
+                        account_id=account_id,
+                        document_id=document_id,
+                        duration_ms=duration_ms,
+                        status='failure',
+                        error_message=str(e),
+                        source_type=source_type
+                    )
+                )
+
+            raise
+
+    def _estimate_tokens_for_document(self, db: Session, document_id: int) -> int:
+        """
+        Estimate the number of tokens used for embedding a document.
+
+        Args:
+            db: Database session
+            document_id: ID of document to estimate tokens for
+
+        Returns:
+            Estimated number of tokens
+        """
+        document = db.query(Document).filter(Document.id == document_id).first()
+        if document and document.full_text:
+            # Rough estimation: 1 token ~ 4 characters or 0.75 words
+            return int(len(document.full_text) / 4)
+        return 0
+
+    def ensure_document_embedded(self, db: Session, document_id: int, account_id: Optional[int] = None, source_type: str = 'workbench') -> bool:
         """
         Ensure document has embeddings, creating them if needed.
 
         Args:
             db: Database session
             document_id: ID of document to check
+            account_id: Account ID for usage tracking (optional)
+            source_type: Source type for usage tracking ('workbench' or 'api')
 
         Returns:
             True if embeddings exist or were created
@@ -104,7 +174,7 @@ class DocumentEmbedder:
         # Create embeddings
         logger.info(f"Creating embeddings for document {document_id}")
         try:
-            count = self.embed_document(db=db, document_id=document_id)
+            count = self.embed_document(db=db, document_id=document_id, account_id=account_id, source_type=source_type)
             return count > 0
         except Exception as e:
             logger.error(f"Failed to create embeddings for document {document_id}: {e}")
@@ -115,7 +185,9 @@ class DocumentEmbedder:
         db: Session,
         query: str,
         document_id: int,
-        max_tokens: int = 2048
+        max_tokens: int = 2048,
+        account_id: Optional[int] = None,
+        source_type: str = 'workbench'
     ) -> str:
         """
         Get relevant context from document based on query.
@@ -131,12 +203,14 @@ class DocumentEmbedder:
             query: Query or question to search for
             document_id: Document to search within
             max_tokens: Maximum tokens in result
+            account_id: Account ID for usage tracking (optional)
+            source_type: Source type for usage tracking ('workbench' or 'api')
 
         Returns:
             Combined text from most relevant chunks
         """
         # Ensure document is embedded
-        if not self.ensure_document_embedded(db, document_id):
+        if not self.ensure_document_embedded(db, document_id, account_id=account_id, source_type=source_type):
             logger.error(f"Failed to ensure embeddings for document {document_id}")
             # Fallback to full text
             document = db.query(Document).filter(Document.id == document_id).first()

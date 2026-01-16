@@ -29,6 +29,7 @@
             <button data-view="classifiers">Classifiers</button>
             <button data-view="extractors">Extractors</button>
             <button data-view="models">Model Manager</button>
+            <button data-view="reporting">Usage Reporting</button>
             <button data-view="api_setup">Service API settings</button>
         </navigation-menu>
         <navigation-views class="navigation-views" id="main-views">
@@ -43,6 +44,9 @@
             </div>
             <div data-name="models" class="navigation-view">
                 {% include 'sections/models.j2' %}
+            </div>
+            <div data-name="reporting" class="navigation-view">
+                {% include 'sections/reporting.j2' %}
             </div>
             <div data-name="api_setup" class="navigation-view">
                 {% include 'sections/api_setup.j2' %}
@@ -71,6 +75,7 @@
     import {ClassifierEditor} from './static/js/components/classifier_editor.js';
     import {ExtractorEditor} from './static/js/components/extractor_editor.js';
     import {ModelManager} from './static/js/components/model_manager.js';
+    import {UsageReportingDashboard} from './static/js/components/usage_reporting_dashboard.js';
     import './static/js/components/api_config.js';
     import './static/js/components/api_reference.js';
 
