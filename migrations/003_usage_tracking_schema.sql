@@ -169,6 +169,7 @@ ALTER TABLE accounts ADD COLUMN IF NOT EXISTS roles TEXT[] DEFAULT '{}';
 ALTER TABLE accounts ADD COLUMN IF NOT EXISTS usage_tracking_enabled BOOLEAN DEFAULT TRUE;
 ALTER TABLE accounts ADD COLUMN IF NOT EXISTS usage_limit_tokens BIGINT;  -- Optional token limit per month
 ALTER TABLE accounts ADD COLUMN IF NOT EXISTS usage_alert_threshold FLOAT;  -- Alert at % of limit (e.g., 0.8 = 80%)
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE;
 
 -- Insert default role for existing admin users if roles column is empty
 UPDATE accounts SET roles = ARRAY['admin', 'reporting'] WHERE roles = '{}' AND is_admin = true;
