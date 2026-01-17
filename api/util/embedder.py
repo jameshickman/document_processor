@@ -95,10 +95,10 @@ class DocumentEmbedder:
 
             # Log successful embedding if account_id is provided
             if account_id:
-                tracker = UsageTracker(db)
-                import asyncio
-                asyncio.create_task(
-                    tracker.log_embedding(
+                try:
+                    from api.services.usage_tracker import UsageTracker
+                    tracker = UsageTracker(db)
+                    tracker.log_embedding_sync(
                         account_id=account_id,
                         document_id=document_id,
                         provider=self.vector_utils.config.provider,
@@ -108,7 +108,10 @@ class DocumentEmbedder:
                         status='success',
                         source_type=source_type
                     )
-                )
+                except Exception as e:
+                    # Log the error but don't crash the main operation
+                    import logging
+                    logging.error(f"Failed to log embedding: {str(e)}")
 
             return result
         except Exception as e:
@@ -117,10 +120,10 @@ class DocumentEmbedder:
 
             # Log failed embedding if account_id is provided
             if account_id:
-                tracker = UsageTracker(db)
-                import asyncio
-                asyncio.create_task(
-                    tracker.log_embedding(
+                try:
+                    from api.services.usage_tracker import UsageTracker
+                    tracker = UsageTracker(db)
+                    tracker.log_embedding_sync(
                         account_id=account_id,
                         document_id=document_id,
                         duration_ms=duration_ms,
@@ -128,7 +131,10 @@ class DocumentEmbedder:
                         error_message=str(e),
                         source_type=source_type
                     )
-                )
+                except Exception as e_log:
+                    # Log the error but don't crash the main operation
+                    import logging
+                    logging.error(f"Failed to log embedding error: {str(e_log)}")
 
             raise
 

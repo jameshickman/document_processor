@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, func
+from sqlalchemy import and_, func, case
 from typing import List, Optional
 from datetime import datetime, date
 from api.models.database import get_db
 from api.rbac import require_roles_dependency
 from api.models import UsageSummary, UsageSummaryByModel, StorageUsage, Account, UsageLog
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from api.util.csv_export import (
     export_usage_summary_csv,
     export_model_usage_csv,
@@ -17,6 +17,165 @@ from api.util.csv_export import (
 router = APIRouter()
 
 
+# Helper functions for on-the-fly aggregation
+def aggregate_usage_summary_from_logs(db: Session, start_date: date, end_date: date, account_id: Optional[int] = None):
+    """
+    Aggregate usage summary from usage_logs table on-the-fly.
+    Returns a list of dictionary objects that mimic UsageSummary objects.
+    """
+    from sqlalchemy import cast, Date
+
+    query = db.query(
+        cast(UsageLog.timestamp, Date).label('date'),
+        UsageLog.account_id,
+        Account.name.label('account_name'),
+        func.sum(case((UsageLog.source_type == 'workbench', 1), else_=0)).label('workbench_operations'),
+        func.sum(case((UsageLog.source_type == 'api', 1), else_=0)).label('api_operations'),
+        func.count(UsageLog.id).label('total_operations'),
+        func.sum(case((UsageLog.operation_type == 'extraction', 1), else_=0)).label('extractions'),
+        func.sum(case((UsageLog.operation_type == 'classification', 1), else_=0)).label('classifications'),
+        func.sum(case((UsageLog.operation_type == 'embedding', 1), else_=0)).label('embeddings'),
+        func.sum(case((UsageLog.operation_type == 'upload', 1), else_=0)).label('uploads'),
+        func.sum(UsageLog.input_tokens).label('total_input_tokens'),
+        func.sum(UsageLog.output_tokens).label('total_output_tokens'),
+        func.sum(UsageLog.total_tokens).label('total_tokens'),
+        func.sum(case((UsageLog.status == 'success', 1), else_=0)).label('successful_operations'),
+        func.sum(case((UsageLog.status == 'failure', 1), else_=0)).label('failed_operations'),
+    ).join(Account, UsageLog.account_id == Account.id).filter(
+        and_(
+            cast(UsageLog.timestamp, Date) >= start_date,
+            cast(UsageLog.timestamp, Date) <= end_date
+        )
+    )
+
+    if account_id:
+        query = query.filter(UsageLog.account_id == account_id)
+
+    query = query.group_by(cast(UsageLog.timestamp, Date), UsageLog.account_id, Account.name)
+    query = query.order_by(cast(UsageLog.timestamp, Date))
+
+    results = query.all()
+
+    # Convert to objects that look like UsageSummary
+    class SummaryProxy:
+        def __init__(self, row):
+            self.date = row.date
+            self.account_id = row.account_id
+            self.account = type('obj', (object,), {'name': row.account_name})()
+            self.workbench_operations = row.workbench_operations or 0
+            self.api_operations = row.api_operations or 0
+            self.total_operations = row.total_operations or 0
+            self.extractions = row.extractions or 0
+            self.classifications = row.classifications or 0
+            self.embeddings = row.embeddings or 0
+            self.uploads = row.uploads or 0
+            self.total_input_tokens = row.total_input_tokens or 0
+            self.total_output_tokens = row.total_output_tokens or 0
+            self.total_tokens = row.total_tokens or 0
+            self.successful_operations = row.successful_operations or 0
+            self.failed_operations = row.failed_operations or 0
+
+    return [SummaryProxy(row) for row in results]
+
+
+def aggregate_model_usage_from_logs(db: Session, start_date: date, end_date: date, account_id: Optional[int] = None, provider: Optional[str] = None, model_name: Optional[str] = None):
+    """
+    Aggregate model usage from usage_logs table on-the-fly.
+    """
+    from sqlalchemy import cast, Date
+
+    query = db.query(
+        cast(UsageLog.timestamp, Date).label('date'),
+        UsageLog.account_id,
+        Account.name.label('account_name'),
+        UsageLog.provider,
+        UsageLog.model_name,
+        func.count(UsageLog.id).label('operation_count'),
+        func.sum(UsageLog.input_tokens).label('input_tokens'),
+        func.sum(UsageLog.output_tokens).label('output_tokens'),
+        func.sum(UsageLog.total_tokens).label('total_tokens'),
+        func.avg(UsageLog.duration_ms).label('avg_duration_ms'),
+        func.sum(case((UsageLog.status == 'success', 1), else_=0)).label('successful_operations'),
+        func.sum(case((UsageLog.status == 'failure', 1), else_=0)).label('failed_operations'),
+    ).join(Account, UsageLog.account_id == Account.id).filter(
+        and_(
+            cast(UsageLog.timestamp, Date) >= start_date,
+            cast(UsageLog.timestamp, Date) <= end_date,
+            UsageLog.provider.isnot(None)
+        )
+    )
+
+    if account_id:
+        query = query.filter(UsageLog.account_id == account_id)
+    if provider:
+        query = query.filter(UsageLog.provider == provider)
+    if model_name:
+        query = query.filter(UsageLog.model_name == model_name)
+
+    query = query.group_by(
+        cast(UsageLog.timestamp, Date),
+        UsageLog.account_id,
+        Account.name,
+        UsageLog.provider,
+        UsageLog.model_name
+    )
+    query = query.order_by(cast(UsageLog.timestamp, Date))
+
+    results = query.all()
+
+    # Convert to objects that look like UsageSummaryByModel
+    class ModelSummaryProxy:
+        def __init__(self, row):
+            self.date = row.date
+            self.account_id = row.account_id
+            self.account = type('obj', (object,), {'name': row.account_name})()
+            self.provider = row.provider
+            self.model_name = row.model_name
+            self.operation_count = row.operation_count or 0
+            self.input_tokens = row.input_tokens or 0
+            self.output_tokens = row.output_tokens or 0
+            self.total_tokens = row.total_tokens or 0
+            self.avg_duration_ms = int(row.avg_duration_ms) if row.avg_duration_ms else None
+            self.successful_operations = row.successful_operations or 0
+            self.failed_operations = row.failed_operations or 0
+
+    return [ModelSummaryProxy(row) for row in results]
+
+
+# Request models for POST endpoints
+class UsageReportRequest(BaseModel):
+    start_date: str = Field(..., description="Start date (YYYY-MM-DD)")
+    end_date: str = Field(..., description="End date (YYYY-MM-DD)")
+    account_id: Optional[int] = Field(None, description="Filter by specific account ID")
+    group_by: str = Field("day", description="Group by 'day', 'week', or 'month'")
+
+
+class ModelUsageRequest(BaseModel):
+    start_date: str = Field(..., description="Start date (YYYY-MM-DD)")
+    end_date: str = Field(..., description="End date (YYYY-MM-DD)")
+    account_id: Optional[int] = Field(None, description="Filter by specific account ID")
+    provider: Optional[str] = Field(None, description="Filter by provider")
+    model_name: Optional[str] = Field(None, description="Filter by model name")
+
+
+class StorageUsageRequest(BaseModel):
+    start_date: str = Field(..., description="Start date (YYYY-MM-DD)")
+    end_date: str = Field(..., description="End date (YYYY-MM-DD)")
+    account_id: Optional[int] = Field(None, description="Filter by specific account ID")
+
+
+class EventLogsRequest(BaseModel):
+    start_date: str = Field(..., description="Start date and time (YYYY-MM-DDTHH:MM:SS)")
+    end_date: str = Field(..., description="End date and time (YYYY-MM-DDTHH:MM:SS)")
+    account_id: Optional[int] = Field(None, description="Filter by specific account ID")
+    operation_type: Optional[str] = Field(None, description="Filter by operation type")
+    source_type: Optional[str] = Field(None, description="Filter by source type")
+    status: Optional[str] = Field(None, description="Filter by status")
+    limit: int = Field(100, ge=1, le=1000, description="Number of records to return")
+    offset: int = Field(0, ge=0, description="Offset for pagination")
+
+
+# Response models
 class UsageSummaryItem(BaseModel):
     date: str
     account_id: int
@@ -121,18 +280,20 @@ class AccountsResponse(BaseModel):
     accounts: List[AccountInfo]
 
 
-@router.get("/usage/summary", response_model=UsageSummaryResponse)
+@router.post("/usage/summary", response_model=UsageSummaryResponse)
 def get_usage_summary(
-    start_date: date = Query(..., description="Start date (YYYY-MM-DD)"),
-    end_date: date = Query(..., description="End date (YYYY-MM-DD)"),
-    account_id: Optional[int] = Query(None, description="Filter by specific account ID"),
-    group_by: str = Query("day", description="Group by 'day', 'week', or 'month'"),
+    request: UsageReportRequest,
     db: Session = Depends(get_db),
     _: None = Depends(require_roles_dependency(["reporting", "admin"]))
 ):
     """
     Get usage summary aggregated by date range.
+    If summary tables are empty, aggregate from usage_logs on-the-fly.
     """
+    # Parse dates from strings
+    start_date = date.fromisoformat(request.start_date)
+    end_date = date.fromisoformat(request.end_date)
+
     query = db.query(UsageSummary).filter(
         and_(
             UsageSummary.date >= start_date,
@@ -140,13 +301,17 @@ def get_usage_summary(
         )
     )
 
-    if account_id:
-        query = query.filter(UsageSummary.account_id == account_id)
+    if request.account_id:
+        query = query.filter(UsageSummary.account_id == request.account_id)
 
     # Join with accounts to get account names
     query = query.join(Account, UsageSummary.account_id == Account.id)
 
     summaries = query.all()
+
+    # If no summaries found, aggregate from usage_logs on-the-fly
+    if not summaries:
+        summaries = aggregate_usage_summary_from_logs(db, start_date, end_date, request.account_id)
 
     # Convert to response format
     data = []
@@ -168,27 +333,28 @@ def get_usage_summary(
         ))
 
     return UsageSummaryResponse(
-        start_date=start_date.isoformat(),
-        end_date=end_date.isoformat(),
-        group_by=group_by,
+        start_date=request.start_date,
+        end_date=request.end_date,
+        group_by=request.group_by,
         data=data,
         total_records=len(data)
     )
 
 
-@router.get("/usage/by-model", response_model=ModelUsageResponse)
+@router.post("/usage/by-model", response_model=ModelUsageResponse)
 def get_model_usage(
-    start_date: date = Query(..., description="Start date (YYYY-MM-DD)"),
-    end_date: date = Query(..., description="End date (YYYY-MM-DD)"),
-    account_id: Optional[int] = Query(None, description="Filter by specific account ID"),
-    provider: Optional[str] = Query(None, description="Filter by provider"),
-    model_name: Optional[str] = Query(None, description="Filter by model name"),
+    request: ModelUsageRequest,
     db: Session = Depends(get_db),
     _: None = Depends(require_roles_dependency(["reporting", "admin"]))
 ):
     """
     Get usage breakdown by model.
+    If summary tables are empty, aggregate from usage_logs on-the-fly.
     """
+    # Parse dates from strings
+    start_date = date.fromisoformat(request.start_date)
+    end_date = date.fromisoformat(request.end_date)
+
     query = db.query(UsageSummaryByModel).filter(
         and_(
             UsageSummaryByModel.date >= start_date,
@@ -196,17 +362,21 @@ def get_model_usage(
         )
     )
 
-    if account_id:
-        query = query.filter(UsageSummaryByModel.account_id == account_id)
-    if provider:
-        query = query.filter(UsageSummaryByModel.provider == provider)
-    if model_name:
-        query = query.filter(UsageSummaryByModel.model_name == model_name)
+    if request.account_id:
+        query = query.filter(UsageSummaryByModel.account_id == request.account_id)
+    if request.provider:
+        query = query.filter(UsageSummaryByModel.provider == request.provider)
+    if request.model_name:
+        query = query.filter(UsageSummaryByModel.model_name == request.model_name)
 
     # Join with accounts to get account names
     query = query.join(Account, UsageSummaryByModel.account_id == Account.id)
 
     summaries = query.all()
+
+    # If no summaries found, aggregate from usage_logs on-the-fly
+    if not summaries:
+        summaries = aggregate_model_usage_from_logs(db, start_date, end_date, request.account_id, request.provider, request.model_name)
 
     # Convert to response format
     data = []
@@ -227,23 +397,25 @@ def get_model_usage(
         ))
 
     return ModelUsageResponse(
-        start_date=start_date.isoformat(),
-        end_date=end_date.isoformat(),
+        start_date=request.start_date,
+        end_date=request.end_date,
         data=data
     )
 
 
-@router.get("/storage", response_model=StorageUsageResponse)
+@router.post("/storage", response_model=StorageUsageResponse)
 def get_storage_usage(
-    start_date: date = Query(..., description="Start date (YYYY-MM-DD)"),
-    end_date: date = Query(..., description="End date (YYYY-MM-DD)"),
-    account_id: Optional[int] = Query(None, description="Filter by specific account ID"),
+    request: StorageUsageRequest,
     db: Session = Depends(get_db),
     _: None = Depends(require_roles_dependency(["reporting", "admin"]))
 ):
     """
     Get storage usage by date range.
     """
+    # Parse dates from strings
+    start_date = date.fromisoformat(request.start_date)
+    end_date = date.fromisoformat(request.end_date)
+
     query = db.query(StorageUsage).filter(
         and_(
             StorageUsage.date >= start_date,
@@ -251,8 +423,8 @@ def get_storage_usage(
         )
     )
 
-    if account_id:
-        query = query.filter(StorageUsage.account_id == account_id)
+    if request.account_id:
+        query = query.filter(StorageUsage.account_id == request.account_id)
 
     # Join with accounts to get account names
     query = query.join(Account, StorageUsage.account_id == Account.id)
@@ -277,28 +449,25 @@ def get_storage_usage(
         ))
 
     return StorageUsageResponse(
-        start_date=start_date.isoformat(),
-        end_date=end_date.isoformat(),
+        start_date=request.start_date,
+        end_date=request.end_date,
         data=data
     )
 
 
-@router.get("/logs", response_model=EventLogsResponse)
+@router.post("/logs", response_model=EventLogsResponse)
 def get_event_logs(
-    start_date: datetime = Query(..., description="Start date and time (YYYY-MM-DDTHH:MM:SS)"),
-    end_date: datetime = Query(..., description="End date and time (YYYY-MM-DDTHH:MM:SS)"),
-    account_id: Optional[int] = Query(None, description="Filter by specific account ID"),
-    operation_type: Optional[str] = Query(None, description="Filter by operation type"),
-    source_type: Optional[str] = Query(None, description="Filter by source type"),
-    status: Optional[str] = Query(None, description="Filter by status"),
-    limit: int = Query(100, ge=1, le=1000, description="Number of records to return"),
-    offset: int = Query(0, ge=0, description="Offset for pagination"),
+    request: EventLogsRequest,
     db: Session = Depends(get_db),
     _: None = Depends(require_roles_dependency(["reporting", "admin"]))
 ):
     """
     Get raw usage event logs.
     """
+    # Parse datetime strings
+    start_date = datetime.fromisoformat(request.start_date)
+    end_date = datetime.fromisoformat(request.end_date)
+
     query = db.query(UsageLog).filter(
         and_(
             UsageLog.timestamp >= start_date,
@@ -306,20 +475,20 @@ def get_event_logs(
         )
     )
 
-    if account_id:
-        query = query.filter(UsageLog.account_id == account_id)
-    if operation_type:
-        query = query.filter(UsageLog.operation_type == operation_type)
-    if source_type:
-        query = query.filter(UsageLog.source_type == source_type)
-    if status:
-        query = query.filter(UsageLog.status == status)
+    if request.account_id:
+        query = query.filter(UsageLog.account_id == request.account_id)
+    if request.operation_type:
+        query = query.filter(UsageLog.operation_type == request.operation_type)
+    if request.source_type:
+        query = query.filter(UsageLog.source_type == request.source_type)
+    if request.status:
+        query = query.filter(UsageLog.status == request.status)
 
     # Join with accounts to get account names
     query = query.join(Account, UsageLog.account_id == Account.id)
 
     # Apply pagination
-    logs = query.order_by(UsageLog.timestamp.desc()).offset(offset).limit(limit).all()
+    logs = query.order_by(UsageLog.timestamp.desc()).offset(request.offset).limit(request.limit).all()
 
     # Count total records for pagination info
     total_query = db.query(func.count(UsageLog.id)).filter(
@@ -328,14 +497,14 @@ def get_event_logs(
             UsageLog.timestamp <= end_date
         )
     )
-    if account_id:
-        total_query = total_query.filter(UsageLog.account_id == account_id)
-    if operation_type:
-        total_query = total_query.filter(UsageLog.operation_type == operation_type)
-    if source_type:
-        total_query = total_query.filter(UsageLog.source_type == source_type)
-    if status:
-        total_query = total_query.filter(UsageLog.status == status)
+    if request.account_id:
+        total_query = total_query.filter(UsageLog.account_id == request.account_id)
+    if request.operation_type:
+        total_query = total_query.filter(UsageLog.operation_type == request.operation_type)
+    if request.source_type:
+        total_query = total_query.filter(UsageLog.source_type == request.source_type)
+    if request.status:
+        total_query = total_query.filter(UsageLog.status == request.status)
 
     total_count = total_query.scalar()
 
@@ -362,17 +531,17 @@ def get_event_logs(
         ))
 
     return EventLogsResponse(
-        start_date=start_date.isoformat(),
-        end_date=end_date.isoformat(),
+        start_date=request.start_date,
+        end_date=request.end_date,
         filters={
-            "account_id": account_id,
-            "operation_type": operation_type,
-            "source_type": source_type,
-            "status": status
+            "account_id": request.account_id,
+            "operation_type": request.operation_type,
+            "source_type": request.source_type,
+            "status": request.status
         },
         pagination={
-            "limit": limit,
-            "offset": offset,
+            "limit": request.limit,
+            "offset": request.offset,
             "total": total_count
         },
         data=data

@@ -143,13 +143,14 @@ def upload_document(
 
         # Calculate duration and file size
         duration_ms = int((time.time() - start_time) * 1000)
-        file_size = fs.get_file_size(full_path_name) if hasattr(fs, 'get_file_size') else len(file_upload.file.read())
+        # Get file size from storage after upload
+        file_size = fs.get_file_size(full_path_name) if hasattr(fs, 'get_file_size') else 0
 
         # Log successful upload
-        tracker = UsageTracker(db)
-        import asyncio
-        asyncio.create_task(
-            tracker.log_upload(
+        try:
+            from api.services.usage_tracker import UsageTracker
+            tracker = UsageTracker(db)
+            tracker.log_upload_sync(
                 account_id=account_id,
                 document_id=db_document.id,
                 bytes_stored=file_size,
@@ -157,7 +158,10 @@ def upload_document(
                 status='success',
                 source_type=source_type
             )
-        )
+        except Exception as e:
+            # Log the error but don't crash the main operation
+            import logging
+            logging.error(f"Failed to log upload: {str(e)}")
 
         return db_document
     except Exception as e:
@@ -165,10 +169,10 @@ def upload_document(
         duration_ms = int((time.time() - start_time) * 1000)
 
         # Log failed upload
-        tracker = UsageTracker(db)
-        import asyncio
-        asyncio.create_task(
-            tracker.log_upload(
+        try:
+            from api.services.usage_tracker import UsageTracker
+            tracker = UsageTracker(db)
+            tracker.log_upload_sync(
                 account_id=account_id,
                 bytes_stored=getattr(file_upload, 'size', 0) if hasattr(file_upload, 'size') else 0,
                 duration_ms=duration_ms,
@@ -176,7 +180,10 @@ def upload_document(
                 error_message=str(e),
                 source_type=source_type
             )
-        )
+        except Exception as e_log:
+            # Log the error but don't crash the main operation
+            import logging
+            logging.error(f"Failed to log upload error: {str(e_log)}")
 
         raise
 
@@ -235,10 +242,10 @@ def upload_markdown_content(
             file_size = len(content.encode('utf-8'))
 
             # Log successful upload
-            tracker = UsageTracker(db)
-            import asyncio
-            asyncio.create_task(
-                tracker.log_upload(
+            try:
+                from api.services.usage_tracker import UsageTracker
+                tracker = UsageTracker(db)
+                tracker.log_upload_sync(
                     account_id=account_id,
                     document_id=db_document.id,
                     bytes_stored=file_size,
@@ -246,7 +253,10 @@ def upload_markdown_content(
                     status='success',
                     source_type=source_type
                 )
-            )
+            except Exception as e:
+                # Log the error but don't crash the main operation
+                import logging
+                logging.error(f"Failed to log upload: {str(e)}")
 
             return {"document": db_document, "filename": filename}
         except DocumentDecodeException:
@@ -254,17 +264,20 @@ def upload_markdown_content(
             duration_ms = int((time.time() - start_time) * 1000)
 
             # Log failed upload
-            tracker = UsageTracker(db)
-            import asyncio
-            asyncio.create_task(
-                tracker.log_upload(
+            try:
+                from api.services.usage_tracker import UsageTracker
+                tracker = UsageTracker(db)
+                tracker.log_upload_sync(
                     account_id=account_id,
                     duration_ms=duration_ms,
                     status='failure',
                     error_message="Text cannot be extracted from Document.",
                     source_type=source_type
                 )
-            )
+            except Exception as e_log:
+                # Log the error but don't crash the main operation
+                import logging
+                logging.error(f"Failed to log upload error: {str(e_log)}")
 
             # Clean up file if extraction fails
             if fs.exists(full_path_name):
@@ -275,17 +288,20 @@ def upload_markdown_content(
             duration_ms = int((time.time() - start_time) * 1000)
 
             # Log failed upload
-            tracker = UsageTracker(db)
-            import asyncio
-            asyncio.create_task(
-                tracker.log_upload(
+            try:
+                from api.services.usage_tracker import UsageTracker
+                tracker = UsageTracker(db)
+                tracker.log_upload_sync(
                     account_id=account_id,
                     duration_ms=duration_ms,
                     status='failure',
                     error_message="Document type not supported.",
                     source_type=source_type
                 )
-            )
+            except Exception as e_log:
+                # Log the error but don't crash the main operation
+                import logging
+                logging.error(f"Failed to log upload error: {str(e_log)}")
 
             # Clean up file if extraction fails
             if fs.exists(full_path_name):
@@ -296,17 +312,20 @@ def upload_markdown_content(
             duration_ms = int((time.time() - start_time) * 1000)
 
             # Log failed upload
-            tracker = UsageTracker(db)
-            import asyncio
-            asyncio.create_task(
-                tracker.log_upload(
+            try:
+                from api.services.usage_tracker import UsageTracker
+                tracker = UsageTracker(db)
+                tracker.log_upload_sync(
                     account_id=account_id,
                     duration_ms=duration_ms,
                     status='failure',
                     error_message=f"Failed to process markdown file: {str(e)}",
                     source_type=source_type
                 )
-            )
+            except Exception as e_log:
+                # Log the error but don't crash the main operation
+                import logging
+                logging.error(f"Failed to log upload error: {str(e_log)}")
 
             # Clean up file if extraction fails
             if fs.exists(full_path_name):
@@ -317,10 +336,10 @@ def upload_markdown_content(
         duration_ms = int((time.time() - start_time) * 1000)
 
         # Log failed upload
-        tracker = UsageTracker(db)
-        import asyncio
-        asyncio.create_task(
-            tracker.log_upload(
+        try:
+            from api.services.usage_tracker import UsageTracker
+            tracker = UsageTracker(db)
+            tracker.log_upload_sync(
                 account_id=account_id,
                 bytes_stored=len(content.encode('utf-8')) if content else 0,
                 duration_ms=duration_ms,
@@ -328,7 +347,10 @@ def upload_markdown_content(
                 error_message=str(e),
                 source_type=source_type
             )
-        )
+        except Exception as e_log:
+            # Log the error but don't crash the main operation
+            import logging
+            logging.error(f"Failed to log upload error: {str(e_log)}")
 
         raise
 

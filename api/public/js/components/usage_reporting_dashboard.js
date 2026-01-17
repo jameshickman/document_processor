@@ -261,6 +261,7 @@ export class UsageReportingDashboard extends BaseComponent {
         this.modelUsage = [];
         this.storageUsage = [];
         this.eventLogs = [];
+        this.chart = null; // Store chart instance
     }
 
     getDefaultStartDate() {
@@ -285,7 +286,7 @@ export class UsageReportingDashboard extends BaseComponent {
                 this.loading = false;
                 this.requestUpdate();
             },
-            HTTP_GET
+            HTTP_POST_JSON
         );
 
         this.server.define_endpoint(
@@ -295,7 +296,7 @@ export class UsageReportingDashboard extends BaseComponent {
                 this.loading = false;
                 this.requestUpdate();
             },
-            HTTP_GET
+            HTTP_POST_JSON
         );
 
         this.server.define_endpoint(
@@ -305,7 +306,7 @@ export class UsageReportingDashboard extends BaseComponent {
                 this.loading = false;
                 this.requestUpdate();
             },
-            HTTP_GET
+            HTTP_POST_JSON
         );
 
         this.server.define_endpoint(
@@ -315,7 +316,7 @@ export class UsageReportingDashboard extends BaseComponent {
                 this.loading = false;
                 this.requestUpdate();
             },
-            HTTP_GET
+            HTTP_POST_JSON
         );
 
         this.server.define_endpoint(
@@ -341,32 +342,47 @@ export class UsageReportingDashboard extends BaseComponent {
         this.loading = true;
         this.requestUpdate();
 
-        // Load all report types
-        this.server.call("/reporting/usage/summary", HTTP_GET, null, null, {
+        // Build filter data for each endpoint
+        const summaryData = {
             start_date: this.startDate,
             end_date: this.endDate,
-            account_id: this.accountId || undefined
-        });
+            group_by: 'day'
+        };
+        if (this.accountId) {
+            summaryData.account_id = this.accountId;
+        }
 
-        this.server.call("/reporting/usage/by-model", HTTP_GET, null, null, {
+        const modelData = {
             start_date: this.startDate,
-            end_date: this.endDate,
-            account_id: this.accountId || undefined
-        });
+            end_date: this.endDate
+        };
+        if (this.accountId) {
+            modelData.account_id = this.accountId;
+        }
 
-        this.server.call("/reporting/storage", HTTP_GET, null, null, {
+        const storageData = {
             start_date: this.startDate,
-            end_date: this.endDate,
-            account_id: this.accountId || undefined
-        });
+            end_date: this.endDate
+        };
+        if (this.accountId) {
+            storageData.account_id = this.accountId;
+        }
 
-        this.server.call("/reporting/logs", HTTP_GET, null, null, {
+        const logsData = {
             start_date: this.startDate + 'T00:00:00',
             end_date: this.endDate + 'T23:59:59',
-            account_id: this.accountId || undefined,
             limit: 100,
             offset: 0
-        });
+        };
+        if (this.accountId) {
+            logsData.account_id = this.accountId;
+        }
+
+        // Call endpoints with POST and JSON body
+        this.server.call("/reporting/usage/summary", HTTP_POST_JSON, summaryData);
+        this.server.call("/reporting/usage/by-model", HTTP_POST_JSON, modelData);
+        this.server.call("/reporting/storage", HTTP_POST_JSON, storageData);
+        this.server.call("/reporting/logs", HTTP_POST_JSON, logsData);
     }
 
     handleTimeRangeChange(e) {
@@ -416,8 +432,19 @@ export class UsageReportingDashboard extends BaseComponent {
     }
 
     handleExportCSV() {
+        // Build query parameters for CSV export
+        const params = new URLSearchParams({
+            report_type: this.reportType,
+            start_date: this.startDate,
+            end_date: this.endDate
+        });
+
+        if (this.accountId) {
+            params.append('account_id', this.accountId);
+        }
+
         // Use the API's download method to export CSV
-        const exportUrl = `/reporting/export/csv`;
+        const exportUrl = `/reporting/export/csv?${params.toString()}`;
         this.server.download(
             exportUrl,
             null, // no content, using URL
@@ -483,6 +510,9 @@ export class UsageReportingDashboard extends BaseComponent {
                 <div class="buttons-group">
                     <button class="btn btn-primary" @click="${this.handleRunReport}" ?disabled="${this.loading}">
                         ${this.loading ? 'Loading...' : 'Run Report'}
+                    </button>
+                    <button class="btn" @click="${this.loadReportData}" ?disabled="${this.loading}" title="Refresh current report">
+                        ↻ Refresh
                     </button>
                     <button class="btn btn-success" @click="${this.handleExportCSV}" ?disabled="${this.loading}">
                         Export CSV
@@ -559,15 +589,122 @@ export class UsageReportingDashboard extends BaseComponent {
         `;
     }
 
+    updated(changedProperties) {
+        super.updated(changedProperties);
+
+        // Update chart when usage summary data changes
+        if (changedProperties.has('usageSummary') && this.usageSummary.length > 0) {
+            this.updateChart();
+        }
+    }
+
+    updateChart() {
+        const canvas = this.shadowRoot.querySelector('#usageChart');
+        if (!canvas || !window.Chart) {
+            return;
+        }
+
+        // Prepare data for chart
+        const sortedData = [...this.usageSummary].sort((a, b) => new Date(a.date) - new Date(b.date));
+        const labels = sortedData.map(item => item.date);
+        const totalOps = sortedData.map(item => item.total_operations || 0);
+        const workbenchOps = sortedData.map(item => item.workbench_operations || 0);
+        const apiOps = sortedData.map(item => item.api_operations || 0);
+        const tokens = sortedData.map(item => (item.total_tokens || 0) / 1000); // Convert to thousands
+
+        // Destroy existing chart if it exists
+        if (this.chart) {
+            this.chart.destroy();
+        }
+
+        // Create new chart
+        const ctx = canvas.getContext('2d');
+        this.chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Total Operations',
+                        data: totalOps,
+                        borderColor: 'rgb(75, 192, 192)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                        tension: 0.1,
+                        yAxisID: 'y'
+                    },
+                    {
+                        label: 'Workbench',
+                        data: workbenchOps,
+                        borderColor: 'rgb(54, 162, 235)',
+                        backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                        tension: 0.1,
+                        yAxisID: 'y'
+                    },
+                    {
+                        label: 'API',
+                        data: apiOps,
+                        borderColor: 'rgb(255, 159, 64)',
+                        backgroundColor: 'rgba(255, 159, 64, 0.1)',
+                        tension: 0.1,
+                        yAxisID: 'y'
+                    },
+                    {
+                        label: 'Tokens (K)',
+                        data: tokens,
+                        borderColor: 'rgb(153, 102, 255)',
+                        backgroundColor: 'rgba(153, 102, 255, 0.1)',
+                        tension: 0.1,
+                        yAxisID: 'y1'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    title: {
+                        display: true,
+                        text: 'Daily Usage Trends'
+                    }
+                },
+                scales: {
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        title: {
+                            display: true,
+                            text: 'Operations'
+                        }
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        title: {
+                            display: true,
+                            text: 'Tokens (thousands)'
+                        },
+                        grid: {
+                            drawOnChartArea: false,
+                        }
+                    }
+                }
+            }
+        });
+    }
+
     renderUsageChart() {
-        // Placeholder for chart - in a real implementation, you'd use Chart.js or similar
         return html`
             <div class="chart-container">
-                <h3>Daily Usage Trend</h3>
-                <div class="chart-placeholder">
-                    Chart visualization would appear here<br>
-                    (Requires Chart.js integration)
-                </div>
+                <canvas id="usageChart"></canvas>
             </div>
         `;
     }
@@ -736,3 +873,5 @@ export class UsageReportingDashboard extends BaseComponent {
         `;
     }
 }
+
+customElements.define('usage-reporting-dashboard', UsageReportingDashboard);

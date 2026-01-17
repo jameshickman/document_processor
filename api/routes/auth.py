@@ -59,14 +59,17 @@ def validate_google_config():
         raise HTTPException(status_code=500, detail="JWT_SECRET not configured")
 
 
-def create_jwt_token(email: str, name: str) -> str:
-    """Create JWT token with email and name claims"""
+def create_jwt_token(email: str, name: str, roles: list = None, user_id: int = None) -> str:
+    """Create JWT token with email, name, roles, and user_id claims"""
     now = datetime.now(timezone.utc)
+    # Use provided roles or default to ['user']
+    user_roles = roles if roles is not None else ['user']
     payload = {
         "username": email,
         "email": email,
         "name": name,
-        "roles": ['user'],
+        "user_id": user_id,
+        "roles": user_roles,
         "iat": now,
         "exp": now + timedelta(hours=24)  # Token expires in 24 hours
     }
@@ -135,9 +138,13 @@ async def authenticate_user_with_google(code: str, db: Session) -> dict:
             detail="Account is not active. Please contact administrator."
         )
     
-    # Create JWT token
-    jwt_token = create_jwt_token(email, name)
-    
+    # Create JWT token with user roles, ensuring 'user' role is always present
+    user_roles = account.roles if account.roles else ['user']
+    if 'user' not in user_roles:
+        user_roles.append('user')
+
+    jwt_token = create_jwt_token(email, name, user_roles, account.id)
+
     return {
         'success': True,
         'jwt': jwt_token,
@@ -276,9 +283,14 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
             'error': 'Invalid username or password.'
         }
     
+    # Create JWT token with user roles, ensuring 'user' role is always present
+    user_roles = user.roles if user.roles else ['user']
+    if 'user' not in user_roles:
+        user_roles.append('user')
+
     return {
         'success': True,
-        'jwt': create_jwt_token(str(user.email), str(user.name)),
+        'jwt': create_jwt_token(str(user.email), str(user.name), user_roles, user.id),
         'username': str(user.name),
         'email': str(user.email),
         'account_id': user.id

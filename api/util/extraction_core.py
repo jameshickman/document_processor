@@ -50,9 +50,7 @@ def execute_extractor(
     fact_extractor = FactExtractor(
         config=llm_config,
         db_session=db,
-        use_vector_search=use_vector_search,
-        account_id=account_id,
-        source_type=source_type
+        use_vector_search=use_vector_search
     )
     extraction_query = ExtractionQuery(
         query=extractor_prompt,
@@ -253,16 +251,16 @@ def run_extractor_with_markup(
 
         # Log successful extraction if account_id is provided
         if account_id and db:
-            tracker = UsageTracker(db)
-            import asyncio
-            asyncio.create_task(
-                tracker.log_extraction(
+            try:
+                from api.services.usage_tracker import UsageTracker
+                tracker = UsageTracker(db)
+                tracker.log_extraction_sync(
                     account_id=account_id,
                     document_id=document_id,
                     extractor_id=extractor_id,
                     llm_model_id=llm_model_id,
                     provider=getattr(llm_config, 'provider', None),
-                    model_name=getattr(llm_config, 'model', None),
+                    model_name=getattr(llm_config, 'model_name', None),
                     input_tokens=getattr(extraction_result, 'input_tokens', None),
                     output_tokens=getattr(extraction_result, 'output_tokens', None),
                     duration_ms=duration_ms,
@@ -271,7 +269,10 @@ def run_extractor_with_markup(
                     user_agent=user_agent,
                     ip_address=ip_address
                 )
-            )
+            except Exception as e:
+                # Log the error but don't crash the main operation
+                import logging
+                logging.error(f"Failed to log extraction: {str(e)}")
 
         return result
 
@@ -280,10 +281,10 @@ def run_extractor_with_markup(
 
         # Log failed extraction if account_id is provided
         if account_id and db:
-            tracker = UsageTracker(db)
-            import asyncio
-            asyncio.create_task(
-                tracker.log_extraction(
+            try:
+                from api.services.usage_tracker import UsageTracker
+                tracker = UsageTracker(db)
+                tracker.log_extraction_sync(
                     account_id=account_id,
                     document_id=document_id,
                     extractor_id=extractor_id,
@@ -294,6 +295,9 @@ def run_extractor_with_markup(
                     user_agent=user_agent,
                     ip_address=ip_address
                 )
-            )
+            except Exception as e_log:
+                # Log the error but don't crash the main operation
+                import logging
+                logging.error(f"Failed to log extraction error: {str(e_log)}")
 
         raise

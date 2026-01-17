@@ -65,10 +65,10 @@ def run_classifier(
         duration_ms = int((time.time() - start_time) * 1000)
 
         # Log successful classification
-        tracker = UsageTracker(db)
-        import asyncio
-        asyncio.create_task(
-            tracker.log_classification(
+        try:
+            from api.services.usage_tracker import UsageTracker
+            tracker = UsageTracker(db)
+            tracker.log_classification_sync(
                 account_id=user_id,
                 document_id=document_id,
                 classifier_id=classifier_set_id,
@@ -76,7 +76,10 @@ def run_classifier(
                 status='success',
                 source_type='api'  # This endpoint is API-only
             )
-        )
+        except Exception as e:
+            # Log the error but don't crash the main operation
+            import logging
+            logging.error(f"Failed to log classification: {str(e)}")
 
         return result
 
@@ -85,10 +88,10 @@ def run_classifier(
         duration_ms = int((time.time() - start_time) * 1000)
 
         # Log failed classification
-        tracker = UsageTracker(db)
-        import asyncio
-        asyncio.create_task(
-            tracker.log_classification(
+        try:
+            from api.services.usage_tracker import UsageTracker
+            tracker = UsageTracker(db)
+            tracker.log_classification_sync(
                 account_id=user_id,
                 document_id=document_id,
                 classifier_id=classifier_set_id,
@@ -97,6 +100,9 @@ def run_classifier(
                 error_message=str(e),
                 source_type='api'  # This endpoint is API-only
             )
-        )
+        except Exception as e_log:
+            # Log the error but don't crash the main operation
+            import logging
+            logging.error(f"Failed to log classification error: {str(e_log)}")
 
         raise

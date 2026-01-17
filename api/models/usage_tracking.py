@@ -4,18 +4,21 @@ SQLAlchemy models for usage tracking tables
 
 from sqlalchemy import Column, Integer, BigInteger, String, DateTime, Date, Text, ForeignKey, CheckConstraint, UniqueConstraint, Index
 from sqlalchemy.dialects.postgresql import ARRAY, INET
-from sqlalchemy.orm import declarative_base, relationship
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from datetime import datetime
 from typing import Optional
 
-Base = declarative_base()
+from .database import Base
 
 class UsageLog(Base):
     __tablename__ = 'usage_logs'
 
     id = Column(BigInteger, primary_key=True, index=True)
     account_id = Column(Integer, ForeignKey('accounts.id'), nullable=False)
+
+    # Relationship to Account
+    account = relationship("Account", foreign_keys=[account_id])
     
     # Timestamp
     timestamp = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
@@ -51,25 +54,19 @@ class UsageLog(Base):
     user_agent = Column(Text)
     ip_address = Column(INET)
     
-    # Relationships
-    account = relationship("Account", back_populates="usage_logs")
-    document = relationship("Document", back_populates="usage_logs")
-    extractor = relationship("Extractor", back_populates="usage_logs")
-    classifier = relationship("Classifier", back_populates="usage_logs")
-    llm_model = relationship("LLMModel", back_populates="usage_logs")
     
     # Constraints
     __table_args__ = (
         CheckConstraint(
-            operation_type.in_(['extraction', 'classification', 'embedding', 'upload', 'download']),
+            "operation_type IN ('extraction', 'classification', 'embedding', 'upload', 'download')",
             name='check_operation_type'
         ),
         CheckConstraint(
-            source_type.in_(['workbench', 'api']),
+            "source_type IN ('workbench', 'api')",
             name='check_source_type'
         ),
         CheckConstraint(
-            status.in_(['success', 'failure', 'partial']),
+            "status IN ('success', 'failure', 'partial')",
             name='check_status'
         ),
         Index('idx_usage_logs_account_timestamp', 'account_id', 'timestamp'),
@@ -85,7 +82,10 @@ class UsageSummary(Base):
 
     id = Column(BigInteger, primary_key=True, index=True)
     account_id = Column(Integer, ForeignKey('accounts.id'), nullable=False)
-    
+
+    # Relationship to Account
+    account = relationship("Account", foreign_keys=[account_id])
+
     # Time bucket
     date = Column(Date, nullable=False)
     
@@ -121,8 +121,6 @@ class UsageSummary(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     
-    # Relationships
-    account = relationship("Account", back_populates="usage_summaries")
     
     # Uniqueness constraint
     __table_args__ = (
@@ -137,7 +135,10 @@ class UsageSummaryByModel(Base):
 
     id = Column(BigInteger, primary_key=True, index=True)
     account_id = Column(Integer, ForeignKey('accounts.id'), nullable=False)
-    
+
+    # Relationship to Account
+    account = relationship("Account", foreign_keys=[account_id])
+
     # Time bucket
     date = Column(Date, nullable=False)
     
@@ -165,9 +166,6 @@ class UsageSummaryByModel(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     
-    # Relationships
-    account = relationship("Account", back_populates="usage_summaries_by_model")
-    llm_model = relationship("LLMModel", back_populates="usage_summaries_by_model")
     
     # Uniqueness constraint
     __table_args__ = (
@@ -182,7 +180,10 @@ class StorageUsage(Base):
 
     id = Column(BigInteger, primary_key=True, index=True)
     account_id = Column(Integer, ForeignKey('accounts.id'), nullable=False)
-    
+
+    # Relationship to Account
+    account = relationship("Account", foreign_keys=[account_id])
+
     # Time
     date = Column(Date, nullable=False)
     
@@ -202,8 +203,6 @@ class StorageUsage(Base):
     # Metadata
     calculated_at = Column(DateTime(timezone=True), server_default=func.now())
     
-    # Relationships
-    account = relationship("Account", back_populates="storage_usage")
     
     # Uniqueness constraint
     __table_args__ = (

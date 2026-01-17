@@ -16,6 +16,9 @@ import os
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    # Import all models to register them with SQLAlchemy before initializing database
+    from api.models import accounts, classifier_set, classifiers, classifier_terms, documents, embedding, extractors, extractor_fields, llm_models, usage_tracking
+
     # Startup: Initialize database
     init_database(
         db_user=os.environ.get("POSTGRES_USER", "user"),

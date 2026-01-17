@@ -7,12 +7,149 @@ from datetime import datetime, date
 from typing import Optional, Dict, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_, case
-from ..models import UsageLog, UsageSummary, UsageSummaryByModel, StorageUsage
+from api.models.usage_tracking import UsageLog, UsageSummary, UsageSummaryByModel, StorageUsage
 
 
 class UsageTracker:
     def __init__(self, db_session: Session):
         self.db = db_session
+
+    def log_extraction_sync(
+        self,
+        account_id: int,
+        document_id: Optional[int] = None,
+        extractor_id: Optional[int] = None,
+        llm_model_id: Optional[int] = None,
+        provider: Optional[str] = None,
+        model_name: Optional[str] = None,
+        input_tokens: Optional[int] = None,
+        output_tokens: Optional[int] = None,
+        duration_ms: Optional[int] = None,
+        status: str = 'success',
+        error_message: Optional[str] = None,
+        source_type: str = 'workbench',
+        user_agent: Optional[str] = None,
+        ip_address: Optional[str] = None
+    ):
+        """Log an extraction operation (synchronous version)."""
+        # Calculate total_tokens only if at least one is not None
+        total_tokens = None
+        if input_tokens is not None or output_tokens is not None:
+            total_tokens = (input_tokens or 0) + (output_tokens or 0)
+
+        usage_log = UsageLog(
+            account_id=account_id,
+            operation_type='extraction',
+            source_type=source_type,
+            document_id=document_id,
+            extractor_id=extractor_id,
+            llm_model_id=llm_model_id,
+            provider=provider,
+            model_name=model_name,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            total_tokens=total_tokens,
+            duration_ms=duration_ms,
+            status=status,
+            error_message=error_message,
+            user_agent=user_agent,
+            ip_address=ip_address
+        )
+
+        self.db.add(usage_log)
+        self.db.commit()
+
+    def log_classification_sync(
+        self,
+        account_id: int,
+        document_id: Optional[int] = None,
+        classifier_id: Optional[int] = None,
+        duration_ms: Optional[int] = None,
+        status: str = 'success',
+        error_message: Optional[str] = None,
+        source_type: str = 'workbench',
+        user_agent: Optional[str] = None,
+        ip_address: Optional[str] = None
+    ):
+        """Log a classification operation (synchronous version)."""
+        usage_log = UsageLog(
+            account_id=account_id,
+            operation_type='classification',
+            source_type=source_type,
+            document_id=document_id,
+            classifier_id=classifier_id,
+            duration_ms=duration_ms,
+            status=status,
+            error_message=error_message,
+            user_agent=user_agent,
+            ip_address=ip_address
+        )
+
+        self.db.add(usage_log)
+        self.db.commit()
+
+    def log_embedding_sync(
+        self,
+        account_id: int,
+        document_id: Optional[int] = None,
+        provider: Optional[str] = None,
+        model_name: Optional[str] = None,
+        input_tokens: Optional[int] = None,
+        duration_ms: Optional[int] = None,
+        status: str = 'success',
+        error_message: Optional[str] = None,
+        source_type: str = 'workbench',
+        user_agent: Optional[str] = None,
+        ip_address: Optional[str] = None
+    ):
+        """Log an embedding operation (synchronous version)."""
+        usage_log = UsageLog(
+            account_id=account_id,
+            operation_type='embedding',
+            source_type=source_type,
+            document_id=document_id,
+            provider=provider,
+            model_name=model_name,
+            input_tokens=input_tokens,
+            total_tokens=input_tokens,
+            duration_ms=duration_ms,
+            status=status,
+            error_message=error_message,
+            user_agent=user_agent,
+            ip_address=ip_address
+        )
+
+        self.db.add(usage_log)
+        self.db.commit()
+
+    def log_upload_sync(
+        self,
+        account_id: int,
+        document_id: Optional[int] = None,
+        bytes_stored: Optional[int] = None,
+        duration_ms: Optional[int] = None,
+        status: str = 'success',
+        error_message: Optional[str] = None,
+        source_type: str = 'workbench',
+        user_agent: Optional[str] = None,
+        ip_address: Optional[str] = None
+    ):
+        """Log a document upload operation (synchronous version)."""
+        usage_log = UsageLog(
+            account_id=account_id,
+            operation_type='upload',
+            source_type=source_type,
+            document_id=document_id,
+            bytes_stored=bytes_stored,
+            duration_ms=duration_ms,
+            status=status,
+            error_message=error_message,
+            user_agent=user_agent,
+            ip_address=ip_address
+        )
+
+        self.db.add(usage_log)
+        self.db.commit()
 
     async def log_extraction(
         self,
@@ -32,10 +169,9 @@ class UsageTracker:
         ip_address: Optional[str] = None
     ):
         """Log an extraction operation."""
-        usage_log = UsageLog(
+        # Just call the sync version for now
+        self.log_extraction_sync(
             account_id=account_id,
-            operation_type='extraction',
-            source_type=source_type,
             document_id=document_id,
             extractor_id=extractor_id,
             llm_model_id=llm_model_id,
@@ -43,16 +179,13 @@ class UsageTracker:
             model_name=model_name,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
-            total_tokens=(input_tokens or 0) + (output_tokens or 0),
             duration_ms=duration_ms,
             status=status,
             error_message=error_message,
+            source_type=source_type,
             user_agent=user_agent,
             ip_address=ip_address
         )
-        
-        self.db.add(usage_log)
-        self.db.commit()
 
     async def log_classification(
         self,
@@ -67,21 +200,18 @@ class UsageTracker:
         ip_address: Optional[str] = None
     ):
         """Log a classification operation."""
-        usage_log = UsageLog(
+        # Just call the sync version for now
+        self.log_classification_sync(
             account_id=account_id,
-            operation_type='classification',
-            source_type=source_type,
             document_id=document_id,
             classifier_id=classifier_id,
             duration_ms=duration_ms,
             status=status,
             error_message=error_message,
+            source_type=source_type,
             user_agent=user_agent,
             ip_address=ip_address
         )
-        
-        self.db.add(usage_log)
-        self.db.commit()
 
     async def log_embedding(
         self,
@@ -98,24 +228,20 @@ class UsageTracker:
         ip_address: Optional[str] = None
     ):
         """Log an embedding operation."""
-        usage_log = UsageLog(
+        # Just call the sync version for now
+        self.log_embedding_sync(
             account_id=account_id,
-            operation_type='embedding',
-            source_type=source_type,
             document_id=document_id,
             provider=provider,
             model_name=model_name,
             input_tokens=input_tokens,
-            total_tokens=input_tokens,
             duration_ms=duration_ms,
             status=status,
             error_message=error_message,
+            source_type=source_type,
             user_agent=user_agent,
             ip_address=ip_address
         )
-        
-        self.db.add(usage_log)
-        self.db.commit()
 
     async def log_upload(
         self,
@@ -130,19 +256,43 @@ class UsageTracker:
         ip_address: Optional[str] = None
     ):
         """Log a document upload operation."""
-        usage_log = UsageLog(
+        # Just call the sync version for now
+        self.log_upload_sync(
             account_id=account_id,
-            operation_type='upload',
-            source_type=source_type,
             document_id=document_id,
             bytes_stored=bytes_stored,
+            duration_ms=duration_ms,
+            status=status,
+            error_message=error_message,
+            source_type=source_type,
+            user_agent=user_agent,
+            ip_address=ip_address
+        )
+
+    def log_download_sync(
+        self,
+        account_id: int,
+        document_id: Optional[int] = None,
+        duration_ms: Optional[int] = None,
+        status: str = 'success',
+        error_message: Optional[str] = None,
+        source_type: str = 'workbench',
+        user_agent: Optional[str] = None,
+        ip_address: Optional[str] = None
+    ):
+        """Log a document download operation (synchronous version)."""
+        usage_log = UsageLog(
+            account_id=account_id,
+            operation_type='download',
+            source_type=source_type,
+            document_id=document_id,
             duration_ms=duration_ms,
             status=status,
             error_message=error_message,
             user_agent=user_agent,
             ip_address=ip_address
         )
-        
+
         self.db.add(usage_log)
         self.db.commit()
 
@@ -158,20 +308,17 @@ class UsageTracker:
         ip_address: Optional[str] = None
     ):
         """Log a document download operation."""
-        usage_log = UsageLog(
+        # Just call the sync version for now
+        self.log_download_sync(
             account_id=account_id,
-            operation_type='download',
-            source_type=source_type,
             document_id=document_id,
             duration_ms=duration_ms,
             status=status,
             error_message=error_message,
+            source_type=source_type,
             user_agent=user_agent,
             ip_address=ip_address
         )
-        
-        self.db.add(usage_log)
-        self.db.commit()
 
     async def aggregate_daily_usage(self, target_date: date):
         """

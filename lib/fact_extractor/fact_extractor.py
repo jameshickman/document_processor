@@ -243,12 +243,18 @@ class FactExtractor:
         # No response at all
         raise Exception(f"DeepInfra failed to generate any response after {max_retries} attempts")
     
-    def _parse_llm_response(self, response_text: str, fields: dict[str, str]) -> Optional[ExtractionResult]:
+    def _parse_llm_response(self, response_text: str, fields: dict[str, str], input_tokens: Optional[int] = None, output_tokens: Optional[int] = None) -> Optional[ExtractionResult]:
         """
         Parse the LLM response and extract JSON data.
 
         Handles thinking model responses by removing <thinking></thinking> tags.
         When multiple JSON payloads are present, extracts the last valid one.
+
+        Args:
+            response_text: The text response from the LLM
+            fields: Dictionary of field names to descriptions
+            input_tokens: Number of input tokens used (optional)
+            output_tokens: Number of output tokens generated (optional)
         """
         try:
             # Step 1: Remove <thinking></thinking> tags if present
@@ -326,7 +332,9 @@ class FactExtractor:
                 confidence=confidence,
                 found=found,
                 explanation=explanation,
-                extracted_data=extracted_data
+                extracted_data=extracted_data,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens
             )
 
         except json.JSONDecodeError as e:
@@ -451,22 +459,43 @@ class FactExtractor:
             # Log the prompt if PROMPT_LOG is configured
             self._log_to_prompt_file("prompt", prompt, chunk_label)
 
+            # Initialize token tracking
+            input_tokens = None
+            output_tokens = None
+
             # Send to LLM - handle different provider response formats
             if self.config.provider == "deepinfra" and DEEPINFRA_AVAILABLE:
                 logger.info(f"Sending prompt to DeepInfra ({chunk_label})")
                 response_text = self._invoke_deepinfra_with_retry(prompt, chunk_label)
                 logger.info(f"DeepInfra response received ({len(response_text)} characters)")
+                # DeepInfra doesn't provide token usage in the response
             else:
                 # Use ChatOpenAI interface for OpenAI, Ollama, and DeepInfra fallback
                 message = HumanMessage(content=prompt)
                 response = self.llm.invoke([message])
                 response_text = response.content
 
+                # Extract token usage from response metadata
+                try:
+                    # Try newer LangChain format first (usage_metadata)
+                    if hasattr(response, 'usage_metadata') and response.usage_metadata:
+                        input_tokens = getattr(response.usage_metadata, 'input_tokens', None)
+                        output_tokens = getattr(response.usage_metadata, 'output_tokens', None)
+                        logger.debug(f"Token usage from usage_metadata: input={input_tokens}, output={output_tokens}")
+                    # Try older format (response_metadata)
+                    elif hasattr(response, 'response_metadata') and response.response_metadata:
+                        token_usage = response.response_metadata.get('token_usage', {})
+                        input_tokens = token_usage.get('prompt_tokens')
+                        output_tokens = token_usage.get('completion_tokens')
+                        logger.debug(f"Token usage from response_metadata: input={input_tokens}, output={output_tokens}")
+                except Exception as e:
+                    logger.warning(f"Failed to extract token usage from response: {e}")
+
             # Log the response if PROMPT_LOG is configured
             self._log_to_prompt_file("response", response_text, chunk_label)
 
             # Parse response
-            result = self._parse_llm_response(response_text, extraction_query.fields)
+            result = self._parse_llm_response(response_text, extraction_query.fields, input_tokens, output_tokens)
 
             if result is None:
                 logger.warning(f"Failed to parse response for {chunk_label}")
