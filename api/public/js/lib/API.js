@@ -76,6 +76,14 @@ class API_REST {
     }
 
     /**
+     * Get Bearer token
+     */
+    get_bearer_token() {
+        if (!this.#auth_active) throw new Error("Bearer token not set");
+        return this.#bearer_token;
+    }
+
+    /**
      * Set the reauthorize function
      * 
      * @param {CallableFunction} f

@@ -21,7 +21,8 @@ export class UsageDashboard extends BaseComponent {
         modelUsage: {type: Array, state: true},
         storageUsage: {type: Array, state: true},
         hasReportingRole: {type: Boolean, state: true},
-        userRoles: {type: Array, state: true}
+        userRoles: {type: Array, state: true},
+        chartData: {type: Object, state: true}
     };
 
     static styles = css`
@@ -226,6 +227,24 @@ export class UsageDashboard extends BaseComponent {
         .tab-content.active {
             display: block;
         }
+
+        .chart-container {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 20px;
+            height: 300px;
+        }
+
+        .chart-placeholder {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #6c757d;
+            font-style: italic;
+        }
     `;
 
     constructor() {
@@ -242,6 +261,8 @@ export class UsageDashboard extends BaseComponent {
         this.storageUsage = [];
         this.hasReportingRole = false;
         this.userRoles = [];
+        this.chartData = null;
+        this.chart = null; // Store chart instance
     }
 
     getDefaultStartDate() {
@@ -450,46 +471,86 @@ export class UsageDashboard extends BaseComponent {
     }
 
     handleExportCSV() {
-        const requestData = {
-            start_date: this.startDate,
-            end_date: this.endDate,
-            report_type: this.reportType
-        };
+        // Get the token from the server object to ensure we have a valid JWT
+        const token = this.server.get_bearer_token();
+        if (!token) {
+            console.error('No JWT token available');
+            alert('Authentication error. Please log in again.');
+            return;
+        }
 
-        // Download CSV using server.download method or construct download URL
-        const endpoint = this.hasReportingRole ? '/reporting/export/csv' : '/usage/my-export/csv';
+        // Ensure reportType is set to 'summary' as default for the usage dashboard
+        const reportType = this.reportType || 'summary';
 
-        // Since we need to POST the data and get a file download, we need to handle this specially
-        // The API.js doesn't have a built-in way to handle POST with file download response
-        // So we'll use fetch directly with the bearer token
+        if (this.hasReportingRole) {
+            // For reporting role, use GET request with query parameters
+            const params = new URLSearchParams({
+                report_type: reportType,
+                start_date: this.startDate,
+                end_date: this.endDate
+            });
 
-        const token = this.server._bearer_token || localStorage.getItem('jwt_token');
-        fetch(endpoint, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify(requestData)
-        })
-        .then(response => {
-            if (!response.ok) throw new Error('Export failed');
-            return response.blob();
-        })
-        .then(blob => {
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `usage_export_${this.startDate}_${this.endDate}.csv`;
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
-        })
-        .catch(error => {
-            console.error('CSV export failed:', error);
-            alert('Failed to export CSV. Please try again.');
-        });
+            if (this.accountId) {
+                params.append('account_id', this.accountId);
+            }
+
+            const exportUrl = `/reporting/export/csv?${params.toString()}`;
+
+            // Use the server's download method which handles authentication properly
+            this.server.download(
+                exportUrl,
+                null, // no content body for GET request
+                `usage_export_${this.startDate}_${this.endDate}.csv`,
+                'text/csv',
+                (filename) => {
+                    console.log(`Usage report exported as: ${filename}`);
+                },
+                (error) => {
+                    console.error('Export failed:', error);
+                    alert('Failed to export CSV. Please try again.');
+                }
+            );
+        } else {
+            // For regular users, use POST request with JSON body
+            // Using fetch directly but getting the token from the server object
+            const requestData = {
+                start_date: this.startDate,
+                end_date: this.endDate,
+                report_type: reportType
+            };
+
+            fetch('/usage/my-export/csv', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(requestData)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        throw new Error('Unauthorized: Please log in again');
+                    }
+                    throw new Error(`Export failed with status ${response.status}`);
+                }
+                return response.blob();
+            })
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `my_usage_export_${this.startDate}_${this.endDate}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            })
+            .catch(error => {
+                console.error('CSV export failed:', error);
+                alert(`Failed to export CSV: ${error.message}`);
+            });
+        }
     }
 
     renderUsageSummary() {
@@ -592,6 +653,132 @@ export class UsageDashboard extends BaseComponent {
         `;
     }
 
+    updated(changedProperties) {
+        super.updated(changedProperties);
+
+        // Update chart when usage summary data changes
+        if (changedProperties.has('usageSummary') && this.usageSummary.length > 0) {
+            this.updateChart();
+        }
+    }
+
+    updateChart() {
+        const canvas = this.shadowRoot.querySelector('#usageChart');
+        if (!canvas) {
+            console.error('Canvas element not found for chart');
+            return;
+        }
+
+        if (!window.Chart) {
+            console.error('Chart.js library not loaded');
+            return;
+        }
+
+        // Prepare data for chart
+        const sortedData = [...this.usageSummary].sort((a, b) => new Date(a.date) - new Date(b.date));
+        const labels = sortedData.map(item => item.date);
+        const totalOps = sortedData.map(item => item.total_operations || 0);
+        const workbenchOps = sortedData.map(item => item.workbench_operations || 0);
+        const apiOps = sortedData.map(item => item.api_operations || 0);
+        const tokens = sortedData.map(item => (item.total_tokens || 0) / 1000); // Convert to thousands
+
+        // Destroy existing chart if it exists
+        if (this.chart) {
+            this.chart.destroy();
+        }
+
+        // Create new chart
+        const ctx = canvas.getContext('2d');
+        this.chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Total Operations',
+                        data: totalOps,
+                        borderColor: 'rgb(75, 192, 192)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                        tension: 0.1,
+                        yAxisID: 'y'
+                    },
+                    {
+                        label: 'Workbench',
+                        data: workbenchOps,
+                        borderColor: 'rgb(54, 162, 235)',
+                        backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                        tension: 0.1,
+                        yAxisID: 'y'
+                    },
+                    {
+                        label: 'API',
+                        data: apiOps,
+                        borderColor: 'rgb(255, 159, 64)',
+                        backgroundColor: 'rgba(255, 159, 64, 0.1)',
+                        tension: 0.1,
+                        yAxisID: 'y'
+                    },
+                    {
+                        label: 'Tokens (K)',
+                        data: tokens,
+                        borderColor: 'rgb(153, 102, 255)',
+                        backgroundColor: 'rgba(153, 102, 255, 0.1)',
+                        tension: 0.1,
+                        yAxisID: 'y1'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    title: {
+                        display: true,
+                        text: 'Daily Usage Trends'
+                    }
+                },
+                scales: {
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        title: {
+                            display: true,
+                            text: 'Operations'
+                        }
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        title: {
+                            display: true,
+                            text: 'Tokens (thousands)'
+                        },
+                        grid: {
+                            drawOnChartArea: false,
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    renderUsageChart() {
+        return html`
+            <div class="chart-container">
+                <canvas id="usageChart"></canvas>
+            </div>
+        `;
+    }
+
     render() {
         return html`
             <div class="container">
@@ -656,10 +843,10 @@ export class UsageDashboard extends BaseComponent {
                 ${this.loading ? html`
                     <div class="loading">Loading usage data...</div>
                 ` : html`
+                    ${this.renderUsageChart()}
                     <div class="reports-container">
                         ${this.renderUsageSummary()}
                         ${this.renderModelUsage()}
-                        ${this.renderStorageUsage()}
                     </div>
                 `}
             </div>
