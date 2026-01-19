@@ -464,6 +464,8 @@ export class UsageDashboard extends BaseComponent {
 
     handleAccountChange(e) {
         this.accountId = e.target.value ? parseInt(e.target.value) : null;
+        // Reload data when account selection changes
+        this.loadReportData();
     }
 
     handleRefresh() {
