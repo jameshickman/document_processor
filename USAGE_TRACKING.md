@@ -6,19 +6,22 @@ what LLM is used. This is necessary to correctly bill users
 based on the cost of the specific model used for each fact
 extraction task.
 
+The feature is available to all users to view their own usage history.
+Users with the `reporting` role can also view the usage history of all users.
+
 ## Usage tracking
 
 - Totals for each day
 - Usage by model tracked
 - Tracked for each user
-- Daily total for amount of physical/object-store storage the user's documents are using
+- Daily total for the amount of physical/object-store storage the user's documents are using
 
 ## Reporting administrative users
 
-Create a user role for reporting. There needs to be a reporting interface
-in the dashboard that is only accessible to the reporting role. The REST
-API needs to have an extension that the reporting role can access can use
-to retrieve the usage data.
+Create a user role for reporting. The REST API needs to have an extension that the reporting
+role can access can use to retrieve the usage data. All users can see their own usage. The
+reporting role can see the aggregate usage across all users, and sees the user sector to
+see the breakdown by user.
 
 ### reporting workbench features
 
