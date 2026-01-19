@@ -37,7 +37,12 @@ CREATE TABLE usage_logs (
 
     -- Request metadata
     user_agent TEXT,
-    ip_address INET
+    ip_address INET,
+
+    -- Constraints
+    CONSTRAINT check_operation_type CHECK (operation_type IN ('extraction', 'classification', 'embedding', 'upload', 'download')),
+    CONSTRAINT check_source_type CHECK (source_type IN ('workbench', 'api')),
+    CONSTRAINT check_status CHECK (status IN ('success', 'failure', 'partial'))
 );
 
 -- Create indexes for efficient querying

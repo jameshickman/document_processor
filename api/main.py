@@ -6,7 +6,7 @@ from starlette.middleware.cors import CORSMiddleware
 
 from api.models.database import init_database
 from api.routes import documents, classifiers, extractors, auth, service, api_config, account, llm_models
-from api.routes import reporting
+from api.routes import reporting, usage
 from api.util.files_abstraction import init_filesystem_from_env
 from contextlib import asynccontextmanager
 import os
@@ -55,6 +55,7 @@ app.include_router(extractors.router, prefix="/extractors", tags=["extractors"])
 app.include_router(llm_models.router, prefix="/llm_models", tags=["llm_models"])
 app.include_router(service.router, prefix="/service", tags=["service"])
 app.include_router(api_config.router, prefix="/api_config", tags=["api_config"])
+app.include_router(usage.router, prefix="/usage", tags=["usage"])
 app.include_router(reporting.router, prefix="/reporting", tags=["reporting"])
 
 @app.get("/", response_class=HTMLResponse)

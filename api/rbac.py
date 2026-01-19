@@ -303,13 +303,13 @@ async def get_current_user_payload(
 ) -> Dict[str, Any]:
     """
     FastAPI dependency to extract and validate JWT from request.
-    
+
     Args:
         credentials: HTTP Authorization credentials from FastAPI security
-        
+
     Returns:
         Decoded JWT payload
-        
+
     Raises:
         HTTPException: For authentication errors
     """
@@ -321,16 +321,16 @@ async def get_current_user_payload(
             status_code=HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Authentication service not properly configured"
         )
-    
+
     try:
         payload = JWTHandler.decode_token(credentials.credentials, jwt_secret)
-        
+
         # Log successful authentication (without sensitive data)
         user_id = extract_user(payload)
         logger.info(f"Successfully authenticated user: {user_id}")
-        
+
         return payload
-        
+
     except JWTError as e:
         logger.warning(f"JWT authentication failed: {str(e)}")
         raise HTTPException(
@@ -338,6 +338,57 @@ async def get_current_user_payload(
             detail=f"Authentication failed: {str(e)}",
             headers={"WWW-Authenticate": "Bearer"}
         )
+
+
+async def get_current_user(
+    payload: Dict[str, Any] = Depends(get_current_user_payload)
+) -> Dict[str, Any]:
+    """
+    FastAPI dependency for self-service endpoints.
+    Verifies user is authenticated and returns user info.
+    All authenticated users can access their own data through endpoints using this dependency.
+
+    Args:
+        payload: Decoded JWT payload from get_current_user_payload
+
+    Returns:
+        User information dictionary including user_id, email, roles, etc.
+
+    Raises:
+        HTTPException: For authentication errors
+    """
+    return payload
+
+
+async def require_reporting_role(
+    payload: Dict[str, Any] = Depends(get_current_user_payload)
+) -> Dict[str, Any]:
+    """
+    FastAPI dependency for administrative reporting endpoints.
+    Verifies user has reporting or admin role for cross-account access.
+
+    Args:
+        payload: Decoded JWT payload from get_current_user_payload
+
+    Returns:
+        User information dictionary
+
+    Raises:
+        HTTPException: If user doesn't have required role
+    """
+    user_roles = RoleValidator.extract_roles_from_payload(payload)
+    user_id = extract_user(payload)
+
+    # Admin automatically has reporting access
+    if "admin" in user_roles or "reporting" in user_roles:
+        logger.info(f"Reporting access granted for user {user_id} with roles: {user_roles}")
+        return payload
+
+    logger.warning(f"Reporting access denied for user {user_id}. User roles: {user_roles}")
+    raise HTTPException(
+        status_code=HTTP_403_FORBIDDEN,
+        detail="Reporting access required. This endpoint requires 'reporting' or 'admin' role."
+    )
 
 
 # Legacy function for backward compatibility - now uses config loader

@@ -23,7 +23,7 @@ role can access can use to retrieve the usage data. All users can see their own 
 reporting role can see the aggregate usage across all users, and sees the user sector to
 see the breakdown by user.
 
-### reporting workbench features
+### Reporting workbench features
 
 - Graph of usages
 - Select specific uses

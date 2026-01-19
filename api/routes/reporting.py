@@ -4,7 +4,7 @@ from sqlalchemy import and_, func, case
 from typing import List, Optional
 from datetime import datetime, date
 from api.models.database import get_db
-from api.rbac import require_roles_dependency
+from api.rbac import require_reporting_role
 from api.models import UsageSummary, UsageSummaryByModel, StorageUsage, Account, UsageLog
 from pydantic import BaseModel, Field
 from api.util.csv_export import (
@@ -284,7 +284,7 @@ class AccountsResponse(BaseModel):
 def get_usage_summary(
     request: UsageReportRequest,
     db: Session = Depends(get_db),
-    _: None = Depends(require_roles_dependency(["reporting", "admin"]))
+    _: dict = Depends(require_reporting_role)
 ):
     """
     Get usage summary aggregated by date range.
@@ -345,7 +345,7 @@ def get_usage_summary(
 def get_model_usage(
     request: ModelUsageRequest,
     db: Session = Depends(get_db),
-    _: None = Depends(require_roles_dependency(["reporting", "admin"]))
+    _: dict = Depends(require_reporting_role)
 ):
     """
     Get usage breakdown by model.
@@ -407,7 +407,7 @@ def get_model_usage(
 def get_storage_usage(
     request: StorageUsageRequest,
     db: Session = Depends(get_db),
-    _: None = Depends(require_roles_dependency(["reporting", "admin"]))
+    _: dict = Depends(require_reporting_role)
 ):
     """
     Get storage usage by date range.
@@ -459,7 +459,7 @@ def get_storage_usage(
 def get_event_logs(
     request: EventLogsRequest,
     db: Session = Depends(get_db),
-    _: None = Depends(require_roles_dependency(["reporting", "admin"]))
+    _: dict = Depends(require_reporting_role)
 ):
     """
     Get raw usage event logs.
@@ -552,7 +552,7 @@ def get_event_logs(
 def get_accounts(
     active_only: bool = Query(True, description="Return only active accounts"),
     db: Session = Depends(get_db),
-    _: None = Depends(require_roles_dependency(["reporting", "admin"]))
+    _: dict = Depends(require_reporting_role)
 ):
     """
     Get list of accounts for reporting purposes.
@@ -590,7 +590,7 @@ def export_csv(
     source_type: Optional[str] = Query(None, description="Filter by source type (for logs)"),
     status: Optional[str] = Query(None, description="Filter by status (for logs)"),
     db: Session = Depends(get_db),
-    _: None = Depends(require_roles_dependency(["reporting", "admin"]))
+    _: dict = Depends(require_reporting_role)
 ):
     """
     Export usage data to CSV format.
