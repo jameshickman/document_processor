@@ -19,6 +19,8 @@ except ImportError:
 from lib.fact_extractor.document_chunker import DocumentChunker, CHUNK_SIZE
 from lib.fact_extractor.models import LLMConfig, ExtractionResult, ExtractionQuery
 from lib.fact_extractor.prompt_builder import PromptBuilder
+from lib.fact_extractor.token_counter import TokenCounter
+from lib.fact_extractor.metrics_recorder import MetricsRecorder, NoOpMetricsRecorder
 
 # Import vector utilities for semantic search
 try:
@@ -42,7 +44,8 @@ class FactExtractor:
         db_session: Optional[Session] = None,
         use_vector_search: bool = True,
         account_id: Optional[int] = None,
-        source_type: str = 'workbench'
+        source_type: str = 'workbench',
+        metrics_recorder: Optional[MetricsRecorder] = None
     ):
         """
         Initialize FactExtractor.
@@ -51,18 +54,23 @@ class FactExtractor:
             config: LLM configuration
             db_session: Optional database session for vector search
             use_vector_search: Whether to use vector search when available (default True)
-            account_id: Account ID for usage tracking (optional)
-            source_type: Source type for usage tracking ('workbench' or 'api')
+            account_id: Account ID for usage tracking (optional, deprecated - use metrics_recorder)
+            source_type: Source type for usage tracking ('workbench' or 'api', deprecated - use metrics_recorder)
+            metrics_recorder: Optional MetricsRecorder for recording LLM usage metrics
         """
         self.config = config
         self.db_session = db_session
         self.use_vector_search = use_vector_search
         self.account_id = account_id
         self.source_type = source_type
+        self.metrics_recorder = metrics_recorder or NoOpMetricsRecorder()
         self.chunker = DocumentChunker()
         self.prompt_builder = PromptBuilder()
         self.llm = self._initialize_llm()
         self.prompt_log_file = os.environ.get('PROMPT_LOG')
+
+        # Initialize token counter for fallback estimation
+        self.token_counter = TokenCounter(model_name=config.model_name)
 
         # Initialize vector embedder if available and requested
         self.embedder = None
@@ -381,7 +389,8 @@ class FactExtractor:
         self,
         document_text: str,
         extraction_query: ExtractionQuery,
-        document_id: Optional[int] = None
+        document_id: Optional[int] = None,
+        extractor_id: Optional[int] = None
     ) -> Optional[ExtractionResult]:
         """
         Main method to extract facts from a document.
@@ -392,7 +401,8 @@ class FactExtractor:
         Args:
             document_text: The text content to analyze
             extraction_query: The query containing question and fields to extract
-            document_id: Optional document ID for vector search
+            document_id: Optional document ID for vector search and metrics
+            extractor_id: Optional extractor ID for metrics
 
         Returns:
             ExtractionResult if successful, None if extraction fails
@@ -418,7 +428,9 @@ class FactExtractor:
                     result = self._process_text_chunk(
                         text=relevant_context,
                         extraction_query=extraction_query,
-                        chunk_label="vector_search"
+                        chunk_label="vector_search",
+                        document_id=document_id,
+                        extractor_id=extractor_id
                     )
                     if result:
                         return result
@@ -429,13 +441,15 @@ class FactExtractor:
 
         # Fallback to traditional chunking approach
         logger.info("Using traditional chunking approach")
-        return self._extract_with_chunking(document_text, extraction_query)
+        return self._extract_with_chunking(document_text, extraction_query, document_id, extractor_id)
 
     def _process_text_chunk(
         self,
         text: str,
         extraction_query: ExtractionQuery,
-        chunk_label: str = "chunk"
+        chunk_label: str = "chunk",
+        document_id: Optional[int] = None,
+        extractor_id: Optional[int] = None
     ) -> Optional[ExtractionResult]:
         """
         Process a single text chunk with the LLM.
@@ -444,6 +458,8 @@ class FactExtractor:
             text: Text to process
             extraction_query: Extraction query
             chunk_label: Label for logging (e.g., "chunk_1", "vector_search")
+            document_id: Optional document ID for metrics recording
+            extractor_id: Optional extractor ID for metrics recording
 
         Returns:
             ExtractionResult if successful and found, None otherwise
@@ -455,20 +471,22 @@ class FactExtractor:
             extraction_query.fields
         )
 
+        start_time = time.time()
+        input_tokens = None
+        output_tokens = None
+        status = 'success'
+        error_message = None
+
         try:
             # Log the prompt if PROMPT_LOG is configured
             self._log_to_prompt_file("prompt", prompt, chunk_label)
-
-            # Initialize token tracking
-            input_tokens = None
-            output_tokens = None
 
             # Send to LLM - handle different provider response formats
             if self.config.provider == "deepinfra" and DEEPINFRA_AVAILABLE:
                 logger.info(f"Sending prompt to DeepInfra ({chunk_label})")
                 response_text = self._invoke_deepinfra_with_retry(prompt, chunk_label)
                 logger.info(f"DeepInfra response received ({len(response_text)} characters)")
-                # DeepInfra doesn't provide token usage in the response
+                # DeepInfra doesn't provide token usage in the response - will use fallback
             else:
                 # Use ChatOpenAI interface for OpenAI, Ollama, and DeepInfra fallback
                 message = HumanMessage(content=prompt)
@@ -491,6 +509,15 @@ class FactExtractor:
                 except Exception as e:
                     logger.warning(f"Failed to extract token usage from response: {e}")
 
+            # Fallback token counting if provider didn't return token usage
+            if input_tokens is None:
+                input_tokens = self.token_counter.count_tokens(prompt)
+                logger.debug(f"Using fallback token count for input: {input_tokens}")
+
+            if output_tokens is None:
+                output_tokens = self.token_counter.count_tokens(response_text)
+                logger.debug(f"Using fallback token count for output: {output_tokens}")
+
             # Log the response if PROMPT_LOG is configured
             self._log_to_prompt_file("response", response_text, chunk_label)
 
@@ -499,7 +526,41 @@ class FactExtractor:
 
             if result is None:
                 logger.warning(f"Failed to parse response for {chunk_label}")
+                status = 'partial'
+                error_message = "Failed to parse LLM response"
+
+                # Still record metrics even if parsing failed
+                duration_ms = int((time.time() - start_time) * 1000)
+                self.metrics_recorder.record_llm_call(
+                    operation_type='extraction',
+                    provider=self.config.provider,
+                    model_name=self.config.model_name,
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens,
+                    duration_ms=duration_ms,
+                    status=status,
+                    error_message=error_message,
+                    document_id=document_id,
+                    extractor_id=extractor_id,
+                    chunk_label=chunk_label
+                )
                 return None
+
+            # Record successful metrics
+            duration_ms = int((time.time() - start_time) * 1000)
+            self.metrics_recorder.record_llm_call(
+                operation_type='extraction',
+                provider=self.config.provider,
+                model_name=self.config.model_name,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                duration_ms=duration_ms,
+                status='success',
+                document_id=document_id,
+                extractor_id=extractor_id,
+                chunk_label=chunk_label,
+                found=result.found
+            )
 
             # Return result if information was found
             if result.found:
@@ -511,12 +572,30 @@ class FactExtractor:
 
         except Exception as e:
             logger.error(f"Error processing {chunk_label}: {e}")
+            duration_ms = int((time.time() - start_time) * 1000)
+
+            # Record failure metrics
+            self.metrics_recorder.record_llm_call(
+                operation_type='extraction',
+                provider=self.config.provider,
+                model_name=self.config.model_name,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                duration_ms=duration_ms,
+                status='failure',
+                error_message=str(e),
+                document_id=document_id,
+                extractor_id=extractor_id,
+                chunk_label=chunk_label
+            )
             return None
 
     def _extract_with_chunking(
         self,
         document_text: str,
-        extraction_query: ExtractionQuery
+        extraction_query: ExtractionQuery,
+        document_id: Optional[int] = None,
+        extractor_id: Optional[int] = None
     ) -> ExtractionResult:
         """
         Traditional chunking-based extraction approach.
@@ -525,6 +604,8 @@ class FactExtractor:
         Args:
             document_text: Full document text
             extraction_query: Extraction query
+            document_id: Optional document ID for metrics
+            extractor_id: Optional extractor ID for metrics
 
         Returns:
             ExtractionResult
@@ -541,6 +622,10 @@ class FactExtractor:
             chunks = [document_text]
             logger.info("Document processed as single chunk")
 
+        # Track total token usage across all chunks (for "not found" case)
+        total_input_tokens = 0
+        total_output_tokens = 0
+
         # Step 3: Process each chunk
         for i, chunk in enumerate(chunks, 1):
             logger.info(f"Processing chunk {i}/{len(chunks)}")
@@ -548,17 +633,28 @@ class FactExtractor:
             result = self._process_text_chunk(
                 text=chunk,
                 extraction_query=extraction_query,
-                chunk_label=f"chunk_{i}"
+                chunk_label=f"chunk_{i}",
+                document_id=document_id,
+                extractor_id=extractor_id
             )
 
-            if result and result.found:
-                return result
+            # Accumulate token counts
+            if result:
+                if result.input_tokens:
+                    total_input_tokens += result.input_tokens
+                if result.output_tokens:
+                    total_output_tokens += result.output_tokens
 
-        # If no chunks yielded results, return a default "not found" result
+                if result.found:
+                    return result
+
+        # If no chunks yielded results, return a default "not found" result with token counts
         logger.info("Information not found in any chunk")
         return ExtractionResult(
             confidence=0.0,
             found=False,
             explanation="The requested information could not be found in the provided document.",
-            extracted_data={}
+            extracted_data={},
+            input_tokens=total_input_tokens if total_input_tokens > 0 else None,
+            output_tokens=total_output_tokens if total_output_tokens > 0 else None
         )

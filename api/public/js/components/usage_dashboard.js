@@ -258,93 +258,92 @@ export class UsageDashboard extends BaseComponent {
     server_interface(api) {
         this.init_server(api);
 
-        // Check user roles from JWT token
-        this.checkUserRoles();
+        // Define ALL endpoints (both self-service and reporting)
+        // The JWT token authentication is handled automatically by API.js
+        // Role-based access control is enforced by the backend
 
-        // Define endpoints based on role
-        if (this.hasReportingRole) {
-            // Administrative endpoints
-            this.server.define_endpoint(
-                "/reporting/usage/summary",
-                (resp) => {
-                    this.usageSummary = resp.data || [];
-                    this.loading = false;
-                    this.requestUpdate();
-                },
-                HTTP_POST_JSON
-            );
+        // Self-service endpoints
+        this.server.define_endpoint(
+            "/usage/my-summary",
+            (resp) => {
+                this.usageSummary = resp.data || [];
+                this.loading = false;
+                this.requestUpdate();
+            },
+            HTTP_POST_JSON
+        );
 
-            this.server.define_endpoint(
-                "/reporting/usage/by-model",
-                (resp) => {
-                    this.modelUsage = resp.data || [];
-                    this.loading = false;
-                    this.requestUpdate();
-                },
-                HTTP_POST_JSON
-            );
+        this.server.define_endpoint(
+            "/usage/my-models",
+            (resp) => {
+                this.modelUsage = resp.data || [];
+                this.loading = false;
+                this.requestUpdate();
+            },
+            HTTP_POST_JSON
+        );
 
-            this.server.define_endpoint(
-                "/reporting/storage",
-                (resp) => {
-                    this.storageUsage = resp.data || [];
-                    this.loading = false;
-                    this.requestUpdate();
-                },
-                HTTP_POST_JSON
-            );
+        this.server.define_endpoint(
+            "/usage/my-storage",
+            (resp) => {
+                this.storageUsage = resp.data || [];
+                this.loading = false;
+                this.requestUpdate();
+            },
+            HTTP_POST_JSON
+        );
 
-            this.server.define_endpoint(
-                "/reporting/accounts",
-                (resp) => {
-                    this.accounts = resp.accounts || [];
-                    this.requestUpdate();
-                },
-                HTTP_GET
-            );
-        } else {
-            // Self-service endpoints
-            this.server.define_endpoint(
-                "/usage/my-summary",
-                (resp) => {
-                    this.usageSummary = resp.data || [];
-                    this.loading = false;
-                    this.requestUpdate();
-                },
-                HTTP_POST_JSON
-            );
+        // Administrative reporting endpoints
+        this.server.define_endpoint(
+            "/reporting/usage/summary",
+            (resp) => {
+                this.usageSummary = resp.data || [];
+                this.loading = false;
+                this.requestUpdate();
+            },
+            HTTP_POST_JSON
+        );
 
-            this.server.define_endpoint(
-                "/usage/my-models",
-                (resp) => {
-                    this.modelUsage = resp.data || [];
-                    this.loading = false;
-                    this.requestUpdate();
-                },
-                HTTP_POST_JSON
-            );
+        this.server.define_endpoint(
+            "/reporting/usage/by-model",
+            (resp) => {
+                this.modelUsage = resp.data || [];
+                this.loading = false;
+                this.requestUpdate();
+            },
+            HTTP_POST_JSON
+        );
 
-            this.server.define_endpoint(
-                "/usage/my-storage",
-                (resp) => {
-                    this.storageUsage = resp.data || [];
-                    this.loading = false;
-                    this.requestUpdate();
-                },
-                HTTP_POST_JSON
-            );
-        }
+        this.server.define_endpoint(
+            "/reporting/storage",
+            (resp) => {
+                this.storageUsage = resp.data || [];
+                this.loading = false;
+                this.requestUpdate();
+            },
+            HTTP_POST_JSON
+        );
+
+        this.server.define_endpoint(
+            "/reporting/accounts",
+            (resp) => {
+                this.accounts = resp.accounts || [];
+                this.requestUpdate();
+            },
+            HTTP_GET
+        );
     }
 
-    checkUserRoles() {
-        // Extract roles from JWT token stored in localStorage
-        const token = localStorage.getItem('jwt_token');
-        if (token) {
+    checkUserRoles(jwtToken) {
+        // Extract roles from JWT token
+        if (jwtToken) {
             try {
                 // Decode JWT (simple base64 decode of payload)
-                const payload = JSON.parse(atob(token.split('.')[1]));
+                const payload = JSON.parse(atob(jwtToken.split('.')[1]));
                 this.userRoles = payload.roles || [];
                 this.hasReportingRole = this.userRoles.includes('reporting') || this.userRoles.includes('admin');
+                console.log('UsageDashboard: User roles detected:', this.userRoles);
+                console.log('UsageDashboard: Has reporting role:', this.hasReportingRole);
             } catch (e) {
                 console.error('Error decoding JWT:', e);
                 this.userRoles = [];
@@ -353,12 +352,20 @@ export class UsageDashboard extends BaseComponent {
         }
     }
 
-    login_success() {
-        this.checkUserRoles();
-        if (this.hasReportingRole) {
-            this.loadAccounts();
+    login_success(response) {
+        // Extract roles from the JWT token in the login response
+        if (response && response.jwt) {
+            this.checkUserRoles(response.jwt);
+
+            // Force UI update to show/hide account selector
+            this.requestUpdate();
+
+            // Load data based on role
+            if (this.hasReportingRole) {
+                this.loadAccounts();
+            }
+            this.loadReportData();
         }
-        this.loadReportData();
     }
 
     loadAccounts() {
@@ -371,71 +378,66 @@ export class UsageDashboard extends BaseComponent {
         this.loading = true;
         this.requestUpdate();
 
-        const baseData = {
+        const requestData = {
             start_date: this.startDate,
-            end_date: this.endDate
+            end_date: this.endDate,
+            group_by: 'day'
         };
 
+        // Use appropriate endpoint based on role
         if (this.hasReportingRole) {
-            // Administrative reporting with optional account filter
-            const summaryData = { ...baseData, group_by: 'day' };
-            const modelData = { ...baseData };
-            const storageData = { ...baseData };
-
+            // Add account filter if selected
             if (this.accountId) {
-                summaryData.account_id = this.accountId;
-                modelData.account_id = this.accountId;
-                storageData.account_id = this.accountId;
+                requestData.account_id = this.accountId;
             }
 
-            this.server.call("/reporting/usage/summary", HTTP_POST_JSON, summaryData);
-            this.server.call("/reporting/usage/by-model", HTTP_POST_JSON, modelData);
-            this.server.call("/reporting/storage", HTTP_POST_JSON, storageData);
+            // Load all reports for administrators
+            this.server.call("/reporting/usage/summary", HTTP_POST_JSON, requestData);
+            this.server.call("/reporting/usage/by-model", HTTP_POST_JSON, requestData);
+            this.server.call("/reporting/storage", HTTP_POST_JSON, requestData);
         } else {
-            // Self-service usage (no account filter)
-            const summaryData = { ...baseData, group_by: 'day' };
-
-            this.server.call("/usage/my-summary", HTTP_POST_JSON, summaryData);
-            this.server.call("/usage/my-models", HTTP_POST_JSON, baseData);
-            this.server.call("/usage/my-storage", HTTP_POST_JSON, baseData);
+            // Load self-service reports
+            this.server.call("/usage/my-summary", HTTP_POST_JSON, requestData);
+            this.server.call("/usage/my-models", HTTP_POST_JSON, requestData);
+            this.server.call("/usage/my-storage", HTTP_POST_JSON, requestData);
         }
     }
 
     handleTimeRangeChange(e) {
         this.selectedTimeRange = e.target.value;
 
-        const endDate = new Date();
+        const today = new Date();
         let startDate = new Date();
 
         switch(this.selectedTimeRange) {
             case 'last7':
-                startDate.setDate(endDate.getDate() - 7);
+                startDate.setDate(today.getDate() - 7);
                 break;
             case 'last30':
-                startDate.setDate(endDate.getDate() - 30);
+                startDate.setDate(today.getDate() - 30);
                 break;
             case 'last90':
-                startDate.setDate(endDate.getDate() - 90);
+                startDate.setDate(today.getDate() - 90);
                 break;
             case 'month':
-                startDate = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
+                startDate = new Date(today.getFullYear(), today.getMonth(), 1);
                 break;
             case 'year':
-                startDate = new Date(endDate.getFullYear(), 0, 1);
+                startDate = new Date(today.getFullYear(), 0, 1);
                 break;
-            default:
-                // Custom range, keep existing dates
-                return;
+            case 'custom':
+                return; // Don't auto-update for custom range
         }
 
-        this.startDate = startDate.toISOString().split('T')[0];
-        this.endDate = endDate.toISOString().split('T')[0];
-
-        this.loadReportData();
+        if (this.selectedTimeRange !== 'custom') {
+            this.startDate = startDate.toISOString().split('T')[0];
+            this.endDate = today.toISOString().split('T')[0];
+            this.loadReportData();
+        }
     }
 
     handleDateChange(e) {
-        const { name, value } = e.target;
+        const {name, value} = e.target;
         this[name] = value;
     }
 
@@ -443,41 +445,151 @@ export class UsageDashboard extends BaseComponent {
         this.accountId = e.target.value ? parseInt(e.target.value) : null;
     }
 
-    handleRunReport() {
+    handleRefresh() {
         this.loadReportData();
     }
 
     handleExportCSV() {
-        const exportData = {
+        const requestData = {
             start_date: this.startDate,
             end_date: this.endDate,
             report_type: this.reportType
         };
 
-        if (this.hasReportingRole) {
-            if (this.accountId) {
-                exportData.account_id = this.accountId;
-            }
+        // Download CSV using server.download method or construct download URL
+        const endpoint = this.hasReportingRole ? '/reporting/export/csv' : '/usage/my-export/csv';
 
-            // Use POST for export
-            this.server.define_endpoint(
-                "/reporting/export/csv",
-                (resp) => {
-                    // Response is already a download
-                },
-                HTTP_POST_JSON
-            );
+        // Since we need to POST the data and get a file download, we need to handle this specially
+        // The API.js doesn't have a built-in way to handle POST with file download response
+        // So we'll use fetch directly with the bearer token
 
-            // Trigger download via POST
-            const exportUrl = '/reporting/export/csv';
-            const params = new URLSearchParams(exportData);
-            this.server.download(`${exportUrl}?${params.toString()}`);
-        } else {
-            // Self-service export
-            const exportUrl = '/usage/my-export/csv';
-            const params = new URLSearchParams(exportData);
-            this.server.download(`${exportUrl}?${params.toString()}`);
+        const token = this.server._bearer_token || localStorage.getItem('jwt_token');
+        fetch(endpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(requestData)
+        })
+        .then(response => {
+            if (!response.ok) throw new Error('Export failed');
+            return response.blob();
+        })
+        .then(blob => {
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `usage_export_${this.startDate}_${this.endDate}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        })
+        .catch(error => {
+            console.error('CSV export failed:', error);
+            alert('Failed to export CSV. Please try again.');
+        });
+    }
+
+    renderUsageSummary() {
+        if (this.usageSummary.length === 0) {
+            return html`<p>No usage data available for the selected period.</p>`;
         }
+
+        // Calculate totals
+        const totals = this.usageSummary.reduce((acc, item) => ({
+            operations: acc.operations + (item.total_operations || 0),
+            tokens: acc.tokens + (item.total_tokens || 0),
+            extractions: acc.extractions + (item.extractions || 0),
+            classifications: acc.classifications + (item.classifications || 0)
+        }), {operations: 0, tokens: 0, extractions: 0, classifications: 0});
+
+        return html`
+            <div class="report-card">
+                <h3>Usage Summary</h3>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-value">${totals.operations.toLocaleString()}</div>
+                        <div class="stat-label">Total Operations</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">${totals.tokens.toLocaleString()}</div>
+                        <div class="stat-label">Total Tokens</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">${totals.extractions.toLocaleString()}</div>
+                        <div class="stat-label">Extractions</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">${totals.classifications.toLocaleString()}</div>
+                        <div class="stat-label">Classifications</div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    renderModelUsage() {
+        if (this.modelUsage.length === 0) {
+            return html`<p>No model usage data available.</p>`;
+        }
+
+        return html`
+            <div class="report-card">
+                <h3>Model Usage</h3>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Provider</th>
+                            <th>Model</th>
+                            <th>Operations</th>
+                            <th>Tokens</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${this.modelUsage.map(item => html`
+                            <tr>
+                                <td>${item.provider || 'N/A'}</td>
+                                <td>${item.model_name || 'N/A'}</td>
+                                <td>${(item.operation_count || 0).toLocaleString()}</td>
+                                <td>${(item.total_tokens || 0).toLocaleString()}</td>
+                            </tr>
+                        `)}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    }
+
+    renderStorageUsage() {
+        if (this.storageUsage.length === 0) {
+            return html`<p>No storage data available.</p>`;
+        }
+
+        return html`
+            <div class="report-card">
+                <h3>Storage Usage</h3>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Documents</th>
+                            <th>Storage (GB)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${this.storageUsage.map(item => html`
+                            <tr>
+                                <td>${item.date || 'N/A'}</td>
+                                <td>${(item.document_count || 0).toLocaleString()}</td>
+                                <td>${item.total_gb || 0}</td>
+                            </tr>
+                        `)}
+                    </tbody>
+                </table>
+            </div>
+        `;
     }
 
     render() {
@@ -535,181 +647,22 @@ export class UsageDashboard extends BaseComponent {
                         </div>
                     ` : ''}
 
-                    <div class="control-group">
-                        <label>Report Type</label>
-                        <select @change=${(e) => this.reportType = e.target.value} .value=${this.reportType}>
-                            <option value="summary">Usage Summary</option>
-                            <option value="by_model">By Model</option>
-                            <option value="storage">Storage</option>
-                        </select>
-                    </div>
-
                     <div class="buttons-group">
-                        <button class="btn btn-primary" @click=${this.handleRunReport}>
-                            Run Report
-                        </button>
-                        <button class="btn btn-success" @click=${this.handleExportCSV}>
-                            Export CSV
-                        </button>
+                        <button class="btn btn-primary" @click=${this.handleRefresh}>Refresh</button>
+                        <button class="btn btn-success" @click=${this.handleExportCSV}>Export CSV</button>
                     </div>
                 </div>
 
                 ${this.loading ? html`
                     <div class="loading">Loading usage data...</div>
-                ` : this.renderReportData()}
-            </div>
-        `;
-    }
-
-    renderReportData() {
-        if (this.reportType === 'summary') {
-            return this.renderSummaryData();
-        } else if (this.reportType === 'by_model') {
-            return this.renderModelData();
-        } else if (this.reportType === 'storage') {
-            return this.renderStorageData();
-        }
-        return html``;
-    }
-
-    renderSummaryData() {
-        if (this.usageSummary.length === 0) {
-            return html`<div class="loading">No usage data available for the selected period.</div>`;
-        }
-
-        // Calculate totals
-        const totals = this.usageSummary.reduce((acc, item) => ({
-            total_operations: acc.total_operations + (item.total_operations || 0),
-            total_tokens: acc.total_tokens + (item.total_tokens || 0),
-            successful_operations: acc.successful_operations + (item.successful_operations || 0),
-            failed_operations: acc.failed_operations + (item.failed_operations || 0)
-        }), { total_operations: 0, total_tokens: 0, successful_operations: 0, failed_operations: 0 });
-
-        return html`
-            <div class="reports-container">
-                <div class="report-card">
-                    <h3>Overview</h3>
-                    <div class="stats-grid">
-                        <div class="stat-item">
-                            <div class="stat-value">${totals.total_operations.toLocaleString()}</div>
-                            <div class="stat-label">Total Operations</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-value">${totals.total_tokens.toLocaleString()}</div>
-                            <div class="stat-label">Total Tokens</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-value">${totals.successful_operations.toLocaleString()}</div>
-                            <div class="stat-label">Successful</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-value">${totals.failed_operations.toLocaleString()}</div>
-                            <div class="stat-label">Failed</div>
-                        </div>
+                ` : html`
+                    <div class="reports-container">
+                        ${this.renderUsageSummary()}
+                        ${this.renderModelUsage()}
+                        ${this.renderStorageUsage()}
                     </div>
-                </div>
+                `}
             </div>
-
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        ${this.hasReportingRole ? html`<th>Account</th>` : ''}
-                        <th>Total Ops</th>
-                        <th>Workbench</th>
-                        <th>API</th>
-                        <th>Extractions</th>
-                        <th>Classifications</th>
-                        <th>Tokens</th>
-                        <th>Success Rate</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${this.usageSummary.map(item => html`
-                        <tr>
-                            <td>${item.date}</td>
-                            ${this.hasReportingRole ? html`<td>${item.account_name || 'Unknown'}</td>` : ''}
-                            <td>${item.total_operations || 0}</td>
-                            <td>${item.workbench_operations || 0}</td>
-                            <td>${item.api_operations || 0}</td>
-                            <td>${item.extractions || 0}</td>
-                            <td>${item.classifications || 0}</td>
-                            <td>${(item.total_tokens || 0).toLocaleString()}</td>
-                            <td>${item.total_operations > 0 ? ((item.successful_operations / item.total_operations) * 100).toFixed(1) : 0}%</td>
-                        </tr>
-                    `)}
-                </tbody>
-            </table>
-        `;
-    }
-
-    renderModelData() {
-        if (this.modelUsage.length === 0) {
-            return html`<div class="loading">No model usage data available for the selected period.</div>`;
-        }
-
-        return html`
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        ${this.hasReportingRole ? html`<th>Account</th>` : ''}
-                        <th>Provider</th>
-                        <th>Model</th>
-                        <th>Operations</th>
-                        <th>Input Tokens</th>
-                        <th>Output Tokens</th>
-                        <th>Total Tokens</th>
-                        <th>Avg Duration</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${this.modelUsage.map(item => html`
-                        <tr>
-                            <td>${item.date}</td>
-                            ${this.hasReportingRole ? html`<td>${item.account_name || 'Unknown'}</td>` : ''}
-                            <td>${item.provider}</td>
-                            <td>${item.model_name}</td>
-                            <td>${item.operation_count || 0}</td>
-                            <td>${(item.input_tokens || 0).toLocaleString()}</td>
-                            <td>${(item.output_tokens || 0).toLocaleString()}</td>
-                            <td>${(item.total_tokens || 0).toLocaleString()}</td>
-                            <td>${item.avg_duration_ms || '-'}ms</td>
-                        </tr>
-                    `)}
-                </tbody>
-            </table>
-        `;
-    }
-
-    renderStorageData() {
-        if (this.storageUsage.length === 0) {
-            return html`<div class="loading">No storage data available for the selected period.</div>`;
-        }
-
-        return html`
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        ${this.hasReportingRole ? html`<th>Account</th>` : ''}
-                        <th>Total GB</th>
-                        <th>Document Count</th>
-                        <th>Storage Backend</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${this.storageUsage.map(item => html`
-                        <tr>
-                            <td>${item.date}</td>
-                            ${this.hasReportingRole ? html`<td>${item.account_name || 'Unknown'}</td>` : ''}
-                            <td>${item.total_gb ? item.total_gb.toFixed(2) : '0.00'}</td>
-                            <td>${item.document_count || 0}</td>
-                            <td>${item.storage_backend || '-'}</td>
-                        </tr>
-                    `)}
-                </tbody>
-            </table>
         `;
     }
 }

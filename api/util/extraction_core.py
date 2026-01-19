@@ -13,6 +13,7 @@ from lib.fact_extractor.fact_extractor import FactExtractor
 from lib.fact_extractor.models import ExtractionQuery, ExtractionResult
 from api.util.files_abstraction import get_filesystem
 from api.services.usage_tracker import UsageTracker
+from api.services.usage_metrics_recorder import UsageMetricsRecorder
 
 
 @dataclass
@@ -30,7 +31,9 @@ def execute_extractor(
     llm_config: Any,
     db: Optional[Session] = None,
     document_id: Optional[int] = None,
-    use_vector_search: bool = True
+    use_vector_search: bool = True,
+    extractor_id: Optional[int] = None,
+    metrics_recorder: Any = None
 ) -> ExtractionResult:
     """
     Execute the fact extractor with given parameters.
@@ -43,6 +46,8 @@ def execute_extractor(
         db: Optional database session for vector search
         document_id: Optional document ID for vector search
         use_vector_search: Whether to use vector search (default True)
+        extractor_id: Optional extractor ID for metrics
+        metrics_recorder: Optional metrics recorder for telemetry
 
     Returns:
         ExtractionResult containing extracted information
@@ -50,7 +55,8 @@ def execute_extractor(
     fact_extractor = FactExtractor(
         config=llm_config,
         db_session=db,
-        use_vector_search=use_vector_search
+        use_vector_search=use_vector_search,
+        metrics_recorder=metrics_recorder
     )
     extraction_query = ExtractionQuery(
         query=extractor_prompt,
@@ -59,7 +65,8 @@ def execute_extractor(
     return fact_extractor.extract_facts(
         document_text,
         extraction_query,
-        document_id=document_id
+        document_id=document_id,
+        extractor_id=extractor_id
     )
 
 
@@ -186,6 +193,17 @@ def run_extractor_with_markup(
     """
     start_time = time.time()
 
+    # Create metrics recorder if we have the necessary info
+    metrics_recorder = None
+    if account_id and db:
+        metrics_recorder = UsageMetricsRecorder(
+            db_session=db,
+            account_id=account_id,
+            source_type=source_type,
+            user_agent=user_agent,
+            ip_address=ip_address
+        )
+
     # Override config if model_id provided
     if llm_model_id and db:
         from api.models import LLMModel
@@ -212,7 +230,7 @@ def run_extractor_with_markup(
                 print(f"Warning: LLM model with ID {llm_model_id} not found, falling back to global config")
 
     try:
-        # Execute the extractor
+        # Execute the extractor with metrics recorder
         extraction_result = execute_extractor(
             document_text=document_text,
             extractor_prompt=extractor_prompt,
@@ -220,11 +238,10 @@ def run_extractor_with_markup(
             llm_config=llm_config,
             db=db,
             document_id=document_id,
-            use_vector_search=use_vector_search
+            use_vector_search=use_vector_search,
+            extractor_id=extractor_id,
+            metrics_recorder=metrics_recorder
         )
-
-        # Calculate duration
-        duration_ms = int((time.time() - start_time) * 1000)
 
         # Initialize result
         result = ExtractorExecutionResult(
@@ -249,55 +266,8 @@ def run_extractor_with_markup(
                     result.marked_pdf_path = marked_pdf_path
                     result.marked_pdf_available = True
 
-        # Log successful extraction if account_id is provided
-        if account_id and db:
-            try:
-                from api.services.usage_tracker import UsageTracker
-                tracker = UsageTracker(db)
-                tracker.log_extraction_sync(
-                    account_id=account_id,
-                    document_id=document_id,
-                    extractor_id=extractor_id,
-                    llm_model_id=llm_model_id,
-                    provider=getattr(llm_config, 'provider', None),
-                    model_name=getattr(llm_config, 'model_name', None),
-                    input_tokens=getattr(extraction_result, 'input_tokens', None),
-                    output_tokens=getattr(extraction_result, 'output_tokens', None),
-                    duration_ms=duration_ms,
-                    status='success',
-                    source_type=source_type,
-                    user_agent=user_agent,
-                    ip_address=ip_address
-                )
-            except Exception as e:
-                # Log the error but don't crash the main operation
-                import logging
-                logging.error(f"Failed to log extraction: {str(e)}")
-
         return result
 
     except Exception as e:
-        duration_ms = int((time.time() - start_time) * 1000)
-
-        # Log failed extraction if account_id is provided
-        if account_id and db:
-            try:
-                from api.services.usage_tracker import UsageTracker
-                tracker = UsageTracker(db)
-                tracker.log_extraction_sync(
-                    account_id=account_id,
-                    document_id=document_id,
-                    extractor_id=extractor_id,
-                    duration_ms=duration_ms,
-                    status='failure',
-                    error_message=str(e),
-                    source_type=source_type,
-                    user_agent=user_agent,
-                    ip_address=ip_address
-                )
-            except Exception as e_log:
-                # Log the error but don't crash the main operation
-                import logging
-                logging.error(f"Failed to log extraction error: {str(e_log)}")
-
+        # Error is already logged by FactExtractor via metrics_recorder
         raise

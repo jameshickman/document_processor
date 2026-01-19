@@ -640,3 +640,50 @@ def export_csv(
         media_type="text/csv",
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
+
+
+class RebuildSummariesRequest(BaseModel):
+    start_date: str = Field(..., description="Start date (ISO format: YYYY-MM-DD)")
+    end_date: str = Field(..., description="End date (ISO format: YYYY-MM-DD)")
+
+
+@router.post("/rebuild-summaries")
+async def rebuild_summaries(
+    request: RebuildSummariesRequest,
+    _: dict = Depends(require_reporting_role),
+    db: Session = Depends(get_db)
+):
+    """
+    Rebuild usage summary tables from usage_logs for a date range.
+
+    This endpoint is useful when:
+    - Summary tables are empty or incomplete
+    - Data needs to be recalculated after corrections to usage_logs
+    - Historical data needs to be regenerated
+
+    Requires 'reporting' or 'admin' role.
+    """
+    try:
+        start_date = date.fromisoformat(request.start_date)
+        end_date = date.fromisoformat(request.end_date)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+
+    # Validate date range
+    if start_date > end_date:
+        raise HTTPException(status_code=400, detail="start_date must be before or equal to end_date")
+
+    # Limit to 365 days to prevent excessive load
+    from datetime import timedelta
+    if (end_date - start_date).days > 365:
+        raise HTTPException(status_code=400, detail="Date range cannot exceed 365 days")
+
+    # Import and use UsageTracker
+    from api.services.usage_tracker import UsageTracker
+    tracker = UsageTracker(db)
+
+    try:
+        result = await tracker.rebuild_usage_summaries(start_date, end_date)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to rebuild summaries: {str(e)}")

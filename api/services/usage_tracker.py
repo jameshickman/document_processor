@@ -487,7 +487,7 @@ class UsageTracker:
         """
         # First, delete any existing storage usage for this date to avoid duplicates
         self.db.query(StorageUsage).filter(StorageUsage.date == target_date).delete()
-        
+
         # Get document sizes grouped by account
         storage_stats = self.db.query(
             UsageLog.account_id,
@@ -502,7 +502,7 @@ class UsageTracker:
         ).group_by(
             UsageLog.account_id
         ).all()
-        
+
         for stat in storage_stats:
             storage_usage = StorageUsage(
                 account_id=stat.account_id,
@@ -511,5 +511,42 @@ class UsageTracker:
                 document_count=stat.document_count or 0
             )
             self.db.add(storage_usage)
-        
+
         self.db.commit()
+
+    async def rebuild_usage_summaries(self, start_date: date, end_date: date) -> Dict[str, Any]:
+        """
+        Rebuild usage summaries for a date range from usage_logs.
+
+        Args:
+            start_date: Start date for rebuilding summaries
+            end_date: End date for rebuilding summaries (inclusive)
+
+        Returns:
+            Dictionary with rebuild statistics
+        """
+        from datetime import timedelta
+
+        current_date = start_date
+        dates_processed = 0
+        errors = []
+
+        while current_date <= end_date:
+            try:
+                await self.aggregate_daily_usage(current_date)
+                await self.calculate_storage_usage(current_date)
+                dates_processed += 1
+            except Exception as e:
+                error_msg = f"Error processing {current_date}: {str(e)}"
+                errors.append(error_msg)
+                print(error_msg)
+
+            current_date += timedelta(days=1)
+
+        return {
+            'success': len(errors) == 0,
+            'start_date': start_date.isoformat(),
+            'end_date': end_date.isoformat(),
+            'dates_processed': dates_processed,
+            'errors': errors if errors else None
+        }
