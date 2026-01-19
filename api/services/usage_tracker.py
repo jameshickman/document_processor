@@ -77,7 +77,8 @@ class UsageTracker:
             operation_type='classification',
             source_type=source_type,
             document_id=document_id,
-            classifier_id=classifier_id,
+            # classifier_id is intentionally omitted for classifier set operations
+            # to avoid foreign key constraint violations
             duration_ms=duration_ms,
             status=status,
             error_message=error_message,

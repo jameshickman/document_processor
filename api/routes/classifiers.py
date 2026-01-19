@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+import time
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Request
 from fastapi.responses import PlainTextResponse
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -199,64 +200,135 @@ def delete_classifier_set(
 
 @router.get("/run/{classifier_set_id}/{document_id}")
 def run_classifier(
+        request: Request,  # Add request parameter to access source info
         classifier_set_id: int, document_id: int,
         db: Session = Depends(get_db),
         user = Depends(get_current_user_info)):
     """
     Run a classifier against the contents of an uploaded document.
     """
-    # Verify that the user owns the specified Classifier Set
-    classifier_set = db.query(models.ClassifierSet).filter(
-        and_(
-            models.ClassifierSet.id == classifier_set_id,
-            models.ClassifierSet.account_id == user.user_id
-        )
-    ).first()
+    start_time = time.time()  # Track start time for duration
 
-    if not classifier_set:
-        raise HTTPException(status_code=404, detail="Classifier not found")
+    try:
+        # Verify that the user owns the specified Classifier Set
+        classifier_set = db.query(models.ClassifierSet).filter(
+            and_(
+                models.ClassifierSet.id == classifier_set_id,
+                models.ClassifierSet.account_id == user.user_id
+            )
+        ).first()
 
-    classifiers = db.query(models.Classifier).filter(models.Classifier.classifier_set == classifier_set_id).all()
-    if classifiers is None:
-        raise HTTPException(status_code=404, detail="Classifier Set not found")
+        if not classifier_set:
+            raise HTTPException(status_code=404, detail="Classifier not found")
 
-    document = db.query(models.Document).filter(
-        and_(
-            models.Document.account_id == user.user_id,
-            models.Document.id == document_id
-        )
-    ).first()
+        classifiers = db.query(models.Classifier).filter(models.Classifier.classifier_set == classifier_set_id).all()
+        if classifiers is None:
+            raise HTTPException(status_code=404, detail="Classifier Set not found")
 
-    if not document:
-        raise HTTPException(status_code=404, detail="Document not found")
+        document = db.query(models.Document).filter(
+            and_(
+                models.Document.account_id == user.user_id,
+                models.Document.id == document_id
+            )
+        ).first()
 
-    document_text = str(document.full_text)
+        if not document:
+            raise HTTPException(status_code=404, detail="Document not found")
 
-    classifications_data = []
+        document_text = str(document.full_text)
 
-    for classifier in classifiers:
-        d_classifier = {
-            "name": classifier.name,
-            "terms": [],
+        classifications_data = []
+
+        for classifier in classifiers:
+            d_classifier = {
+                "name": classifier.name,
+                "terms": [],
+            }
+            terms = db.query(models.ClassifierTerm).filter(models.ClassifierTerm.classifier_id == classifier.id).all()
+            for term in terms:
+                d_classifier["terms"].append({
+                    "term": term.term,
+                    "distance": term.distance,
+                    "weight": term.weight
+                })
+            classifications_data.append(d_classifier)
+
+        results = document_classifier_simple(document_text, classifications_data)
+
+        # Calculate duration
+        duration_ms = int((time.time() - start_time) * 1000)
+
+        # Log successful classification
+        try:
+            from api.services.usage_tracker import UsageTracker
+            from api.models.database import engine
+            from sqlalchemy.orm import sessionmaker
+
+            # Create a separate session for logging to avoid transaction conflicts
+            SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+            log_db = SessionLocal()
+
+            try:
+                tracker = UsageTracker(log_db)
+                # For classifier operations, we don't set classifier_id since it refers to classifier_sets
+                # which has a different table structure than the foreign key expects
+                tracker.log_classification_sync(
+                    account_id=user.user_id,
+                    document_id=document_id,
+                    duration_ms=duration_ms,
+                    status='success',
+                    source_type='workbench'  # This endpoint is workbench-only
+                )
+            finally:
+                log_db.close()
+        except Exception as e:
+            # Log the error but don't crash the main operation
+            import logging
+            logging.error(f"Failed to log classification: {str(e)}")
+
+        # Include the document_id in the response so the frontend can match results to files
+        response = {
+            "document_id": document_id,
+            **results
         }
-        terms = db.query(models.ClassifierTerm).filter(models.ClassifierTerm.classifier_id == classifier.id).all()
-        for term in terms:
-            d_classifier["terms"].append({
-                "term": term.term,
-                "distance": term.distance,
-                "weight": term.weight
-            })
-        classifications_data.append(d_classifier)
 
-    results = document_classifier_simple(document_text, classifications_data)
-    
-    # Include the document_id in the response so the frontend can match results to files
-    response = {
-        "document_id": document_id,
-        **results
-    }
-    
-    return response
+        return response
+
+    except Exception as e:
+        # Calculate duration even for failed operations
+        duration_ms = int((time.time() - start_time) * 1000)
+
+        # Log failed classification
+        try:
+            from api.services.usage_tracker import UsageTracker
+            from api.models.database import engine
+            from sqlalchemy.orm import sessionmaker
+
+            # Create a separate session for logging to avoid transaction conflicts
+            SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+            log_db = SessionLocal()
+
+            try:
+                tracker = UsageTracker(log_db)
+                # For classifier operations, we don't set classifier_id since it refers to classifier_sets
+                # which has a different table structure than the foreign key expects
+                tracker.log_classification_sync(
+                    account_id=user.user_id,
+                    document_id=document_id,
+                    duration_ms=duration_ms,
+                    status='failure',
+                    error_message=str(e),
+                    source_type='workbench'  # This endpoint is workbench-only
+                )
+            finally:
+                log_db.close()
+        except Exception as e_log:
+            # Log the error but don't crash the main operation
+            import logging
+            logging.error(f"Failed to log classification error: {str(e_log)}")
+
+        # Re-raise the original exception
+        raise
 
 @router.get("/export/{classifier_set_id}")
 def export_classifier(

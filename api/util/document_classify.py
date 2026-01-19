@@ -67,15 +67,26 @@ def run_classifier(
         # Log successful classification
         try:
             from api.services.usage_tracker import UsageTracker
-            tracker = UsageTracker(db)
-            tracker.log_classification_sync(
-                account_id=user_id,
-                document_id=document_id,
-                classifier_id=classifier_set_id,
-                duration_ms=duration_ms,
-                status='success',
-                source_type='api'  # This endpoint is API-only
-            )
+            from api.models.database import engine
+            from sqlalchemy.orm import sessionmaker
+
+            # Create a separate session for logging to avoid transaction conflicts
+            SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+            log_db = SessionLocal()
+
+            try:
+                tracker = UsageTracker(log_db)
+                # For classifier operations, we don't set classifier_id since it refers to classifier_sets
+                # which has a different table structure than the foreign key expects
+                tracker.log_classification_sync(
+                    account_id=user_id,
+                    document_id=document_id,
+                    duration_ms=duration_ms,
+                    status='success',
+                    source_type='api'  # This endpoint is API-only
+                )
+            finally:
+                log_db.close()
         except Exception as e:
             # Log the error but don't crash the main operation
             import logging
@@ -90,16 +101,27 @@ def run_classifier(
         # Log failed classification
         try:
             from api.services.usage_tracker import UsageTracker
-            tracker = UsageTracker(db)
-            tracker.log_classification_sync(
-                account_id=user_id,
-                document_id=document_id,
-                classifier_id=classifier_set_id,
-                duration_ms=duration_ms,
-                status='failure',
-                error_message=str(e),
-                source_type='api'  # This endpoint is API-only
-            )
+            from api.models.database import engine
+            from sqlalchemy.orm import sessionmaker
+
+            # Create a separate session for logging to avoid transaction conflicts
+            SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+            log_db = SessionLocal()
+
+            try:
+                tracker = UsageTracker(log_db)
+                # For classifier operations, we don't set classifier_id since it refers to classifier_sets
+                # which has a different table structure than the foreign key expects
+                tracker.log_classification_sync(
+                    account_id=user_id,
+                    document_id=document_id,
+                    duration_ms=duration_ms,
+                    status='failure',
+                    error_message=str(e),
+                    source_type='api'  # This endpoint is API-only
+                )
+            finally:
+                log_db.close()
         except Exception as e_log:
             # Log the error but don't crash the main operation
             import logging
