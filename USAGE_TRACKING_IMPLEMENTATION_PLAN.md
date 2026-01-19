@@ -2,7 +2,12 @@
 
 ## Executive Summary
 
-This document outlines the implementation plan for adding comprehensive usage tracking and administrative reporting to the Classifier and Extractor API. The feature will enable accurate billing based on LLM model usage, track Workbench vs API usage patterns, and provide administrative reporting interfaces.
+This document outlines the implementation plan for adding comprehensive usage tracking and reporting to the Classifier and Extractor API. The feature will enable accurate billing based on LLM model usage, track Workbench vs API usage patterns, and provide both self-service usage viewing (for all users) and administrative reporting interfaces (for users with the reporting role).
+
+**Key Features:**
+- **Self-Service Usage**: All authenticated users can view their own usage data, graphs, and download CSV reports
+- **Administrative Reporting**: Users with the "reporting" role can view aggregated usage across all accounts with filtering by user, timeframe, and model
+- **Multi-tenancy**: All tracking respects account boundaries; users can only see their own data unless they have reporting privileges
 
 ## Table of Contents
 
@@ -35,15 +40,16 @@ Based on `USAGE_TRACKING.md`, the system must track:
 
 **Reporting Features:**
 - Graph of usage over time
-- User selection filtering
+- User selection filtering (reporting role only)
 - Timeframe selection
 - Model breakdown analysis
 - CSV export capability
 
 **Access Control:**
-- New "reporting" role for administrative users
-- Reporting interface in dashboard
-- REST API endpoints for programmatic access
+- **All users** can view their own usage history
+- New "reporting" role for administrative users to view usage across all users
+- Reporting interface in dashboard (available to all users, with scoped access)
+- REST API endpoints for both self-service and administrative access
 
 ### 1.2 Design Principles
 
@@ -371,39 +377,44 @@ ALTER TABLE accounts ADD COLUMN IF NOT EXISTS usage_alert_threshold FLOAT;  -- A
 - `/api/jobs/scheduler.py`
 - Job configuration in `.env`
 
-### Phase 4: RBAC and Reporting API (Week 4-5)
+### Phase 4: RBAC and Usage API (Week 4-5)
 
-**Goal:** Implement reporting role and API endpoints.
+**Goal:** Implement self-service usage endpoints and reporting role with administrative API.
 
 **Tasks:**
 1. Extend RBAC system with "reporting" role
-2. Create reporting API endpoints
-3. Implement filtering and aggregation logic
-4. Add CSV export functionality
-5. Add API documentation (OpenAPI)
+2. Create self-service usage API endpoints (all users)
+3. Create administrative reporting API endpoints (reporting role)
+4. Implement filtering and aggregation logic
+5. Add CSV export functionality for both endpoint types
+6. Add API documentation (OpenAPI)
 
 **Deliverables:**
 - Modified `/api/rbac.py`
-- `/api/routes/reporting.py`
+- `/api/routes/usage.py` (self-service endpoints)
+- `/api/routes/reporting.py` (administrative endpoints)
+- `/api/services/usage_service.py`
 - `/api/services/reporting_service.py`
 - `/api/util/csv_export.py`
 
 ### Phase 5: Dashboard UI (Week 5-6)
 
-**Goal:** Build reporting interface in the dashboard.
+**Goal:** Build usage interface in the dashboard for all users with role-based features.
 
 **Tasks:**
-1. Create reporting section template
+1. Create usage section template (visible to all users)
 2. Implement usage graphs (Chart.js or similar)
-3. Add filtering controls (date range, users, models)
+3. Add filtering controls (date range for all; users/models for reporting role)
 4. Add CSV download button
-5. Add role-based UI rendering
+5. Add role-based UI rendering (hide account selector for non-reporting users)
+6. Implement dual-mode component (self-service vs administrative)
 
 **Deliverables:**
-- `/api/templates/sections/reporting.j2`
-- `/api/public/js/components/reporting_dashboard.js`
+- `/api/templates/sections/usage.j2`
+- `/api/public/js/components/usage_dashboard.js` (role-aware component)
 - `/api/public/js/components/usage_chart.js`
 - `/api/public/js/lib/csv_downloader.js`
+- `/api/public/css/usage.css`
 
 ### Phase 6: Testing and Documentation (Week 6-7)
 
@@ -671,13 +682,144 @@ def _detect_source_type(request: Request) -> str:
 
 ## 6. API Endpoints
 
-### 6.1 Reporting Endpoints
+### 6.1 Self-Service Usage Endpoints
+
+**Base Path:** `/usage`
+
+**Authentication:** JWT token (any authenticated user)
+
+**Access:** Users can only view their own usage data. Account ID is derived from JWT token.
+
+#### 6.1.1 Get My Usage Summary
+
+```
+GET /usage/my-summary
+```
+
+**Query Parameters:**
+- `start_date` (required): ISO 8601 date (e.g., "2024-01-01")
+- `end_date` (required): ISO 8601 date
+- `group_by` (optional): "day" | "week" | "month" (default: "day")
+
+**Response:**
+```json
+{
+  "account_id": 1,
+  "account_name": "Acme Corp",
+  "start_date": "2024-01-01",
+  "end_date": "2024-01-31",
+  "group_by": "day",
+  "data": [
+    {
+      "date": "2024-01-01",
+      "total_operations": 150,
+      "workbench_operations": 100,
+      "api_operations": 50,
+      "extractions": 80,
+      "classifications": 70,
+      "total_tokens": 125000,
+      "input_tokens": 100000,
+      "output_tokens": 25000,
+      "successful_operations": 148,
+      "failed_operations": 2
+    }
+  ],
+  "total_records": 31
+}
+```
+
+#### 6.1.2 Get My Model Usage
+
+```
+GET /usage/my-models
+```
+
+**Query Parameters:**
+- `start_date` (required)
+- `end_date` (required)
+- `provider` (optional): Filter by provider
+- `model_name` (optional): Filter by model name
+
+**Response:**
+```json
+{
+  "account_id": 1,
+  "account_name": "Acme Corp",
+  "start_date": "2024-01-01",
+  "end_date": "2024-01-31",
+  "data": [
+    {
+      "date": "2024-01-01",
+      "provider": "openai",
+      "model_name": "gpt-4",
+      "operation_count": 50,
+      "input_tokens": 40000,
+      "output_tokens": 10000,
+      "total_tokens": 50000,
+      "avg_duration_ms": 2500,
+      "successful_operations": 49,
+      "failed_operations": 1
+    }
+  ]
+}
+```
+
+#### 6.1.3 Get My Storage Usage
+
+```
+GET /usage/my-storage
+```
+
+**Query Parameters:**
+- `start_date` (required)
+- `end_date` (required)
+
+**Response:**
+```json
+{
+  "account_id": 1,
+  "account_name": "Acme Corp",
+  "start_date": "2024-01-01",
+  "end_date": "2024-01-31",
+  "data": [
+    {
+      "date": "2024-01-01",
+      "total_bytes": 5368709120,
+      "total_gb": 5.0,
+      "document_count": 1250,
+      "storage_backend": "s3",
+      "pdf_bytes": 4294967296,
+      "docx_bytes": 1073741824,
+      "html_bytes": 0,
+      "other_bytes": 0
+    }
+  ]
+}
+```
+
+#### 6.1.4 Export My Usage to CSV
+
+```
+GET /usage/my-export/csv
+```
+
+**Query Parameters:**
+- Same as other self-service endpoints
+- `report_type` (required): "summary" | "by_model" | "storage"
+
+**Response:**
+- Content-Type: `text/csv`
+- Content-Disposition: `attachment; filename="my_usage_report_2024-01-01_2024-01-31.csv"`
+
+### 6.2 Administrative Reporting Endpoints
 
 **Base Path:** `/reporting`
 
 **Authentication:** JWT token with "reporting" role
 
-#### 6.1.1 Get Usage Summary
+**Access:** Users with reporting role can view usage data across all accounts with filtering options.
+
+#### 6.2.1 Get Usage Summary
 
 ```
 GET /reporting/usage/summary
@@ -716,7 +858,7 @@ GET /reporting/usage/summary
 }
 ```
 
-#### 6.1.2 Get Model Usage
+#### 6.2.2 Get Model Usage
 
 ```
 GET /reporting/usage/by-model
@@ -767,7 +909,7 @@ GET /reporting/usage/by-model
 }
 ```
 
-#### 6.1.3 Get Storage Usage
+#### 6.2.3 Get Storage Usage
 
 ```
 GET /reporting/storage
@@ -801,7 +943,7 @@ GET /reporting/storage
 }
 ```
 
-#### 6.1.4 Get Event Logs
+#### 6.2.4 Get Event Logs
 
 ```
 GET /reporting/logs
@@ -853,7 +995,7 @@ GET /reporting/logs
 }
 ```
 
-#### 6.1.5 Export to CSV
+#### 6.2.5 Export to CSV
 
 ```
 GET /reporting/export/csv
@@ -873,7 +1015,7 @@ Date,Account ID,Account Name,Total Operations,Workbench Operations,API Operation
 2024-01-01,1,Acme Corp,150,100,50,80,70,125000,100000,25000,148,2
 ```
 
-#### 6.1.6 Get Account List
+#### 6.2.6 Get Account List
 
 ```
 GET /reporting/accounts
@@ -897,13 +1039,13 @@ GET /reporting/accounts
 }
 ```
 
-### 6.2 Admin Endpoints
+### 6.3 Admin Endpoints
 
 **Base Path:** `/admin/usage`
 
 **Authentication:** JWT token with "admin" role
 
-#### 6.2.1 Trigger Aggregation
+#### 6.3.1 Trigger Aggregation
 
 ```
 POST /admin/usage/aggregate
@@ -928,7 +1070,7 @@ POST /admin/usage/aggregate
 }
 ```
 
-#### 6.2.2 Calculate Storage
+#### 6.3.2 Calculate Storage
 
 ```
 POST /admin/usage/calculate-storage
@@ -960,11 +1102,11 @@ POST /admin/usage/calculate-storage
 ### 7.1 Role Definitions
 
 **Existing Roles (from current implementation):**
-- User (default): Access to own resources
-- Admin: Full system access
+- **User** (default): Access to own resources, including own usage data
+- **Admin**: Full system access, including all usage data and system administration
 
 **New Role:**
-- **Reporting**: Read-only access to usage data across all accounts
+- **Reporting**: Read-only access to usage data across all accounts (administrative reporting)
 
 ### 7.2 Role Assignment
 
@@ -991,13 +1133,35 @@ class Role(str, Enum):
     REPORTING = "reporting"
     ADMIN = "admin"
 
-# New dependency for reporting endpoints
+# Dependency for self-service usage endpoints (all authenticated users)
+def get_current_user(
+    token: str = Depends(HTTPBearer()),
+    db: Session = Depends(get_db)
+):
+    """
+    Verify user is authenticated and return user info.
+    All authenticated users can access their own usage data.
+    """
+    try:
+        payload = jwt.decode(
+            token.credentials,
+            JWT_SECRET,
+            algorithms=["HS256"]
+        )
+        return payload
+
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+# New dependency for administrative reporting endpoints
 def require_reporting_role(
     token: str = Depends(HTTPBearer()),
     db: Session = Depends(get_db)
 ):
     """
-    Verify user has reporting or admin role.
+    Verify user has reporting or admin role for cross-account access.
     """
     try:
         payload = jwt.decode(
@@ -1105,7 +1269,7 @@ async def get_account_roles(
 
 **Modified:** `/api/public/js/lib/menu.js`
 
-Add reporting menu item (conditionally visible):
+Add usage menu item (visible to all users):
 
 ```javascript
 const menuItems = [
@@ -1114,24 +1278,22 @@ const menuItems = [
     { id: 'classifiers', label: 'Classifiers', icon: 'filter' },
     { id: 'models', label: 'Models', icon: 'cpu' },
     { id: 'api_setup', label: 'API', icon: 'key' },
-    // New item - only shown if user has reporting role
-    { id: 'reporting', label: 'Reporting', icon: 'bar-chart-2', requiredRole: 'reporting' },
+    // New item - visible to all users
+    { id: 'usage', label: 'Usage', icon: 'bar-chart-2' },
     { id: 'about', label: 'About', icon: 'info' }
 ];
 
-// In menu rendering logic
-function shouldShowMenuItem(item, userRoles) {
-    if (!item.requiredRole) return true;
-    return userRoles.includes(item.requiredRole) || userRoles.includes('admin');
-}
+// Menu item is always visible; content will be scoped based on user role
+// - Regular users see only their own usage
+// - Users with reporting role see all users with filtering options
 ```
 
-### 8.2 Reporting Dashboard Component
+### 8.2 Usage Dashboard Component
 
-**New File:** `/api/public/js/components/reporting_dashboard.js`
+**New File:** `/api/public/js/components/usage_dashboard.js`
 
 ```javascript
-class ReportingDashboard extends ComponentBase {
+class UsageDashboard extends ComponentBase {
     constructor() {
         super();
         this.currentView = 'summary';  // 'summary', 'by_model', 'storage'
@@ -1140,11 +1302,20 @@ class ReportingDashboard extends ComponentBase {
             end: this.getDefaultEndDate()
         };
         this.filters = {
-            accountId: null,
+            accountId: null,  // Only used by reporting role
             provider: null,
             modelName: null
         };
         this.chart = null;
+        this.hasReportingRole = false;  // Determined from user token
+        this.isAdmin = false;
+    }
+
+    async init() {
+        // Check user roles
+        const userInfo = this.getUserInfo();  // From JWT token
+        this.hasReportingRole = userInfo.roles.includes('reporting') || userInfo.roles.includes('admin');
+        this.isAdmin = userInfo.roles.includes('admin');
     }
 
     getDefaultStartDate() {
@@ -1161,11 +1332,11 @@ class ReportingDashboard extends ComponentBase {
 
     async render() {
         return `
-            <div class="reporting-dashboard">
-                <h1>Usage Reporting</h1>
+            <div class="usage-dashboard">
+                <h1>${this.hasReportingRole ? 'Usage Reporting' : 'My Usage'}</h1>
 
                 <!-- Filters -->
-                <div class="reporting-filters">
+                <div class="usage-filters">
                     <div class="filter-group">
                         <label>Date Range:</label>
                         <input type="date" id="start-date" value="${this.dateRange.start}">
@@ -1173,6 +1344,7 @@ class ReportingDashboard extends ComponentBase {
                         <input type="date" id="end-date" value="${this.dateRange.end}">
                     </div>
 
+                    ${this.hasReportingRole ? `
                     <div class="filter-group">
                         <label>Account:</label>
                         <select id="account-filter">
@@ -1180,6 +1352,7 @@ class ReportingDashboard extends ComponentBase {
                             ${await this.renderAccountOptions()}
                         </select>
                     </div>
+                    ` : ''}
 
                     <div class="filter-group">
                         <label>View:</label>
@@ -1195,12 +1368,12 @@ class ReportingDashboard extends ComponentBase {
                 </div>
 
                 <!-- Chart -->
-                <div class="reporting-chart">
-                    <canvas id="usage-chart"></canvas>
+                <div class="usage-chart">
+                    <canvas id="usage-chart-canvas"></canvas>
                 </div>
 
                 <!-- Data Table -->
-                <div class="reporting-table">
+                <div class="usage-table-container">
                     <div id="table-container"></div>
                 </div>
             </div>
@@ -1240,20 +1413,29 @@ class ReportingDashboard extends ComponentBase {
                 end_date: this.dateRange.end
             });
 
-            if (this.filters.accountId) {
+            // Only add account_id filter for reporting role
+            if (this.hasReportingRole && this.filters.accountId) {
                 params.append('account_id', this.filters.accountId);
             }
 
             let endpoint;
+            const basePath = this.hasReportingRole ? '/reporting' : '/usage';
+
             switch (this.currentView) {
                 case 'by_model':
-                    endpoint = '/reporting/usage/by-model';
+                    endpoint = this.hasReportingRole
+                        ? `${basePath}/usage/by-model`
+                        : `${basePath}/my-models`;
                     break;
                 case 'storage':
-                    endpoint = '/reporting/storage';
+                    endpoint = this.hasReportingRole
+                        ? `${basePath}/storage`
+                        : `${basePath}/my-storage`;
                     break;
                 default:
-                    endpoint = '/reporting/usage/summary';
+                    endpoint = this.hasReportingRole
+                        ? `${basePath}/usage/summary`
+                        : `${basePath}/my-summary`;
             }
 
             const response = await API.get(`${endpoint}?${params}`);
@@ -1273,7 +1455,7 @@ class ReportingDashboard extends ComponentBase {
             this.chart.destroy();
         }
 
-        const ctx = document.getElementById('usage-chart').getContext('2d');
+        const ctx = document.getElementById('usage-chart-canvas').getContext('2d');
 
         // Different chart configurations based on view
         let chartConfig;
@@ -1500,11 +1682,16 @@ class ReportingDashboard extends ComponentBase {
             report_type: this.currentView
         });
 
-        if (this.filters.accountId) {
+        // Only add account_id filter for reporting role
+        if (this.hasReportingRole && this.filters.accountId) {
             params.append('account_id', this.filters.accountId);
         }
 
-        const url = `/reporting/export/csv?${params}`;
+        const basePath = this.hasReportingRole ? '/reporting' : '/usage';
+        const endpoint = this.hasReportingRole
+            ? `${basePath}/export/csv`
+            : `${basePath}/my-export/csv`;
+        const url = `${endpoint}?${params}`;
 
         // Trigger download
         const a = document.createElement('a');
@@ -1516,6 +1703,11 @@ class ReportingDashboard extends ComponentBase {
     }
 
     async renderAccountOptions() {
+        // Only reporting role users need account options
+        if (!this.hasReportingRole) {
+            return '';
+        }
+
         try {
             const response = await API.get('/reporting/accounts');
             return response.accounts.map(acc =>
@@ -1535,54 +1727,55 @@ class ReportingDashboard extends ComponentBase {
 }
 
 // Register component
-window.ReportingDashboard = ReportingDashboard;
+window.UsageDashboard = UsageDashboard;
 ```
 
 ### 8.3 Template Integration
 
-**New File:** `/api/templates/sections/reporting.j2`
+**New File:** `/api/templates/sections/usage.j2`
 
 ```html
-<div id="reporting-section" class="section" style="display: none;">
-    <div id="reporting-component-container"></div>
+<div id="usage-section" class="section" style="display: none;">
+    <div id="usage-component-container"></div>
 </div>
 
 <script>
-    // Initialize reporting component when section is shown
+    // Initialize usage component when section is shown
     document.addEventListener('DOMContentLoaded', function() {
-        const reportingSection = document.getElementById('reporting-section');
-        const container = document.getElementById('reporting-component-container');
+        const usageSection = document.getElementById('usage-section');
+        const container = document.getElementById('usage-component-container');
 
         // Initialize when first shown
-        let reportingComponent = null;
+        let usageComponent = null;
 
         const observer = new MutationObserver(function(mutations) {
             mutations.forEach(function(mutation) {
                 if (mutation.attributeName === 'style') {
-                    const display = reportingSection.style.display;
-                    if (display !== 'none' && !reportingComponent) {
-                        reportingComponent = new ReportingDashboard();
-                        reportingComponent.mount(container);
+                    const display = usageSection.style.display;
+                    if (display !== 'none' && !usageComponent) {
+                        usageComponent = new UsageDashboard();
+                        usageComponent.init();  // Initialize role checks
+                        usageComponent.mount(container);
                     }
                 }
             });
         });
 
-        observer.observe(reportingSection, { attributes: true });
+        observer.observe(usageSection, { attributes: true });
     });
 </script>
 ```
 
 ### 8.4 CSS Styles
 
-**New File:** `/api/public/css/reporting.css`
+**New File:** `/api/public/css/usage.css`
 
 ```css
-.reporting-dashboard {
+.usage-dashboard {
     padding: 20px;
 }
 
-.reporting-filters {
+.usage-filters {
     display: flex;
     gap: 20px;
     margin-bottom: 30px;
@@ -1612,7 +1805,7 @@ window.ReportingDashboard = ReportingDashboard;
     font-size: 14px;
 }
 
-.reporting-chart {
+.usage-chart {
     margin-bottom: 30px;
     padding: 20px;
     background: white;
@@ -1620,11 +1813,11 @@ window.ReportingDashboard = ReportingDashboard;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
-.reporting-chart canvas {
+.usage-chart canvas {
     max-height: 400px;
 }
 
-.reporting-table {
+.usage-table-container {
     padding: 20px;
     background: white;
     border-radius: 8px;
@@ -2440,11 +2633,13 @@ If issues occur:
 │   ├── models/
 │   │   └── usage_tracking.py          # New: SQLAlchemy models
 │   ├── routes/
-│   │   ├── reporting.py               # New: Reporting endpoints
+│   │   ├── usage.py                   # New: Self-service usage endpoints
+│   │   ├── reporting.py               # New: Administrative reporting endpoints
 │   │   └── admin.py                   # New: Admin endpoints
 │   ├── services/
 │   │   ├── usage_tracker.py           # New: Core tracking service
-│   │   └── reporting_service.py       # New: Reporting logic
+│   │   ├── usage_service.py           # New: Self-service usage logic
+│   │   └── reporting_service.py       # New: Administrative reporting logic
 │   ├── jobs/
 │   │   ├── scheduler.py               # New: Job scheduler
 │   │   ├── usage_aggregation.py       # New: Aggregation jobs
@@ -2453,18 +2648,19 @@ If issues occur:
 │   ├── util/
 │   │   └── csv_export.py              # New: CSV export utility
 │   ├── templates/sections/
-│   │   └── reporting.j2               # New: Reporting template
+│   │   └── usage.j2                   # New: Usage template
 │   ├── public/
 │   │   ├── js/components/
-│   │   │   ├── reporting_dashboard.js # New: Dashboard component
+│   │   │   ├── usage_dashboard.js     # New: Usage dashboard component
 │   │   │   └── usage_chart.js         # New: Chart component
 │   │   ├── js/lib/
 │   │   │   └── csv_downloader.js      # New: CSV download helper
 │   │   └── css/
-│   │       └── reporting.css          # New: Reporting styles
+│   │       └── usage.css              # New: Usage styles
 │   └── tests/
 │       ├── test_usage_tracker.py      # New: Unit tests
-│       ├── test_reporting_api.py      # New: Integration tests
+│       ├── test_usage_api.py          # New: Self-service API tests
+│       ├── test_reporting_api.py      # New: Administrative reporting tests
 │       └── performance/
 │           └── test_tracking_overhead.py  # New: Performance tests
 ├── migrations/
@@ -2549,6 +2745,7 @@ chart.js@4.4.0           # Charting library
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2024-01-15 | System | Initial implementation plan |
+| 1.1 | 2026-01-19 | System | Updated to reflect requirement changes: all users can view their own usage; reporting role is for cross-account administrative access. Added self-service endpoints and updated UI components to be role-aware. |
 
 ---
 
