@@ -360,6 +360,136 @@ JWT_SECRET=production-secret-minimum-32-chars-long-random-string
 
 See [LLMCONFIG.md](LLMCONFIG.md) for detailed LLM configuration options.
 
+## Database Bootstrapping
+
+The application supports automatic database bootstrapping from a configuration file on first startup. This allows you to define default users and LLM model configurations that are automatically loaded when the database is empty.
+
+### How It Works
+
+1. **Configuration Loading**: On startup, the application checks for `config/defaults.yaml`
+2. **Validation**: Configuration is validated for correctness
+3. **Idempotent Seeding**: Default users and LLM models are created only if the database is empty
+4. **Secure Password Handling**: All default passwords are encrypted using the existing PasswordSecurity infrastructure
+
+### Configuration File
+
+The `config/defaults.yaml` file defines:
+
+```yaml
+users:
+  -
+    email: admin@domain.com
+    password: password
+    name: Administrator
+    roles:
+      - admin
+      - super_admin
+
+providers:
+  ollama:
+    -
+      model: gemma3
+      name: Google Gemma 3
+      temperature: 0
+      max_tokens: 2048
+      timeout: 360
+  openai:
+    -
+      model: gpt4.5
+      name: OpenAI GPT4.5
+      temperature: 0
+      max_tokens: 2048
+      timeout: 360
+  deepinfra:
+    -
+      model: moonshotai/Kimi-K2-Thinking
+      name: Kimi-K2-Thinking
+      temperature: 0
+      max_tokens: 2048
+      timeout: 360
+```
+
+### Setup Instructions
+
+1. **Copy the example configuration**:
+   ```bash
+   cp config/example.defaults.yaml config/defaults.yaml
+   ```
+
+2. **Edit `config/defaults.yaml`** with your desired defaults:
+   - Default users (email, password, name, roles)
+   - LLM models for each provider
+
+3. **Set environment variables** in your `.env` file:
+   ```bash
+   # Required: Path to configuration file
+   DEFAULTS_CONFIG_PATH=config/defaults.yaml
+   
+   # Required: Password secret for encrypting default passwords
+   PASSWORD_SECRET=your-secure-random-password-secret-minimum-32-characters
+   
+   # Optional: Force bootstrapping even with existing data (development only)
+   # FORCE_BOOTSTRAP=false
+   ```
+
+4. **Start the application**:
+   ```bash
+   python -m uvicorn api.main:app --reload
+   ```
+
+On first startup with an empty database, you'll see logs like:
+```
+INFO: Loaded bootstrap configuration from config/defaults.yaml
+INFO: Starting database bootstrapping...
+INFO: Database is empty, proceeding with bootstrapping
+INFO: Created default user: admin@domain.com with roles: ['admin', 'super_admin']
+INFO: Created default model: ollama/gemma3 (Google Gemma 3)
+INFO: Bootstrapping completed: Bootstrapping successful, Users created: 1, Models created: 3
+```
+
+### Idempotency
+
+The bootstrapping process is **idempotent**:
+- Existing users (detected by email) are skipped
+- Existing models (detected by account_id, provider, and model_identifier) are skipped
+- Safe to run multiple times without creating duplicates
+- Existing data is never overwritten
+
+### Development vs Production
+
+**Development**:
+- Use `FORCE_BOOTSTRAP=true` to re-seed data after database wipes
+- Useful for testing with consistent test data
+
+**Production**:
+- `FORCE_BOOTSTRAP=false` (default)
+- Bootstrapping only runs on first startup with empty database
+- Safe to deploy to existing systems without affecting data
+
+### Troubleshooting
+
+**Bootstrapping doesn't run**:
+- Check if `config/defaults.yaml` exists
+- Verify `PASSWORD_SECRET` is set in environment
+- Check application logs for validation errors
+
+**Configuration validation errors**:
+- Verify YAML syntax is correct
+- Ensure required fields are present (email, password, name for users)
+- Check provider names are valid: `ollama`, `openai`, `deepinfra`, `anthropic`
+
+**Login fails with default user**:
+- Ensure `PASSWORD_SECRET` matches the one used during bootstrapping
+- Check if user account is active in database
+- Verify password in `config/defaults.yaml` matches what you're using
+
+### Security Notes
+
+- **Never commit `config/defaults.yaml` to version control** - it contains passwords
+- Use `config/example.defaults.yaml` as a template
+- Generate a secure `PASSWORD_SECRET` using: `python -c "import secrets; print(secrets.token_urlsafe(32))"`
+- Change default passwords after first login for production deployments
+
 ## Vector Search for Intelligent Extraction
 
 The system uses PGVector for semantic search to significantly improve fact extraction accuracy and efficiency.
