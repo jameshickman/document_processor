@@ -35,6 +35,37 @@ def init_database(
 
     Base.metadata.create_all(bind=engine)
 
+    # Bootstrap default configuration
+    bootstrap_database_from_config(engine)
+
+def bootstrap_database_from_config(engine) -> None:
+    """
+    Bootstrap database with default configuration from config/defaults.yaml.
+    
+    This function loads configuration and seeds the database with default
+    users and LLM models on first startup or when database is empty.
+    """
+    try:
+        from .bootstrap import bootstrap_database
+        from api.util.bootstrap_config import BootstrapConfigLoader
+        from api.models import Account
+        
+        with Session(engine) as db:
+            # Check if bootstrapping should proceed
+            account_count = db.query(Account).count()
+            
+            # Always try to bootstrap - the function will check if needed
+            result = bootstrap_database(db)
+            
+            if result.success:
+                logger.info(f"Database bootstrap completed successfully: {result}")
+            else:
+                logger.warning(f"Database bootstrap did not complete: {result}")
+    except ImportError as e:
+        logger.warning(f"Could not import bootstrapping modules: {e}")
+    except Exception as e:
+        logger.error(f"Error during database bootstrapping: {e}", exc_info=True)
+
 def get_db() -> Session:
     """
     Returns a new database session.

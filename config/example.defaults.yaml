@@ -1,0 +1,48 @@
+users:
+  -
+    email: admin@domain.com
+    password: password
+    name: User Name
+    roles:
+      - admin
+      - super_admin
+providers:
+  ollama:
+    -
+      model: gemma3
+      name: Google Gemma 3
+      temperature: 0
+      max_tokens: 2048
+      timeout: 360
+    -
+      model: gpt-oss
+      name: OpenAI Open Weight 20B GPT
+      temperature: 0
+      max_tokens: 2048
+      timeout: 360
+  opan_ai:
+    -
+      model: gpt4.5
+      name: OpenAI GPT4.5
+      temperature: 0
+      max_tokens: 2048
+      timeout: 360
+  deepinfra:
+    -
+      model: moonshotai/Kimi-K2-Thinking
+      name: Kimi-K2-Thinking
+      temperature: 0
+      max_tokens: 2048
+      timeout: 360
+    -
+      model: openai/gpt-oss-20b
+      name: OpenAI Open Weight 20B GPT
+      temperature: 0
+      max_tokens: 2048
+      timeout: 360
+    -
+      model: google/gemma-3-12b-it
+      name: Google Gemma4 12B
+      temperature: 0
+      max_tokens: 2048
+      timeout: 360

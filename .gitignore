@@ -3,5 +3,6 @@
 __pycache__
 .swp
 node_modules
-.idea/
+/.idea/
 .env
+/config/defaults.yaml

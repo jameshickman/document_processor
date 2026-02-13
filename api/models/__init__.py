@@ -11,6 +11,7 @@ from .extractor_fields import ExtractorField
 from .llm_models import LLMModel
 from .usage_tracking import UsageLog, UsageSummary, UsageSummaryByModel, StorageUsage
 from .database import init_database, get_db
+from .bootstrap import bootstrap_database, BootstrapResult
 
 __all__ = [
     "Account",
@@ -28,4 +29,6 @@ __all__ = [
     "StorageUsage",
     "init_database",
     "get_db",
+    "bootstrap_database",
+    "BootstrapResult",
 ]
